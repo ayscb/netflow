@@ -55,3 +55,4 @@ ec2/lib/
 sbt/
 
 src/main/scala/cn/ac/ict/acs/netflow/Main.scala
+temp.txt

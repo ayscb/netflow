@@ -1,14 +1,47 @@
 package cn.ac.ict.acs.netflow
 
-class QueryDesc(val queryType: QueryType, val frequency: Interval) {
-  require((queryType == Adhoc && frequency.once) ||
-    ((queryType == Report || queryType == Online) && !frequency.once))
+abstract class Query {
+  def name: String
+  def sql: String
+  def udfs: Seq[UDF]
+  def frequency: Interval
+  def output: OutputDesc
 }
 
-sealed abstract class QueryType
-case object Adhoc extends QueryType
-case object Report extends QueryType
-case object Online extends QueryType
+case class AdhocQuery(name: String, sql: String, udfs: Seq[UDF]) extends Query {
+  override def frequency = Interval.once()
+
+  def output = ???
+}
+
+case class ReportQuery(
+  name: String,
+  sql: String,
+  udfs: Seq[UDF],
+  frequency: Interval) extends Query {
+  require(!frequency.once)
+
+  def output = ???
+}
+
+case class OnlineQuery(
+  name: String,
+  sql: String,
+  udfs: Seq[UDF],
+  frequency: Interval) extends Query {
+  require(!frequency.once)
+
+  def output = ???
+}
+
+abstract class UDF {
+  def name: String
+}
+
+case class PredefinedFunction(name: String, auxData: Seq[Any]) extends UDF
+
+case class NewFunction(name: String, func: Any) extends UDF
+
 
 /**
  * @param time Interval in seconds
