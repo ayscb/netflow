@@ -1,7 +1,7 @@
 package cn.ac.ict.acs.netflow.load
 
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
+import java.lang.ThreadLocal
+
 import org.apache.spark.sql.catalyst.expressions.GenericMutableRow
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
@@ -11,57 +11,53 @@ import scala.io.Source
 import scala.util.Random
 
 /**
+ * template about the netflow  V9 data
  * Created by ayscb on 2015/3/29.
  */
 
 case class Template(intervalSecond: Int, dataRate: Int, template: Map[Int, Int]) {
 
   @transient var currTime = 0L
-  @transient var bytesCount = 0L        // 通过与速率比较决定 秒数 + 1
-  @transient var TotalbytesCount = 0L     // for test
-
-  @transient private var rd: Random = new Random()
+  @transient var bytesCount = 0L          // 通过与速率比较决定 秒数 + 1
+  @transient var TotalBytesCount = 0L     // for test
+  @transient var rd: Random = new Random()
 
   val variableKey = Set(1, 2, 3, 10, 14, 16, 17, 19, 20, 23, 24, 40, 41, 42, 82, 83, 84, 85, 86, 94, 100)
 
-  /** 获取当前遍历到的时间（单位 秒） **/
-  def getCurrentTime = {
-    this.currTime
-  }
+  def getBytes(): Long = TotalBytesCount
 
   def getRowData(startTime: Long, row: GenericMutableRow): Boolean = {
-    this.rd = if (this.rd == null) new Random() else this.rd
-    if (this.template.size == 0) throw new java.lang.RuntimeException("should call praseCommand first")
-    if (this.currTime < startTime) this.currTime = startTime
-    if (this.currTime > startTime + this.intervalSecond) return false
+    rd = if (rd == null) new Random() else rd
+    if (template.size == 0) throw new java.lang.RuntimeException("should call praseCommand first")
+    if (currTime < startTime) currTime = startTime
+    if (currTime > startTime + intervalSecond) return false
 
-    row.setLong(0, this.currTime) // time
+    row.setLong(0, currTime) // time
 
     for (key <- template.keySet) {
       key match {
         case (8 | 12 | 15) => row.update(key, getIPV4)
         case (27 | 28 | 62 | 63) => row.update(key, getIPV6)
         case (56 | 57 | 80 | 81) => row.update(key, getMAC)
-        case _ => {
+        case _ =>
           val valLen = template.getOrElse(key, -1)
           getSampleData(key, valLen, row)
-        }
       }
     }
 
     // update the byte count
-    this.bytesCount += ( 8 + Template.rowLength )
+    bytesCount += ( 8 + Template.rowLength )
 
-    if (this.bytesCount > this.dataRate) {
-      this.TotalbytesCount += this.bytesCount
-      this.bytesCount = 0
-      this.currTime = this.currTime + 1
+    if (bytesCount > dataRate) {
+      TotalBytesCount += bytesCount
+      bytesCount = 0
+      currTime = currTime + 1
     }
     true
   }
 
   private def getSampleData(key: Int, valueLen: Int, row: GenericMutableRow): Unit = {
-    if (this.variableKey.contains(key)) {
+    if (variableKey.contains(key)) {
       row.update(key, getStringDataLength(valueLen))
     } else {
       valueLen match {
@@ -83,38 +79,26 @@ case class Template(intervalSecond: Int, dataRate: Int, template: Map[Int, Int])
     }
   }
 
-  def getBytes(): Long = {
-    this.TotalbytesCount
-  }
-
  private def getStringDataLength(dataLen: Int): Array[Byte] = {
     val value = new Array[Byte](dataLen)
-    for (i <- 0 until dataLen) {
-      rd.nextBytes(value)
-    }
-   value
+    for (i <- 0 until dataLen) rd.nextBytes(value)
+    value
   }
 
-  private def getIPV4(): Array[Byte] = {
-    getStringDataLength(4)
-  }
+  private def getIPV4(): Array[Byte] = getStringDataLength(4)
 
   // 16个字节 分8组 (  FE80:0000:0000:0000:AAAA:0000:00C2:0002 )
-  private def getIPV6(): Array[Byte] = {
-    getStringDataLength(16)
-  }
+  private def getIPV6(): Array[Byte] = getStringDataLength(16)
 
   // 6个字节 表示的是  00-23-5A-15-99-42
-  private def getMAC(): Array[Byte] = {
-    getStringDataLength(6)
-  }
+  private def getMAC(): Array[Byte] = getStringDataLength(6)
 }
 
 object Template {
 
-  val BYTE_MAX = 256 / 2 -1
-  val SHORT_MAX = 65536 / 2 -1
-  val INT_MAX = 4294967296L / 2 -1
+  val BYTE_MAX = 256
+  val SHORT_MAX = 65536
+  val INT_MAX = 4294967296L
   val IP_MAX = 256
 
   val DHM_TIME = "yyyy-MM-dd|HH:mm"
@@ -122,11 +106,10 @@ object Template {
 
   // configure
   /** 要生成总数据的开始时间，比如2015-01-01 05:02 **/
-  var StartTimeInSeconds: Long = 0
-  /** 要生成总数据的结束时间，比如2015-01-01 05:02 **/
-  var EndTimeInSeconds: Long = 0
+  private var StartTimeInSeconds: Long = 0
 
-  //  private var BytesIninterVal: Long = 2000
+  /** 要生成总数据的结束时间，比如2015-01-01 05:02 **/
+  private var EndTimeInSeconds: Long = 0
 
   /** 最后一层文件的时间跨度，单位是秒 **/
   private var intervalSecond: Int = 60
@@ -143,43 +126,23 @@ object Template {
   /** 一行数据的长度**/
   private var rowLength  = 0
 
-  private val template: Map[Int, Int] = new mutable.HashMap[Int, Int]()
-  //  val variableKey  = Set(1,2,3,10,14,16,17,19,20,23,24,40,41,42,82,83,84,85,86,94,100)
-  ////  private val rd: Random = new Random()
+  private val template: mutable.Map[Int, Int] = new mutable.HashMap[Int, Int]
 
-  //  private var bytesCount: Long = 0
-  //  private var currTime: Long = 0
 
-  def getInterValSecond = {
-    this.intervalSecond
-  }
-
-  //  def getBytesInInterval = { this.bytesCount }
-  def getHDFSAdderss = {
-    this.hdfsPath
-  }
-
-  def getRootPath = {
-    this.rootPath
-  }
+  def getInterValSecond = intervalSecond
+  def getHDFSAdderss =  hdfsPath
+  def getRootPath = rootPath
 
   /** 获取总开始时间（单位 秒） **/
-  def getStartTime = {
-    this.StartTimeInSeconds
-  }
+  def getStartTime = StartTimeInSeconds
 
   /** 获取总结束时间（单位 秒） **/
-  def getEndTime = {
-    this.EndTimeInSeconds
-  }
+  def getEndTime =  EndTimeInSeconds
 
-  //  /** 获取当前遍历到的时间（单位 秒）**/
-  //  def getCurrentTime = { this.currTime }
-
-  val templatePath = "/tmp/tmplate"
 
   /**
    * template
+   *
    * @param fileName template  file path
    */
   def loadTemplateFromFile(fileName: String): Template = {
@@ -197,25 +160,25 @@ object Template {
       } else {
         val valueLen = kv(1).toInt
         template += (kv(0).toInt -> valueLen)
-        this.rowLength += valueLen
+        rowLength += valueLen
       }
     }
     file.close()
-    Template(this.intervalSecond, this.dataRate, this.template)
+    Template(intervalSecond, dataRate, template)
   }
 
   private def parseCommand(lineStr: String) = {
     val cmds = lineStr.trim.split("=")
-    val key = cmds(0).trim.toLowerCase()
+    val key = cmds(0).trim.toLowerCase
     key match {
-      case "datarate" => this.dataRate = cmds(1).trim.toInt * 1024 * 1024 //1MB base
-      case "intervalminute" => this.intervalSecond = cmds(1).trim.toInt
-      case "hdfspath" => this.hdfsPath = cmds(1).trim
+      case "datarate" => dataRate = cmds(1).trim.toInt * 1024 * 1024 //1MB base
+      case "intervalminute" => intervalSecond = cmds(1).trim.toInt
+      case "hdfspath" => hdfsPath = cmds(1).trim
       case "startday" =>
-        this.StartTimeInSeconds = DateTime.parse(cmds(1), dhmFormat).getMillis / 1000
+        StartTimeInSeconds = DateTime.parse(cmds(1), dhmFormat).getMillis / 1000
       case "endday" =>
-        this.EndTimeInSeconds = DateTime.parse(cmds(1), dhmFormat).getMillis / 1000
-      case "rootpath" => this.rootPath = {
+        EndTimeInSeconds = DateTime.parse(cmds(1), dhmFormat).getMillis / 1000
+      case "rootpath" => rootPath = {
         if (cmds(1).trim.startsWith("/"))
           cmds(1).trim
         else
@@ -223,5 +186,4 @@ object Template {
       }
     }
   }
-
 }
