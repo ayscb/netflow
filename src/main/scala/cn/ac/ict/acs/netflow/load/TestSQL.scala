@@ -1,5 +1,6 @@
 package cn.ac.ict.acs.netflow.load
 
+import cn.ac.ict.acs.netflow.NetFlowConf
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SQLContext
 import parquet.io.api.Binary
@@ -15,29 +16,36 @@ object TestSQL {
 
   def main(args: Array[String]) {
 
-    Template.loadTemplateFromFile(args(0))
-    Config.getConfigure(args(1))
+    Template.load(args(0))
+    val netFlowConf = new NetFlowConf().load(args(1))
 
     val sparkConf = new SparkConf().setAppName("NF_dataText")
     val sc = new SparkContext(sparkConf)
     val sqlConetxt = new SQLContext(sc)
-    Template.loadTemplateFromFile(args(0))
-    sqlConetxt.sparkContext.hadoopConfiguration.set("fs.defaultFS", Config.getHDFSAdderss)
-    val df = sqlConetxt.parquetFile(Config.getHDFSAdderss + Config.getRootPath)
+    Template.load(args(0))
+    sqlConetxt.sparkContext.hadoopConfiguration.set("fs.defaultFS", netFlowConf.dfsName)
+    val df = sqlConetxt.parquetFile(netFlowConf.dfsName + netFlowConf.loadPath)
 
     df.printSchema()
     df.registerTempTable("par")
-    val result = sqlConetxt.sql("select flow_time,ipv4_src_addr,l4_src_port,ipv4_dst_addr,l4_dst_port from par where ipv4_src_addr < 200")
-    result.map(t =>"time: " + t(0) + " ipv4_src_addr: " + show ( t(1).asInstanceOf[Array[Byte]] ) + " port" + t(2)
-      + "  ipv4_dst_addr: " + show ( t(3).asInstanceOf[Array[Byte]] ) + " port: " + t(4) )
+    val result = sqlConetxt.sql(
+      "select flow_time,ipv4_src_addr,l4_src_port,ipv4_dst_addr,l4_dst_port " +
+        "from par where ipv4_src_addr < 200")
+    result.map(t =>
+      " time: " + t(0) +
+      " ipv4_src_addr: " + show(t(1).asInstanceOf[Array[Byte]]) +
+      " port" + t(2) +
+      " ipv4_dst_addr: " + show(t(3).asInstanceOf[Array[Byte]]) +
+      " port: " + t(4))
       .take(10).foreach(println)
 
 
   }
-//show(t(1).asInstanceOf[])
-  def show(data :Array[Byte]) : String = {
-  var result : String = ""
-  data.foreach(x=> result += (x & 0xFF).toString + ".")
-  result
+
+  //show(t(1).asInstanceOf[])
+  def show(data: Array[Byte]): String = {
+    var result: String = ""
+    data.foreach(x => result += (x & 0xFF).toString + ".")
+    result
   }
 }

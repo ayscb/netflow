@@ -51,8 +51,7 @@ dev/create-release/*final
 unit-tests.log
 /lib/
 ec2/lib/
+scalastyle.txt
+scalastyle-output.xml
 
 sbt/
-
-src/main/scala/cn/ac/ict/acs/netflow/Main.scala
-temp.txt
