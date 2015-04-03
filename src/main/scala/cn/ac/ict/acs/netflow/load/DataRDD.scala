@@ -6,14 +6,14 @@ import org.apache.spark._
 import org.apache.spark.sql.Row
 
 /**
- *  the rdd to product the data
+ * the rdd to product the data
  * Created by ayscb on 2015/3/29.
  */
 class DataRDD(startTime: Long,
               endTime: Long,
               intervalSecond: Int,
-              dataRate : Long,
-              template : Template,
+              dataRate: Long,
+              template: Template,
               sc: SparkContext)
   extends RDD[Row](sc, Nil) {
 
@@ -29,18 +29,18 @@ class DataRDD(startTime: Long,
     val arrys = template.getArrayContainer()
 
     new Iterator[Row] {
-      val content : GenericMutableRow = new GenericMutableRow(101)
+      val content: GenericMutableRow = new GenericMutableRow(101)
 
       override def hasNext: Boolean = currTime < splitEndTime
 
       override def next(): Row = {
         totalBytes += template.getRowLength
-        if( totalBytes > dataRate ){
+        if (totalBytes > dataRate) {
           currTime += 1
           totalBytes = 0
         }
 
-        template.getRowData(currTime,content,arrys)
+        template.getRowData(currTime, content, arrys)
         content
       }
     }
@@ -48,14 +48,14 @@ class DataRDD(startTime: Long,
 
   override protected def getPartitions: Array[Partition] = {
 
-    val partitionSize = Math.ceil( 1.0 * (endTime - startTime) / intervalSecond ).toInt
+    val partitionSize = Math.ceil(1.0 * (endTime - startTime) / intervalSecond).toInt
 
     val partitionArray = new Array[Partition](partitionSize)
 
     var nextT = startTime
     var endT = nextT
 
-    for (i <- 0 until partitionSize-1) {
+    for (i <- 0 until partitionSize - 1) {
       //pa(i) = new XPartition(id, i, time of this partition)
       endT = nextT + intervalSecond
       partitionArray(i) = new DataPartition(id, i, nextT, endT)
@@ -63,15 +63,16 @@ class DataRDD(startTime: Long,
     }
 
     // compute the last time range
-    val lastid = partitionSize-1
+    val lastid = partitionSize - 1
     partitionArray(lastid) = new DataPartition(id, lastid, nextT, endTime)
 
     partitionArray
   }
 }
 
-class DataPartition(rddId: Int, idx: Int, val splitStartTime: Long, val splitEndTime :Long) extends Partition {
+class DataPartition(rddId: Int, idx: Int, val splitStartTime: Long, val splitEndTime: Long) extends Partition {
   override def hashCode(): Int = 41 * (41 + rddId) + idx
+
   override val index: Int = idx
 }
 

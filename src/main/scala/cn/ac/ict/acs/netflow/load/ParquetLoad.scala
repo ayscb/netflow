@@ -16,7 +16,7 @@ object ParquetLoad {
   import NFSchema._
 
   def main(args: Array[String]) {
-    if( args.length !=2 ) throw new RuntimeException("arg should not be null")
+    if (args.length != 2) throw new RuntimeException("arg should not be null")
 
     val template = Template.loadTemplateFromFile(args(0))
     Config.getConfigure(args(1))
@@ -27,16 +27,16 @@ object ParquetLoad {
     sqlContext.sparkContext.hadoopConfiguration.set("fs.defaultFS", Config.getHDFSAdderss)
 
     val dataRDD: DataRDD = new DataRDD(
-              Config.getStartTime,
-              Config.getEndTime,
-              Config.getInterValSecond,
-              Config.getDataRate,
-              template,
-              sc)
+      Config.getStartTime,
+      Config.getEndTime,
+      Config.getInterValSecond,
+      Config.getDataRate,
+      template,
+      sc)
 
     val rr = dataRDD.asInstanceOf[RDD[Row]]
     val df = sqlContext.createDataFrame(rr, nfSchema)
-   // val hdfsPath = Config.getHDFSAdderss + Config.getRootPath
+    // val hdfsPath = Config.getHDFSAdderss + Config.getRootPath
     // df.rdd.saveAsTextFile(hdfsPath)
     df.saveAsParquetFile(Config.getRootPath)
     sc.stop()

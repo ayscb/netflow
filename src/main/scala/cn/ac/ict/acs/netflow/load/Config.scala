@@ -5,24 +5,30 @@ import org.joda.time.format.DateTimeFormat
 
 import scala.io.Source
 
-/**
- * Created by ayscb on 2015/4/1.
- */
 object Config {
 
-  private var StartTimeInSeconds: Long = 0        // the start time we will create the file data
-  private var EndTimeInSeconds: Long = 0          // the end time we will create the file data
-  private var intervalSecond: Int = 60            // how long we write a file to disk , hdfs ....
-  private var dataRate : Long = 1L                // 200M/s
+  private var StartTimeInSeconds: Long = 0
+  // the start time we will create the file data
+  private var EndTimeInSeconds: Long = 0
+  // the end time we will create the file data
+  private var intervalSecond: Int = 60
+  // how long we write a file to disk , hdfs ....
+  private var dataRate: Long = 1L
+  // 200M/s
   private var rootPath: String = "/netParquet"
   private var hdfsPath: String = "/hdfs://192.168.80.110:8020"
 
 
   def getInterValSecond = intervalSecond
+
   def getHDFSAdderss = hdfsPath
+
   def getRootPath = rootPath
+
   def getStartTime = StartTimeInSeconds
+
   def getEndTime = EndTimeInSeconds
+
   def getDataRate = dataRate
 
   def main(args: Array[String]) {
@@ -39,7 +45,7 @@ object Config {
     val dhmFormat = DateTimeFormat.forPattern(DHM_TIME)
 
     val lineIter = file.getLines()
-    for (lineStr <- lineIter if (!lineStr.startsWith("#") && lineStr.trim.nonEmpty) ) {
+    for (lineStr <- lineIter if !lineStr.startsWith("#") && lineStr.trim.nonEmpty) {
 
       val cmds = lineStr.split("=")
 
@@ -57,12 +63,12 @@ object Config {
           else
             "/".concat(root)
         }
-        case _ =>Unit
+        case _ => Unit
       }
     }
   }
 
-  private def removeSpecialFlag(value : String): String = {
-    value.replaceAll("\"","")
+  private def removeSpecialFlag(value: String): String = {
+    value.replaceAll("\"", "")
   }
 }

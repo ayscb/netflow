@@ -2,9 +2,13 @@ package cn.ac.ict.acs.netflow
 
 abstract class Query {
   def name: String
+
   def sql: String
+
   def udfs: Seq[UDF]
+
   def frequency: Interval
+
   def output: OutputDesc
 }
 
@@ -60,8 +64,11 @@ object Interval {
   val _week = _day * 7
 
   def minutes(m: Int) = new Interval(_minute * m)
+
   def hours(h: Int) = new Interval(_hour * h)
+
   def days(d: Int) = new Interval(_day * d)
+
   def weeks(w: Int) = new Interval(_week * w)
 
   def once() = new Interval(0)

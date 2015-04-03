@@ -5,7 +5,7 @@ import org.apache.spark.{SparkContext, SparkConf}
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
-object SQLQuery {
+object GBFTest {
 
   val DHM_TIME = "yyyy-MM-dd:HH:mm"
   val dhmFormat = DateTimeFormat.forPattern(DHM_TIME)
@@ -23,11 +23,10 @@ object SQLQuery {
    *  where ipv4 = `ip` && time in range
    *  group by ipv4_dest;
    *
-   * Usage: arg(0) - parquetFolderPath
+   * @param args arg(0) - parquetFolderPath
    *        arg(1) - ip to be used in filter
    *        arg(2) - start time - yyyy-MM-dd:HH:mm
    *        arg(3) - end time - yyyy-MM-dd:HH:mm
-   * @param args
    */
   def main(args: Array[String]) {
 
@@ -37,7 +36,7 @@ object SQLQuery {
 
     import sqlContext.implicits._
 
-    val df: DataFrame = sqlContext.parquetFile(args(0))
+    val df: DataFrame = sqlContext.parquetFile(args(0).split(","): _*)
 
     val filterIp = ipv4FromStr(args(1))
     val startTime = timeToSeconds(args(2))
@@ -51,11 +50,11 @@ object SQLQuery {
       .groupBy("ipv4_dst_addr")
       .agg("ipv4_dst_addr" -> "count")
 
-//    ipWithCount.explain()
+    //    ipWithCount.explain()
 
     ipWithCount.foreach(row => {
       println("Result: [ "
-        + row.getAs[Array[Byte]](0).map(toInt _).mkString(".")
+        + row.getAs[Array[Byte]](0).map(toInt).mkString(".")
         + " : " + row.get(1)
         + " ]")
     })
