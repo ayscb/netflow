@@ -51,6 +51,8 @@ dev/create-release/*final
 unit-tests.log
 /lib/
 ec2/lib/
+scalastyle.txt
+scalastyle-output.xml
 
 sbt/
 

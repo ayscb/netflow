@@ -16,14 +16,17 @@ case class Template(template: mutable.Map[Int, Int], rowBytes: Int) {
   @transient var rd: Random = new Random()
 
 
-  val variableKey = Set(1, 2, 3, 10, 14, 16, 17, 19, 20, 23, 24, 40, 41, 42, 82, 83, 84, 85, 86, 94, 100)
+  val variableKey = Set(1, 2, 3, 10, 14, 16, 17, 19, 20,
+    23, 24, 40, 41, 42, 82, 83, 84, 85, 86, 94, 100)
 
   // we regard  the ip mac type as var length type
   val variableKeys = variableKey ++ Set(8, 12, 15, 27, 28, 62, 63, 56, 57, 80, 81)
 
   def getRowLength = rowBytes
 
-  def getRowData(currTime: Long, row: GenericMutableRow, arrayContainer: Array[Array[Byte]]): Unit = {
+  def getRowData(currTime: Long, row: GenericMutableRow,
+                 arrayContainer: Array[Array[Byte]]): Unit = {
+
     rd = if (rd == null) new Random(currTime) else rd
     if (template.size == 0) throw new java.lang.RuntimeException("should call praseCommand first")
 
@@ -69,7 +72,8 @@ case class Template(template: mutable.Map[Int, Int], rowBytes: Int) {
     }
   }
 
-  private def setVarDataLength(key: Int, valueLen: Int, container: Array[Byte], row: GenericMutableRow): Unit = {
+  private def setVarDataLength(key: Int, valueLen: Int,
+                               container: Array[Byte], row: GenericMutableRow): Unit = {
     key match {
       case (8 | 12 | 15) => getIPV4(container) // ipv4
       case (27 | 28 | 62 | 63) => getIPV6(container) // ipv6
@@ -80,8 +84,9 @@ case class Template(template: mutable.Map[Int, Int], rowBytes: Int) {
   }
 
   private def getStringDataLength(dataLen: Int, container: Array[Byte]): Unit = {
-    if (dataLen != container.length)
+    if (dataLen != container.length) {
       throw new scala.RuntimeException(" expect :" + dataLen + " actual : " + container.length)
+    }
     for (i <- 0 until dataLen) rd.nextBytes(container)
   }
 
@@ -114,8 +119,9 @@ object Template {
   def loadTemplateFromFile(fileName: String): Template = {
 
     val file = Source.fromFile(fileName)
-    if (file == null)
+    if (file == null) {
       throw new java.lang.IllegalAccessError(String.format("the file %s does not exist!", fileName))
+    }
 
     val lineIter = file.getLines()
 

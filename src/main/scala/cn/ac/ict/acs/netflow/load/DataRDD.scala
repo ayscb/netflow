@@ -26,7 +26,7 @@ class DataRDD(startTime: Long,
     var currTime = split.splitStartTime
     var totalBytes = 0L
 
-    val arrys = template.getArrayContainer()
+    val arrys = template.getArrayContainer
 
     new Iterator[Row] {
       val content: GenericMutableRow = new GenericMutableRow(101)
@@ -70,7 +70,9 @@ class DataRDD(startTime: Long,
   }
 }
 
-class DataPartition(rddId: Int, idx: Int, val splitStartTime: Long, val splitEndTime: Long) extends Partition {
+class DataPartition(rddId: Int, idx: Int, val splitStartTime: Long, val splitEndTime: Long)
+  extends Partition {
+
   override def hashCode(): Int = 41 * (41 + rddId) + idx
 
   override val index: Int = idx
