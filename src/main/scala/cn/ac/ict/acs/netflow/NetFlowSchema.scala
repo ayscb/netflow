@@ -1,10 +1,11 @@
-package cn.ac.ict.acs.netflow.load
+package cn.ac.ict.acs.netflow
 
 import org.apache.spark.sql.types._
 
-object NFSchema extends java.io.Serializable{
+object NetFlowSchema extends java.io.Serializable{
   private val NULLABLE: Boolean = true
-  val nfSchema =
+
+  val tableSchema =
     StructType(
       StructField("flow_time", LongType, NULLABLE) ::
       StructField("in_bytes", BinaryType, NULLABLE) ::

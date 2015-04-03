@@ -1,5 +1,6 @@
 package cn.ac.ict.acs.netflow.load
 
+import cn.ac.ict.acs.netflow.NetFlowConf
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SQLContext
 import parquet.io.api.Binary
@@ -15,15 +16,15 @@ object TestSQL {
 
   def main(args: Array[String]) {
 
-    Template.loadTemplateFromFile(args(0))
-    Config.getConfigure(args(1))
+    Template.load(args(0))
+    val netFlowConf = new NetFlowConf().load(args(1))
 
     val sparkConf = new SparkConf().setAppName("NF_dataText")
     val sc = new SparkContext(sparkConf)
     val sqlConetxt = new SQLContext(sc)
-    Template.loadTemplateFromFile(args(0))
-    sqlConetxt.sparkContext.hadoopConfiguration.set("fs.defaultFS", Config.getHDFSAdderss)
-    val df = sqlConetxt.parquetFile(Config.getHDFSAdderss + Config.getRootPath)
+    Template.load(args(0))
+    sqlConetxt.sparkContext.hadoopConfiguration.set("fs.defaultFS", netFlowConf.dfsName)
+    val df = sqlConetxt.parquetFile(netFlowConf.dfsName + netFlowConf.loadPath)
 
     df.printSchema()
     df.registerTempTable("par")

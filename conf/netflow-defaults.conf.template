@@ -1,0 +1,18 @@
+# Default system properties included when running a netflow program
+# This is useful for setting default environmental settings.
+
+# Overall settings
+netflow.fs.default.name             hdfs://localhost:9000
+netflow.time.format                 yyyy-MM-dd:HH:mm
+
+# Load settings
+netflow.load.interval               4
+netflow.load.dataRate               242
+
+netflow.load.startTime              2015-01-01:01:00
+netflow.load.endTime                2015-01-01:01:01
+netflow.load.path                   parquet10
+
+
+# Sql settings
+# netflow.sql.

@@ -116,7 +116,7 @@ object Template {
    *
    * @param fileName template  file path
    */
-  def loadTemplateFromFile(fileName: String): Template = {
+  def load(fileName: String): Template = {
 
     val file = Source.fromFile(fileName)
     if (file == null) {

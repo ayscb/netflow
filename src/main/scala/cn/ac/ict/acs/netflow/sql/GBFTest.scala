@@ -1,21 +1,10 @@
 package cn.ac.ict.acs.netflow.sql
 
+import cn.ac.ict.acs.netflow.{TimeUtil, IPv4, NetFlowConf}
 import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.{SparkContext, SparkConf}
-import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
 
 object GBFTest {
-
-  val DHM_TIME = "yyyy-MM-dd:HH:mm"
-  val dhmFormat = DateTimeFormat.forPattern(DHM_TIME)
-
-  def toInt(b: Byte): Int = b & 0xFF
-
-  def ipv4FromStr(s: String): Array[Byte] = s.split('.').map(_.toInt.toByte)
-
-  def timeToSeconds(t: String) =
-    DateTime.parse(t, dhmFormat).getMillis / 1000
 
   /**
    * Select ipv4_dest, count(ipv4_dest)
@@ -30,6 +19,8 @@ object GBFTest {
    */
   def main(args: Array[String]) {
 
+    val nfConf = new NetFlowConf
+
     val sparkConf = new SparkConf().setAppName("NF_GROUPBY")
     val sc = new SparkContext(sparkConf)
     val sqlContext = new SQLContext(sc)
@@ -38,9 +29,9 @@ object GBFTest {
 
     val df: DataFrame = sqlContext.parquetFile(args(0).split(","): _*)
 
-    val filterIp = ipv4FromStr(args(1))
-    val startTime = timeToSeconds(args(2))
-    val endTime = timeToSeconds(args(3))
+    val filterIp = IPv4.str2Bytes(args(1))
+    val startTime = TimeUtil.timeToSeconds(nfConf, args(2))
+    val endTime = TimeUtil.timeToSeconds(nfConf, args(3))
 
     val ipWithCount = df
       .filter($"flow_time" > startTime)
@@ -54,7 +45,7 @@ object GBFTest {
 
     ipWithCount.foreach(row => {
       println("Result: [ "
-        + row.getAs[Array[Byte]](0).map(toInt).mkString(".")
+        + IPv4.bytes2String(row.getAs[Array[Byte]](0))
         + " : " + row.get(1)
         + " ]")
     })

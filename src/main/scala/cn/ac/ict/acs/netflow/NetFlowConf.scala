@@ -1,12 +1,74 @@
 package cn.ac.ict.acs.netflow
 
+import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
 
+import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
+
 import scala.collection.JavaConverters._
+import scala.collection.JavaConversions._
 
-class NetFlowConf {
+object NetFlowConf {
+  val DFS_NAME = "netflow.fs.default.name"
+  val TIME_FORMAT = "netflow.time.format"
 
-  private val settings = new ConcurrentHashMap[String, String]()
+  val KB = 1024
+  val MB = 1024 * KB
+}
+
+object LoadConf {
+  val LOAD_INTERVAL = "netflow.load.interval"
+  val LOAD_DATARATE = "netflow.load.dataRate"
+  val LOAD_STARTTIME = "netflow.load.startTime"
+  val LOAD_ENDTIME = "netflow.load.endTime"
+  val LOAD_PATH = "netflow.load.path"
+}
+
+
+class NetFlowConf extends Serializable {
+  import NetFlowConf._
+  import LoadConf._
+
+  @transient private val settings = new ConcurrentHashMap[String, String]()
+
+
+  /** ************************ NetFLow Params/Hints ******************* */
+
+  def dfsName = get(DFS_NAME, "hdfs://localhost:9000")
+
+  def timeFormatStr = get(TIME_FORMAT, "yyyy-MM-dd:HH:mm")
+
+  def timeFormat = DateTimeFormat.forPattern(timeFormatStr)
+
+
+
+  /** ************************ Load Params/Hints ******************* */
+
+  def loadInterval = getInt(LOAD_INTERVAL, 4)
+
+  def loadRate = getLong(LOAD_DATARATE, 1L) * MB
+
+  def loadStartInSec = DateTime.parse(get(LOAD_STARTTIME), timeFormat).getMillis / 1000
+
+  def loadEndInSec = DateTime.parse(get(LOAD_ENDTIME), timeFormat).getMillis / 1000
+
+  def loadPath = get(LOAD_PATH)
+
+
+
+
+  /** ************************ Base Utils/Implementations ******************* */
+
+
+  def load(path: String): NetFlowConf = {
+    set(util.ConfigurationUtil.loadPropertiesFile(path))
+  }
+
+  def set(props: Properties): NetFlowConf = {
+    props.foreach { case (k, v) => settings.put(k, v) }
+    this
+  }
 
   /** Set a configuration variable. */
   def set(key: String, value: String): NetFlowConf = {
