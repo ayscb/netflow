@@ -1,4 +1,6 @@
 <!--
+  ~ Copyright 2015 ICT.
+  ~
   ~ Licensed to the Apache Software Foundation (ASF) under one or more
   ~ contributor license agreements.  See the NOTICE file distributed with
   ~ this work for additional information regarding copyright ownership.
@@ -13,7 +15,7 @@
   ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
-  -->
+-->
 <!-- If you wish to turn off checking for a section of code, you can put a comment in the source
  before and after the section, with the following syntax: -->
 <!-- // scalastyle:off -->
@@ -30,9 +32,11 @@
  <!--   <parameter name="maxFileLength"><![CDATA[800]]></parameter> -->
  <!--  </parameters> -->
  <!-- </check> -->
- <!-- <check level="error" class="org.scalastyle.file.HeaderMatchesChecker" enabled="true">
+ <check level="error" class="org.scalastyle.file.HeaderMatchesChecker" enabled="true">
   <parameters>
-   <parameter name="header"><![CDATA[/*
+   <parameter name="header"><![CDATA[/**
+ * Copyright 2015 ICT.
+ *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -49,7 +53,7 @@
  * limitations under the License.
  */]]></parameter>
   </parameters>
- </check> -->
+ </check>
  <check level="error" class="org.scalastyle.scalariform.SpacesAfterPlusChecker" enabled="true"></check>
  <check level="error" class="org.scalastyle.file.WhitespaceEndOfLineChecker" enabled="false"></check>
  <check level="error" class="org.scalastyle.scalariform.SpacesBeforePlusChecker" enabled="true"></check>
