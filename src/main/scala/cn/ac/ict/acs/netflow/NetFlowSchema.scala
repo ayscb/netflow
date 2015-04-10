@@ -25,7 +25,7 @@ object NetFlowSchema extends java.io.Serializable{
 
   val tableSchema =
     StructType(
-      StructField("flow_time", TimestampType, NULLABLE) ::
+      StructField("flow_time", LongType, NULLABLE) ::    //TimestampType
       StructField("in_bytes", BinaryType, NULLABLE) ::
       StructField("in_pkts", BinaryType, NULLABLE) ::
       StructField("flows", BinaryType, NULLABLE) ::

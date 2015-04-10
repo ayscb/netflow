@@ -71,7 +71,7 @@ class NetFlowConf extends Serializable {
 
   def loadEndInSec = DateTime.parse(get(LOAD_ENDTIME), timeFormat).getMillis / 1000
 
-  def loadPath = get(LOAD_PATH)
+  def loadPath = getAbsolutePath(get(LOAD_PATH))    // we get the path which should begin with "\"
 
 
 
@@ -160,5 +160,10 @@ class NetFlowConf extends Serializable {
 
   /** Does the configuration contain a given parameter? */
   def contains(key: String): Boolean = settings.containsKey(key)
+
+
+  /** ******************************* some tools ***************************** **/
+  private def getAbsolutePath( path :String): String =
+    if ( path.startsWith("/") ) path else "/".concat(path)
 
 }

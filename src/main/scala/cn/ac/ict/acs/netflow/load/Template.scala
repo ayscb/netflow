@@ -42,7 +42,8 @@ case class Template(template: mutable.Map[Int, Int], rowBytes: Int) {
 
   def getRowLength = rowBytes
 
-  def getRowData(currTime: Long, row: GenericMutableRow,
+  def getRowData(currTime: Long,
+                 row: GenericMutableRow,
                  arrayContainer: Array[Array[Byte]]): Unit = {
 
     rd = if (rd == null) new Random(currTime) else rd

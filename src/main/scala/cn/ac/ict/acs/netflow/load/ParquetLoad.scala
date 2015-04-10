@@ -36,8 +36,10 @@ object ParquetLoad {
 
     val sparkConf = new SparkConf().setAppName("NF_dataLoad")
     val sc = new SparkContext(sparkConf)
+
+    sc.hadoopConfiguration.set("fs.defaultFS", netFlowConf.dfsName)
+
     val sqlContext = new SQLContext(sc)
-    sqlContext.sparkContext.hadoopConfiguration.set("fs.defaultFS", netFlowConf.dfsName)
 
     val dataRDD: DataRDD = new DataRDD(
       netFlowConf.loadStartInSec,

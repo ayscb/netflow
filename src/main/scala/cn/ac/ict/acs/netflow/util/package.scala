@@ -19,6 +19,7 @@
 package cn.ac.ict.acs.netflow
 
 import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
 
 package object util {
 
@@ -27,6 +28,13 @@ package object util {
 object TimeUtil {
   def timeToSeconds(conf: NetFlowConf, t: String) =
     DateTime.parse(t, conf.timeFormat).getMillis / 1000
+
+  def secnodsToTime(conf: NetFlowConf, seconds :Long )  =
+    new DateTime(seconds * 1000).toString(conf.timeFormat)
+
+  def secnodsToTime(seconds :Long )  =
+    new DateTime(seconds * 1000).toString(
+      DateTimeFormat.forPattern("yyyy-MM-dd HH:mm"))
 }
 
 trait IP {
