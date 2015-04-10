@@ -40,6 +40,9 @@ object GBFTest {
     val nfConf = new NetFlowConf
 
     val sparkConf = new SparkConf().setAppName("NF_GROUPBY")
+    sparkConf.set("spark.sql.parquet.filterPushdown", "true")
+    sparkConf.set("spark.sql.parquet.task.side.metadata", "false")
+
     val sc = new SparkContext(sparkConf)
     val sqlContext = new SQLContext(sc)
 
