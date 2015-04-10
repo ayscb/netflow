@@ -39,11 +39,12 @@ object GBFTest {
 
     val nfConf = new NetFlowConf
 
-    val sparkConf = new SparkConf().setAppName("NF_GROUPBY_ip_and_time")
+    val sparkConf = new SparkConf().setAppName("NF_GROUPBY")
+    sparkConf.set("spark.sql.parquet.filterPushdown", "true")
+    sparkConf.set("spark.sql.parquet.task.side.metadata", "false")
+
     val sc = new SparkContext(sparkConf)
     val sqlContext = new SQLContext(sc)
-
-  //  sc.hadoopConfiguration.set("fs.defaultFS", "hdfs://192.168.80.110:8020")
 
     import sqlContext.implicits._
 
