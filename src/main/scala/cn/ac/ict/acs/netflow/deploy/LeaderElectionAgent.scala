@@ -19,8 +19,6 @@
 package cn.ac.ict.acs.netflow.deploy
 
 /**
- * :: DeveloperApi ::
- *
  * A LeaderElectionAgent tracks current master and is a common interface for all election Agents.
  */
 trait LeaderElectionAgent {

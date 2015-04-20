@@ -18,25 +18,17 @@
 # limitations under the License.
 #
 
+sbin=`dirname "$0"`
+sbin=`cd "$sbin"; pwd`
 
-# This script loads netflow-env.sh if it exists, and ensures it is only loaded once.
-# netflow-env.sh is loaded from NETFLOW_CONF_DIR if set, or within the current directory's
-# conf/ subdirectory.
+. "$sbin/netflow-config.sh"
 
-if [ -z "$NETFLOW_ENV_LOADED" ]; then
-  export NETFLOW_ENV_LOADED=1
+. "$NETFLOW_PREFIX/bin/load-netflow-env.sh"
 
-  # Returns the parent of the directory this script lives in.
-  parent_dir="$(cd "`dirname "$0"`"/..; pwd)"
-
-  user_conf_dir="${NETFLOW_CONF_DIR:-"$parent_dir"/conf}"
-
-  if [ -f "${user_conf_dir}/netflow-env.sh" ]; then
-    # Promote all variable declarations to environment (exported) variables
-    set -a
-    . "${user_conf_dir}/netflow-env.sh"
-    set +a
-  fi
+if [ "$NETFLOW_WORKER_INSTANCES" = "" ]; then
+  "$sbin"/netflow-daemons.sh stop cn.ac.ict.acs.netflow.deploy.QueryWorker 1
+else
+  for ((i=0; i<$NETFLOW_WORKER_INSTANCES; i++)); do
+    "$sbin"/netflow-daemons.sh stop cn.ac.ict.acs.netflow.deploy.QueryWorker $(( $i + 1 ))
+  done
 fi
-
-export NETFLOW_SCALA_VERSION="2.10"

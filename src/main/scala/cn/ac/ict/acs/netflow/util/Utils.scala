@@ -122,7 +122,6 @@ object Utils extends Logging {
 
   /**
    * Get the local host's IP address in dotted-quad format (e.g. 1.2.3.4).
-   * Note, this is typically not used from within core spark.
    */
   lazy val localIpAddress: String = findLocalIpAddress()
   lazy val localIpAddressHostname: String = getAddressHostName(localIpAddress)
@@ -155,14 +154,14 @@ object Utils extends Logging {
             logWarning("Your hostname, " + InetAddress.getLocalHost.getHostName + " resolves to" +
               " a loopback address: " + address.getHostAddress + "; using " + addr.getHostAddress +
               " instead (on interface " + ni.getName + ")")
-            logWarning("Set SPARK_LOCAL_IP if you need to bind to another address")
+            logWarning("Set NETFLOW_LOCAL_IP if you need to bind to another address")
             return addr.getHostAddress
           }
         }
         logWarning("Your hostname, " + InetAddress.getLocalHost.getHostName + " resolves to" +
           " a loopback address: " + address.getHostAddress + ", but we couldn't find any" +
           " external IP address!")
-        logWarning("Set SPARK_LOCAL_IP if you need to bind to another address")
+        logWarning("Set NETFLOW_LOCAL_IP if you need to bind to another address")
       }
       address.getHostAddress
     }
@@ -210,7 +209,7 @@ object Utils extends Logging {
     }
   }
 
-  /** Return the path of the default Spark properties file. */
+  /** Return the path of the default NetFlow properties file. */
   def getDefaultPropertiesFile(env: Map[String, String] = sys.env): String = {
     env.get("NETFLOW_CONF_DIR")
       .orElse(env.get("NETFLOW_HOME").map { t => s"$t${File.separator}conf" })

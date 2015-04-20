@@ -18,7 +18,6 @@
 # limitations under the License.
 #
 
-
 # Runs a NetFlow command as a daemon.
 #
 # Environment Variables
@@ -31,7 +30,7 @@
 #   NETFLOW_NICENESS The scheduling priority for daemons. Defaults to 0.
 ##
 
-usage="Usage: netflow-daemon.sh [--config <conf-dir>] (start|stop) <spark-command> <spark-instance-number> <args...>"
+usage="Usage: netflow-daemon.sh [--config <conf-dir>] (start|stop) <netflow-command> <netflow-instance-number> <args...>"
 
 # if no args specified, show usage
 if [ $# -le 1 ]; then
@@ -102,10 +101,10 @@ if [ "$NETFLOW_LOG_DIR" = "" ]; then
 fi
 
 mkdir -p "NETFLOW_LOG_DIR"
-touch "NETFLOW_LOG_DIR"/.spark_test > /dev/null 2>&1
+touch "NETFLOW_LOG_DIR"/.netflow_test > /dev/null 2>&1
 TEST_LOG_DIR=$?
 if [ "${TEST_LOG_DIR}" = "0" ]; then
-  rm -f "NETFLOW_LOG_DIR"/.spark_test
+  rm -f "NETFLOW_LOG_DIR"/.netflow_test
 else
   chown "$NETFLOW_IDENT_STRING" "NETFLOW_LOG_DIR"
 fi
@@ -115,12 +114,12 @@ if [ "$NETFLOW_PID_DIR" = "" ]; then
 fi
 
 # some variables
-log="NETFLOW_LOG_DIR/spark-$NETFLOW_IDENT_STRING-$command-$instance-$HOSTNAME.out"
-pid="$NETFLOW_PID_DIR/spark-$NETFLOW_IDENT_STRING-$command-$instance.pid"
+log="NETFLOW_LOG_DIR/netflow-$NETFLOW_IDENT_STRING-$command-$instance-$HOSTNAME.out"
+pid="$NETFLOW_PID_DIR/netflow-$NETFLOW_IDENT_STRING-$command-$instance.pid"
 
 # Set default scheduling priority
-if [ "$SPARK_NICENESS" = "" ]; then
-    export SPARK_NICENESS=0
+if [ "$NETFLOW_NICENESS" = "" ]; then
+    export NETFLOW_NICENESS=0
 fi
 
 case $option in
@@ -144,7 +143,7 @@ case $option in
 
     netflow_rotate_log "$log"
     echo "starting $command, logging to $log"
-    nohup nice -n $SPARK_NICENESS "$SPARK_PREFIX"/bin/netflow-class $command "$@" >> "$log" 2>&1 < /dev/null &
+    nohup nice -n $NETFLOW_NICENESS "$NETFLOW_PREFIX"/bin/netflow-class $command "$@" >> "$log" 2>&1 < /dev/null &
     newpid=$!
     echo $newpid > $pid
     sleep 2

@@ -108,12 +108,12 @@ private[netflow] object AkkaUtils extends Logging {
     (actorSystem, boundPort)
   }
 
-  /** Returns the default Spark timeout to use for Akka ask operations. */
+  /** Returns the default NetFlow timeout to use for Akka ask operations. */
   def askTimeout(conf: NetFlowConf): FiniteDuration = {
     Duration.create(conf.getLong("netflow.akka.askTimeout", 30), "seconds")
   }
 
-  /** Returns the default Spark timeout to use for Akka remote actor lookup. */
+  /** Returns the default NetFlow timeout to use for Akka remote actor lookup. */
   def lookupTimeout(conf: NetFlowConf): FiniteDuration = {
     Duration.create(conf.getLong("netflow.akka.lookupTimeout", 30), "seconds")
   }
@@ -125,7 +125,7 @@ private[netflow] object AkkaUtils extends Logging {
     val frameSizeInMB = conf.getInt("netflow.akka.frameSize", 10)
     if (frameSizeInMB > AKKA_MAX_FRAME_SIZE_IN_MB) {
       throw new IllegalArgumentException(
-        s"spark.akka.frameSize should not be greater than $AKKA_MAX_FRAME_SIZE_IN_MB MB")
+        s"netflow.akka.frameSize should not be greater than $AKKA_MAX_FRAME_SIZE_IN_MB MB")
     }
     frameSizeInMB * 1024 * 1024
   }
@@ -145,7 +145,7 @@ private[netflow] object AkkaUtils extends Logging {
 
   /**
    * Send a message to the given actor and get its result within a default timeout, or
-   * throw a SparkException if this fails.
+   * throw a NetFlowException if this fails.
    */
   def askWithReply[T](
       message: Any,
@@ -156,7 +156,7 @@ private[netflow] object AkkaUtils extends Logging {
 
   /**
    * Send a message to the given actor and get its result within a default timeout, or
-   * throw a SparkException if this fails even after the specified number of retries.
+   * throw a NetFlowException if this fails even after the specified number of retries.
    */
   def askWithReply[T](
       message: Any,

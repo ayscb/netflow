@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-# Figure out where Spark is installed
+# Figure out where NetFlow is installed
 FWDIR="$(cd "`dirname "$0"`"/..; pwd)"
 
-# Export this as SPARK_HOME
+# Export this as NETFLOW_HOME
 export NETFLOW_HOME="$FWDIR"
 export NETFLOW_CONF_DIR="${NETFLOW_CONF_DIR:-"$NETFLOW_HOME/conf"}"
 
@@ -14,7 +14,7 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
-# Use SPARK_MEM or 512m as the default memory, to be overridden by specific options
+# Use 512m as the default memory, to be overridden by specific options
 DEFAULT_MEM="-512m"
 
 NETFLOW_DAEMON_JAVA_OPTS="$NETFLOW_DAEMON_JAVA_OPTS -Dnetflow.akka.logLifecycleEvents=true"
@@ -27,7 +27,7 @@ case "$1" in
     OUR_JAVA_MEM=${NETFLOW_DAEMON_MEMORY:-$DEFAULT_MEM}
     ;;
   'cn.ac.ict.acs.netflow.deploy.QueryWorker')
-    OUR_JAVA_OPTS="$NETFLOW_DAEMON_JAVA_OPTS $SPARK_WORKER_OPTS"
+    OUR_JAVA_OPTS="$NETFLOW_DAEMON_JAVA_OPTS $NETFLOW_WORKER_OPTS"
     OUR_JAVA_MEM=${NETFLOW_DAEMON_MEMORY:-$DEFAULT_MEM}
     ;;
   *)
@@ -58,8 +58,8 @@ fi
 JAVA_OPTS="$JAVA_OPTS -Xms$OUR_JAVA_MEM -Xmx$OUR_JAVA_MEM"
 
 # Load extra JAVA_OPTS from conf/java-opts, if it exists
-if [ -e "$SPARK_CONF_DIR/java-opts" ] ; then
-  JAVA_OPTS="$JAVA_OPTS `cat "$SPARK_CONF_DIR"/java-opts`"
+if [ -e "$NETFLOW_CONF_DIR/java-opts" ] ; then
+  JAVA_OPTS="$JAVA_OPTS `cat "$NETFLOW_CONF_DIR"/java-opts`"
 fi
 
 # Attention: when changing the way the JAVA_OPTS are assembled, the change must be reflected in CommandUtils.scala!
@@ -75,27 +75,9 @@ fi
 
 export CLASSPATH
 
-# In Spark submit client mode, the driver is launched in the same JVM as Spark submit itself.
-# Here we must parse the properties file for relevant "spark.driver.*" configs before launching
-# the driver JVM itself. Instead of handling this complexity in Bash, we launch a separate JVM
-# to prepare the launch environment of this driver JVM.
-
-if [ -n "$SPARK_SUBMIT_BOOTSTRAP_DRIVER" ]; then
-  # This is used only if the properties file actually contains these special configs
-  # Export the environment variables needed by SparkSubmitDriverBootstrapper
-  export RUNNER
-  export CLASSPATH
-  export JAVA_OPTS
-  export OUR_JAVA_MEM
-  export SPARK_CLASS=1
-  shift # Ignore main class (org.apache.spark.deploy.SparkSubmit) and use our own
-  exec "$RUNNER" org.apache.spark.deploy.SparkSubmitDriverBootstrapper "$@"
-else
-  # Note: The format of this command is closely echoed in SparkSubmitDriverBootstrapper.scala
-  if [ -n "$SPARK_PRINT_LAUNCH_COMMAND" ]; then
-    echo -n "Spark Command: " 1>&2
-    echo "$RUNNER" -cp "$CLASSPATH" $JAVA_OPTS "$@" 1>&2
-    echo -e "========================================\n" 1>&2
-  fi
-  exec "$RUNNER" -cp "$CLASSPATH" $JAVA_OPTS "$@"
+if [ -n "$NETFLOW_PRINT_LAUNCH_COMMAND" ]; then
+  echo -n "NetFlow Command: " 1>&2
+  echo "$RUNNER" -cp "$CLASSPATH" $JAVA_OPTS "$@" 1>&2
+  echo -e "========================================\n" 1>&2
 fi
+exec "$RUNNER" -cp "$CLASSPATH" $JAVA_OPTS "$@"

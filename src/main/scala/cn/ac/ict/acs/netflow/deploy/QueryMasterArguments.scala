@@ -79,7 +79,7 @@ class QueryMasterArguments(args: Array[String], conf: NetFlowConf) {
    */
   def printUsageAndExit(exitCode: Int) {
     System.err.println(
-      "Usage: Master [options]\n" +
+      "Usage: QueryMaster [options]\n" +
         "\n" +
         "Options:\n" +
         "  -h HOST, --host HOST   Hostname to listen on\n" +

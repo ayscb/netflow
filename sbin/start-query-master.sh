@@ -18,25 +18,25 @@
 # limitations under the License.
 #
 
+# Starts the QueryMaster on the machine this script is executed on.
 
-# This script loads netflow-env.sh if it exists, and ensures it is only loaded once.
-# netflow-env.sh is loaded from NETFLOW_CONF_DIR if set, or within the current directory's
-# conf/ subdirectory.
+sbin="`dirname "$0"`"
+sbin="`cd "$sbin"; pwd`"
 
-if [ -z "$NETFLOW_ENV_LOADED" ]; then
-  export NETFLOW_ENV_LOADED=1
+. "$sbin/netflow-config.sh"
 
-  # Returns the parent of the directory this script lives in.
-  parent_dir="$(cd "`dirname "$0"`"/..; pwd)"
+. "$NETFLOW_PREFIX/bin/load-netflow-env.sh"
 
-  user_conf_dir="${NETFLOW_CONF_DIR:-"$parent_dir"/conf}"
-
-  if [ -f "${user_conf_dir}/netflow-env.sh" ]; then
-    # Promote all variable declarations to environment (exported) variables
-    set -a
-    . "${user_conf_dir}/netflow-env.sh"
-    set +a
-  fi
+if [ "$NETFLOW_MASTER_PORT" = "" ]; then
+  NETFLOW_MASTER_PORT=9099
 fi
 
-export NETFLOW_SCALA_VERSION="2.10"
+if [ "$NETFLOW_MASTER_IP" = "" ]; then
+  NETFLOW_MASTER_IP=`hostname`
+fi
+
+if [ "$NETFLOW_MASTER_WEBUI_PORT" = "" ]; then
+  NETFLOW_MASTER_WEBUI_PORT=18080
+fi
+
+"$sbin"/netflow-daemon.sh start cn.ac.ict.acs.netflow.deploy.QueryMaster 1 --host $NETFLOW_MASTER_IP --port $NETFLOW_MASTER_PORT --webui-port $NETFLOW_MASTER_WEBUI_PORT
