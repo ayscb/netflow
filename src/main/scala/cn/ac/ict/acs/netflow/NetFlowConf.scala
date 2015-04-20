@@ -21,6 +21,7 @@ package cn.ac.ict.acs.netflow
 import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
 
+import cn.ac.ict.acs.netflow.util.Utils
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
@@ -80,7 +81,7 @@ class NetFlowConf extends Serializable {
 
 
   def load(path: String): NetFlowConf = {
-    set(util.ConfigurationUtil.loadPropertiesFile(path))
+    setAll(Utils.getPropertiesFromFile(path))
   }
 
   def set(props: Properties): NetFlowConf = {

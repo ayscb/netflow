@@ -53,5 +53,6 @@ unit-tests.log
 ec2/lib/
 scalastyle.txt
 scalastyle-output.xml
+dependency-reduced-pom.xml
 
 sbt/

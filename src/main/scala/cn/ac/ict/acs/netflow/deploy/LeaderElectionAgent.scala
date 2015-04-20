@@ -16,31 +16,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow
+package cn.ac.ict.acs.netflow.deploy
 
-import org.joda.time.DateTime
-
-object TimeUtil {
-  def timeToSeconds(conf: NetFlowConf, t: String) =
-    DateTime.parse(t, conf.timeFormat).getMillis / 1000
+/**
+ * :: DeveloperApi ::
+ *
+ * A LeaderElectionAgent tracks current master and is a common interface for all election Agents.
+ */
+trait LeaderElectionAgent {
+  val masterActor: LeaderElectable
+  def stop() {} // to avoid noops in implementations.
 }
 
-trait IP {
-  def str2Bytes(ip: String): Array[Byte]
-  def bytes2String(ip: Array[Byte]): String
-
-  final def toInt(b: Byte): Int = b & 0xFF
+trait LeaderElectable {
+  def appointLeader()
+  def revokeLeadership()
 }
 
-object IPv4 extends IP {
-
-  def str2Bytes(ip: String) = ip.split('.').map(_.toInt.toByte)
-
-  def bytes2String(ip: Array[Byte]) = ip.map(toInt).mkString(".")
-}
-
-object IPv6 extends IP {
-  def str2Bytes(ip: String) = ???
-
-  def bytes2String(ip: Array[Byte]) = ???
+/** Single-node implementation of LeaderElectionAgent
+  * we're initially and always the leader. */
+private[netflow] class MonarchyLeaderAgent(val masterActor: LeaderElectable)
+  extends LeaderElectionAgent {
+  masterActor.appointLeader()
 }
