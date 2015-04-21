@@ -20,15 +20,17 @@ package cn.ac.ict.acs.netflow.util
 
 import java.io.{IOException, FileInputStream, InputStreamReader, File}
 import java.net.{Inet4Address, NetworkInterface, InetAddress, BindException}
-import java.util.Properties
+import java.util.{Locale, Properties}
+
+import scala.collection.Map
+import scala.util.control.NonFatal
+import scala.collection.JavaConversions._
 
 import org.eclipse.jetty.util.MultiException
 
-import scala.collection.JavaConversions._
-
 import cn.ac.ict.acs.netflow.{Logging, NetFlowConf, NetFlowException}
 
-import scala.collection.Map
+
 
 object Utils extends Logging {
 
@@ -167,10 +169,6 @@ object Utils extends Logging {
     }
   }
 
-  def main (args: Array[String]) {
-    println(findLocalIpAddress())
-  }
-
   /**
    * Load default NetFlow properties from the given file. If no file is provided,
    * use the common defaults file. This mutates state in the given NetFlowConf and
@@ -217,6 +215,110 @@ object Utils extends Logging {
       .filter(_.isFile)
       .map(_.getAbsolutePath)
       .orNull
+  }
+
+  /** Returns the system properties map that is thread-safe to iterator over. It gets the
+    * properties which have been set explicitly, as well as those for which only a default value
+    * has been defined. */
+  def getSystemProperties: Map[String, String] = {
+    val sysProps = for (key <- System.getProperties.stringPropertyNames()) yield
+    (key, System.getProperty(key))
+
+    sysProps.toMap
+  }
+
+  /**
+   * Execute a block of code that evaluates to Unit, re-throwing any non-fatal uncaught
+   * exceptions as IOException.  This is used when implementing Externalizable and Serializable's
+   * read and write methods, since Java's serializer will not report non-IOExceptions properly;
+   * see SPARK-4080 for more context.
+   */
+  def tryOrIOException(block: => Unit) {
+    try {
+      block
+    } catch {
+      case e: IOException => throw e
+      case NonFatal(t) => throw new IOException(t)
+    }
+  }
+
+  /**
+   * Convert a quantity in bytes to a human-readable string such as "4.0 MB".
+   */
+  def bytesToString(size: Long): String = {
+    val TB = 1L << 40
+    val GB = 1L << 30
+    val MB = 1L << 20
+    val KB = 1L << 10
+
+    val (value, unit) = {
+      if (size >= 2*TB) {
+        (size.asInstanceOf[Double] / TB, "TB")
+      } else if (size >= 2*GB) {
+        (size.asInstanceOf[Double] / GB, "GB")
+      } else if (size >= 2*MB) {
+        (size.asInstanceOf[Double] / MB, "MB")
+      } else if (size >= 2*KB) {
+        (size.asInstanceOf[Double] / KB, "KB")
+      } else {
+        (size.asInstanceOf[Double], "B")
+      }
+    }
+    "%.1f %s".formatLocal(Locale.US, value, unit)
+  }
+
+  /**
+   * Convert a quantity in megabytes to a human-readable string such as "4.0 MB".
+   */
+  def megabytesToString(megabytes: Long): String = {
+    bytesToString(megabytes * 1024L * 1024L)
+  }
+
+  /**
+   * Convert a Java memory parameter passed to -Xmx (such as 300m or 1g) to a number of megabytes.
+   */
+  def memoryStringToMb(str: String): Int = {
+    val lower = str.toLowerCase
+    if (lower.endsWith("k")) {
+      (lower.substring(0, lower.length-1).toLong / 1024).toInt
+    } else if (lower.endsWith("m")) {
+      lower.substring(0, lower.length-1).toInt
+    } else if (lower.endsWith("g")) {
+      lower.substring(0, lower.length-1).toInt * 1024
+    } else if (lower.endsWith("t")) {
+      lower.substring(0, lower.length-1).toInt * 1024 * 1024
+    } else {// no suffix, so it's just a number in bytes
+      (lower.toLong / 1024 / 1024).toInt
+    }
+  }
+
+  /**
+   * Return a pair of host and port extracted from the `netflowUrl`.
+   *
+   * A netflow-query url (`netflow-query://host:port`) is a special URI that its scheme is
+   * `netflow-query` and only contains host and port.
+   *
+   * @throws NetFlowException if `sparkUrl` is invalid.
+   */
+  def extractHostPortFromSparkUrl(netflowUrl: String): (String, Int) = {
+    try {
+      val uri = new java.net.URI(netflowUrl)
+      val host = uri.getHost
+      val port = uri.getPort
+      if (uri.getScheme != "netflow-query" ||
+        host == null ||
+        port < 0 ||
+        (uri.getPath != null && !uri.getPath.isEmpty) || // uri.getPath returns "" instead of null
+        uri.getFragment != null ||
+        uri.getQuery != null ||
+        uri.getUserInfo != null) {
+        throw new NetFlowException("Invalid query master URL: " + netflowUrl)
+      }
+      (host, port)
+    } catch {
+      case e: java.net.URISyntaxException =>
+        throw new NetFlowException("Invalid query master URL: " + netflowUrl, e)
+    }
   }
 
 }

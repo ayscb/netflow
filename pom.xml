@@ -241,6 +241,11 @@
         <configuration>
           <header>src/license.txt</header>
           <strictCheck>true</strictCheck>
+          <excludes>
+            <exclude>.idea/**</exclude>
+            <exclude>*.xml</exclude>
+            <exclude>docs/**</exclude>
+          </excludes>
         </configuration>
       </plugin>
 

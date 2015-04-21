@@ -18,6 +18,14 @@
  */
 package cn.ac.ict.acs.netflow.deploy
 
-class WorkerInfo {
+private[netflow] object QueryWorkerState extends Enumeration {
+  type QueryWorkerState = Value
 
+  val ALIVE, DEAD, DECOMMISSIONED, UNKNOWN = Value
+}
+
+private[netflow] object QueryMasterRecoveryState extends Enumeration {
+  type MasterState = Value
+
+  val STANDBY, ALIVE, RECOVERING, COMPLETING_RECOVERY = Value
 }

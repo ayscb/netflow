@@ -27,16 +27,16 @@ sbin="`cd "$sbin"; pwd`"
 
 . "$NETFLOW_PREFIX/bin/load-netflow-env.sh"
 
-if [ "$NETFLOW_MASTER_PORT" = "" ]; then
-  NETFLOW_MASTER_PORT=9099
+if [ "$NETFLOW_QUERY_MASTER_PORT" = "" ]; then
+  NETFLOW_QUERY_MASTER_PORT=9099
 fi
 
-if [ "$NETFLOW_MASTER_IP" = "" ]; then
-  NETFLOW_MASTER_IP=`hostname`
+if [ "$NETFLOW_QUERY_MASTER_HOST" = "" ]; then
+  NETFLOW_QUERY_MASTER_HOST=`hostname`
 fi
 
-if [ "$NETFLOW_MASTER_WEBUI_PORT" = "" ]; then
-  NETFLOW_MASTER_WEBUI_PORT=18080
+if [ "$NETFLOW_QUERY_MASTER_WEBUI_PORT" = "" ]; then
+  NETFLOW_QUERY_MASTER_WEBUI_PORT=18080
 fi
 
-"$sbin"/netflow-daemon.sh start cn.ac.ict.acs.netflow.deploy.QueryMaster 1 --host $NETFLOW_MASTER_IP --port $NETFLOW_MASTER_PORT --webui-port $NETFLOW_MASTER_WEBUI_PORT
+"$sbin"/netflow-daemon.sh start cn.ac.ict.acs.netflow.deploy.QueryMaster 1 --host $NETFLOW_QUERY_MASTER_PORT --port $NETFLOW_QUERY_MASTER_PORT --webui-port $NETFLOW_QUERY_MASTER_WEBUI_PORT

@@ -3,17 +3,17 @@
 # This file is sourced when running various NetFlow programs.
 # Copy it as netflow-env.sh and edit that to configure NetFlow for your site.
 
-# Options for the daemons used in the standalone deploy mode
-# - NETFLOW_MASTER_IP, to bind the master to a different IP address or hostname
-# - NETFLOW_MASTER_PORT / NETFLOW_MASTER_WEBUI_PORT, to use non-default ports for the master
-# - NETFLOW_MASTER_OPTS, to set config properties only for the master (e.g. "-Dx=y")
-# - NETFLOW_WORKER_CORES, to set the number of cores to use on this machine
-# - NETFLOW_WORKER_MEMORY, to set how much total memory workers have to give executors (e.g. 1000m, 2g)
-# - NETFLOW_WORKER_PORT / NETFLOW_WORKER_WEBUI_PORT, to use non-default ports for the worker
-# - NETFLOW_WORKER_INSTANCES, to set the number of worker processes per node
-# - NETFLOW_WORKER_DIR, to set the working directory of worker processes
-# - NETFLOW_WORKER_OPTS, to set config properties only for the worker (e.g. "-Dx=y")
-# - NETFLOW_HISTORY_OPTS, to set config properties only for the history server (e.g. "-Dx=y")
+# Options for the daemons used in the query cluster
+# - NETFLOW_QUERY_MASTER_HOST, to bind the query master to a different IP address or hostname
+# - NETFLOW_QUERY_MASTER_PORT / NETFLOW_QUERY_MASTER_WEBUI_PORT, to use non-default ports for the query master
+# - NETFLOW_QUERY_MASTER_OPTS, to set config properties only for the query master (e.g. "-Dx=y")
+
+# - NETFLOW_QUERY_WORKER_CORES, to set the number of cores for query worker to use on this machine
+# - NETFLOW_QUERY_WORKER_MEMORY, to set how much total memory query worker have to give spark drivers (e.g. 1000m, 2g)
+# - NETFLOW_QUERY_WORKER_PORT / NETFLOW_QUERY_WORKER_WEBUI_PORT, to use non-default ports for the worker
+# - NETFLOW_QUERY_WORKER_DIR, to set the working directory of worker processes
+# - NETFLOW_QUERY_WORKER_OPTS, to set config properties only for the worker (e.g. "-Dx=y")
+
 # - NETFLOW_DAEMON_JAVA_OPTS, to set config properties for all daemons (e.g. "-Dx=y")
 # - NETFLOW_PUBLIC_DNS, to set the public dns name of the master or workers
 

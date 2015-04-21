@@ -25,10 +25,4 @@ sbin=`cd "$sbin"; pwd`
 
 . "$NETFLOW_PREFIX/bin/load-netflow-env.sh"
 
-if [ "$NETFLOW_WORKER_INSTANCES" = "" ]; then
-  "$sbin"/netflow-daemons.sh stop cn.ac.ict.acs.netflow.deploy.QueryWorker 1
-else
-  for ((i=0; i<$NETFLOW_WORKER_INSTANCES; i++)); do
-    "$sbin"/netflow-daemons.sh stop cn.ac.ict.acs.netflow.deploy.QueryWorker $(( $i + 1 ))
-  done
-fi
+"$sbin"/netflow-daemons.sh stop cn.ac.ict.acs.netflow.deploy.QueryWorker 1

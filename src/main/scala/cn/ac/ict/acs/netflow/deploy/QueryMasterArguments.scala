@@ -28,14 +28,14 @@ class QueryMasterArguments(args: Array[String], conf: NetFlowConf) {
   var propertiesFile: String = null
 
   // Check for settings in environment variables
-  if (System.getenv("NETFLOW_MASTER_HOST") != null) {
-    host = System.getenv("NETFLOW_MASTER_HOST")
+  if (System.getenv("NETFLOW_QUERY_MASTER_HOST") != null) {
+    host = System.getenv("NETFLOW_QUERY_MASTER_HOST")
   }
-  if (System.getenv("NETFLOW_MASTER_PORT") != null) {
-    port = System.getenv("NETFLOW_MASTER_PORT").toInt
+  if (System.getenv("NETFLOW_QUERY_MASTER_PORT") != null) {
+    port = System.getenv("NETFLOW_QUERY_MASTER_PORT").toInt
   }
-  if (System.getenv("NETFLOW_MASTER_WEBUI_PORT") != null) {
-    webUiPort = System.getenv("NETFLOW_MASTER_WEBUI_PORT").toInt
+  if (System.getenv("NETFLOW_QUERY_MASTER_WEBUI_PORT") != null) {
+    webUiPort = System.getenv("NETFLOW_QUERY_MASTER_WEBUI_PORT").toInt
   }
 
   parse(args.toList)

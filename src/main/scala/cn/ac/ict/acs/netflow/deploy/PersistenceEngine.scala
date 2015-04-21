@@ -58,13 +58,13 @@ trait PersistenceEngine {
 //    unpersist("app_" + app.id)
 //  }
 //
-//  final def addWorker(worker: WorkerInfo): Unit = {
-//    persist("worker_" + worker.id, worker)
-//  }
-//
-//  final def removeWorker(worker: WorkerInfo): Unit = {
-//    unpersist("worker_" + worker.id)
-//  }
+  final def addWorker(worker: QueryWorkerInfo): Unit = {
+    persist("worker_" + worker.id, worker)
+  }
+
+  final def removeWorker(worker: QueryWorkerInfo): Unit = {
+    unpersist("worker_" + worker.id)
+  }
 //
 //  final def addDriver(driver: DriverInfo): Unit = {
 //    persist("driver_" + driver.id, driver)

@@ -45,14 +45,22 @@ object LoadConf {
 }
 
 
-class NetFlowConf extends Serializable {
+class NetFlowConf(loadDefaults: Boolean) extends Serializable {
   import NetFlowConf._
   import LoadConf._
 
+  def this() = this(true)
+
   @transient private val settings = new ConcurrentHashMap[String, String]()
 
+  if (loadDefaults) {
+    // Load any netflow.* system properties that passed as -D<name>=<value> at start time
+    for ((key, value) <- Utils.getSystemProperties if key.startsWith("netflow.")) {
+      set(key, value)
+    }
+  }
 
-  /** ************************ NetFLow Params/Hints ******************* */
+    /** ************************ NetFLow Params/Hints ******************* */
 
   def dfsName = get(DFS_NAME, "hdfs://localhost:9000")
 

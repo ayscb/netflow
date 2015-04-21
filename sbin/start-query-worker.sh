@@ -19,7 +19,7 @@
 #
 
 # Usage: start-query-worker.sh <worker#> <netflow-query-master-URL>
-#   where <netflow-query-master-URL> is like "netflow://localhost:9099"
+#   where <netflow-query-master-URL> is like "netflow-query://localhost:9099"
 
 sbin="`dirname "$0"`"
 sbin="`cd "$sbin"; pwd`"

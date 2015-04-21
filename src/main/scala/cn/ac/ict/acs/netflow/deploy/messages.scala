@@ -21,10 +21,10 @@ package cn.ac.ict.acs.netflow.deploy
 import cn.ac.ict.acs.netflow.QueryDescription
 import cn.ac.ict.acs.netflow.util.Utils
 
-sealed trait MasterMessages extends Serializable
+sealed trait QueryMasterMessages extends Serializable
 
 /** Contains messages seen only by the Master and its associated entities. */
-object MasterMessages {
+object QueryMasterMessages {
 
   // LeaderElectionAgent to Master
 
@@ -41,10 +41,10 @@ object MasterMessages {
 
   case object CompleteRecovery
 
-  case object BoundPortsRequest extends MasterMessages
+  case object BoundPortsRequest extends QueryMasterMessages
 
   case class BoundPortsResponse(actorPort: Int, webUIPort: Int)
-    extends MasterMessages
+    extends QueryMasterMessages
 }
 
 sealed trait DeployMessage extends Serializable
@@ -62,8 +62,7 @@ object DeployMessages {
       port: Int,
       cores: Int,
       memory: Int,
-      webUiPort: Int,
-      publicAddress: String)
+      webUiPort: Int)
     extends DeployMessage {
     Utils.checkHost(host, "Required hostname")
     assert (port > 0)

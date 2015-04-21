@@ -24,7 +24,7 @@
 #
 #   NETFLOW_CONF_DIR  Alternate conf dir. Default is ${NETFLOW_HOME}/conf.
 #   NETFLOW_LOG_DIR   Where log files are stored. ${NETFLOW_HOME}/logs by default.
-#   NETFLOW_MASTER    host:path where NETFLOW code should be rsync'd from
+#   NETFLOW_QUERY_MASTER    host:path where NETFLOW code should be rsync'd from
 #   NETFLOW_PID_DIR   The pid files are stored. /tmp by default.
 #   NETFLOW_IDENT_STRING   A string representing this instance of NETFLOW. $USER by default
 #   NETFLOW_NICENESS The scheduling priority for daemons. Defaults to 0.
@@ -136,9 +136,9 @@ case $option in
       fi
     fi
 
-    if [ "$NETFLOW_MASTER" != "" ]; then
-      echo rsync from "$NETFLOW_MASTER"
-      rsync -a -e ssh --delete --exclude=.svn --exclude='logs/*' "$NETFLOW_MASTER/" "$NETFLOW_HOME"
+    if [ "$NETFLOW_QUERY_MASTER" != "" ]; then
+      echo rsync from "$NETFLOW_QUERY_MASTER"
+      rsync -a -e ssh --delete --exclude=.svn --exclude='logs/*' "$NETFLOW_QUERY_MASTER/" "$NETFLOW_HOME"
     fi
 
     netflow_rotate_log "$log"

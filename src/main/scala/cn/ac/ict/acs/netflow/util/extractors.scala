@@ -19,10 +19,23 @@
 package cn.ac.ict.acs.netflow.util
 
 object IntParam {
-
   def unapply(str: String): Option[Int] = {
     try {
       Some(str.toInt)
+    } catch {
+      case e: NumberFormatException => None
+    }
+  }
+}
+
+/**
+ * An extractor object for parsing JVM memory strings, such as "10g", into an Int representing
+ * the number of megabytes. Supports the same formats as Utils.memoryStringToMb.
+ */
+object MemoryParam {
+  def unapply(str: String): Option[Int] = {
+    try {
+      Some(Utils.memoryStringToMb(str))
     } catch {
       case e: NumberFormatException => None
     }

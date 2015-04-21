@@ -18,6 +18,69 @@
  */
 package cn.ac.ict.acs.netflow.deploy
 
-class QueryWorker {
+import akka.actor.{Props, ActorSystem, Actor}
 
+import cn.ac.ict.acs.netflow.{NetFlowConf, Logging}
+import cn.ac.ict.acs.netflow.deploy.DeployMessages._
+import cn.ac.ict.acs.netflow.util.{Utils, AkkaUtils, SignalLogger, ActorLogReceive}
+
+class QueryWorker(
+    host: String,
+    port: Int,
+    webUiPort: Int,
+    cores: Int,
+    memory: Int,
+    masterAkkaUrls: Array[String],
+    actorSystemName: String,
+    actorName: String,
+    workDirPath: String = null,
+    val conf: NetFlowConf)
+  extends Actor with ActorLogReceive with Logging {
+
+  import context.dispatcher
+
+  Utils.checkHost(host, "Expected hostname")
+  assert (port > 0)
+
+  def receiveWithLogging = {
+    case RegisteredWorker =>
+
+    case RegisterWorkerFailed =>
+
+    case ReconnectWorker =>
+  }
+}
+
+object QueryWorker extends Logging {
+  val systemName = "netflowQueryWorker"
+  val actorName = "QueryWorker"
+
+  def main(argStrings: Array[String]) {
+    SignalLogger.register(log)
+    val conf = new NetFlowConf
+    val args = new QueryWorkerArguments(argStrings, conf)
+    val (actorSystem, _) = startSystemAndActor(args.host, args.port, args.webUiPort,
+      args.cores, args.memory, args.masters, args.workDir, conf = conf)
+    actorSystem.awaitTermination()
+  }
+
+  def startSystemAndActor(
+      host: String,
+      port: Int,
+      webUiPort: Int,
+      cores: Int,
+      memory: Int,
+      masterUrls: Array[String],
+      workDir: String,
+      workerNumber: Option[Int] = None,
+      conf: NetFlowConf = new NetFlowConf): (ActorSystem, Int) = {
+
+    val sysName = systemName + workerNumber.map(_.toString).getOrElse("")
+    val (actorSystem, boundPort) = AkkaUtils.createActorSystem(sysName, host, port, conf)
+    val masterAkkaUrls = masterUrls.map(
+      QueryMaster.toAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
+    actorSystem.actorOf(Props(classOf[QueryWorker], host, boundPort, webUiPort, cores,
+      memory, masterAkkaUrls, sysName, actorName, workDir, conf), name = actorName)
+    (actorSystem, boundPort)
+  }
 }

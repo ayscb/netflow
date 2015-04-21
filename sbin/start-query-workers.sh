@@ -26,22 +26,13 @@ sbin="`cd "$sbin"; pwd`"
 . "$NETFLOW_PREFIX/bin/load-netflow-env.sh"
 
 # Find the port number for the master
-if [ "$NETFLOW_MASTER_PORT" = "" ]; then
-  NETFLOW_MASTER_PORT=9099
+if [ "$NETFLOW_QUERY_MASTER_PORT" = "" ]; then
+  NETFLOW_QUERY_MASTER_PORT=9099
 fi
 
-if [ "$NETFLOW_MASTER_IP" = "" ]; then
-  NETFLOW_MASTER_IP="`hostname`"
+if [ "$NETFLOW_QUERY_MASTER_HOST" = "" ]; then
+  NETFLOW_QUERY_MASTER_HOST="`hostname`"
 fi
 
 # Launch the query workers
-if [ "$NETFLOW_WORKER_INSTANCES" = "" ]; then
-  exec "$sbin/query-workers.sh" cd "$NETFLOW_HOME" \; "$sbin/start-query-worker.sh" 1 "netflow://$NETFLOW_MASTER_IP:$NETFLOW_MASTER_PORT"
-else
-  if [ "$NETFLOW_WORKER_WEBUI_PORT" = "" ]; then
-    NETFLOW_WORKER_WEBUI_PORT=18081
-  fi
-  for ((i=0; i<$NETFLOW_WORKER_INSTANCES; i++)); do
-    "$sbin/query-workers.sh" cd "$NETFLOW_HOME" \; "$sbin/start-query-worker.sh" $(( $i + 1 ))  "netflow://$NETFLOW_MASTER_IP:$NETFLOW_MASTER_PORT" --webui-port $(( $NETFLOW_WORKER_WEBUI_PORT + $i ))
-  done
-fi
+exec "$sbin/query-workers.sh" cd "$NETFLOW_HOME" \; "$sbin/start-query-worker.sh" 1 "netflow-query://$NETFLOW_QUERY_MASTER_HOST:$NETFLOW_QUERY_MASTER_PORT"
