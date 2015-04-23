@@ -18,13 +18,13 @@
  */
 package cn.ac.ict.acs.netflow.util
 
+import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.Await
+
 import akka.actor.{ActorRef, ExtendedActorSystem, ActorSystem}
+import akka.pattern.ask
 import com.typesafe.config.ConfigFactory
 import org.apache.log4j.{Level, Logger}
-import akka.pattern.ask
-
-import scala.concurrent.Await
-import scala.concurrent.duration.{Duration, FiniteDuration}
 
 import cn.ac.ict.acs.netflow.{NetFlowException, NetFlowConf, Logging}
 

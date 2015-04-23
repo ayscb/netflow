@@ -105,6 +105,15 @@
       <artifactId>joda-time</artifactId>
       <version>2.1</version>
     </dependency>
+
+    <!--
+      Import joda convert to avoid warnings during compilation, is this necessary?
+    -->
+    <dependency>
+      <groupId>org.joda</groupId>
+      <artifactId>joda-convert</artifactId>
+      <version>1.7</version>
+    </dependency>
     <dependency>
       <groupId>org.eclipse.jetty</groupId>
       <artifactId>jetty-util</artifactId>
@@ -244,7 +253,9 @@
           <excludes>
             <exclude>.idea/**</exclude>
             <exclude>*.xml</exclude>
+            <exclude>*.md</exclude>
             <exclude>docs/**</exclude>
+            <exclude>conf/**</exclude>
           </excludes>
         </configuration>
       </plugin>

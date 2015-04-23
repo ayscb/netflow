@@ -124,7 +124,7 @@ class QueryMaster(
   }
 
 
-  def receiveWithLogging = {
+  def receiveWithLogging: PartialFunction[Any, Unit] = {
     case AppointedAsLeader =>
       //TODO: dummy placeholder
       state = QueryMasterRecoveryState.ALIVE
@@ -176,7 +176,7 @@ class QueryMaster(
     case CheckForWorkerTimeOut =>
       timeOutDeadWorkers()
 
-    case RegisterQuery =>
+    case RegisterQuery(queryId) =>
 
     case BoundPortsRequest =>
       sender ! BoundPortsResponse(port, webUiPort)

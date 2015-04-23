@@ -78,22 +78,31 @@ object DeployMessages {
 
   case class ReconnectWorker(masterUrl: String) extends DeployMessage
 
+  // Worker internal
+
+  case object ReregisterWithMaster // used when a worker attempts to reconnect to a master
+
+  case object WorkDirCleanup // Sent to Worker actor periodically for cleaning up app folders
+
+  // Master to Worker & QueryDriver?
+
+  // Send during master recovery procedure
+  case class MasterChanged(masterUrl: String, masterWebUrl: String)
+
 }
 
 object Messages {
 
   case object SendHeartbeat
 
-  case class RegisterQuery
+  case class RegisterQuery(queryId: String)
 
-  case class RegisterQueryFailed
+  case object RegisterQueryFailed
 
   case class LaunchQuery(
     masterUrl: String,
     queryId: String,
     queryDesc: QueryDescription)
 
-  case class KillQuery(
-    masterUrl: String,
-    queryId: String)
+  case class KillQuery(queryId: String)
 }

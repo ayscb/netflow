@@ -69,6 +69,30 @@
   </tr>
 </table> 
 
+{:.table-name}表4 NETFLOW_QUERY_WORKER_OPTS的可选配置项
+<table class="table">
+  <tr>
+  	<th style="width:21%">配置项</th>
+  	<th>默认值（单位）</th>
+  	<th>代表的含义</th>
+  </tr>
+  <tr>
+  	<td><code>netflow.QueryWorker.cleanup.enabled</code></td>
+  	<td>false</td>
+  	<td>开启worker上query目录的定期清理，只有停止的查询的目录才会被清除</td>
+  </tr>
+  <tr>
+  	<td><code>netflow.QueryWorker.cleanup.interval</code></td>
+  	<td>1800（秒）</td>
+  	<td>query目录的清理周期</td>
+  </tr>
+  <tr>
+  	<td><code>netflow.QueryWorker.cleanup.appDataTtl</code></td>
+  	<td>7 * 24 * 3600（秒）</td>
+  	<td>query目录的清理周期</td>
+  </tr>
+</table> 
+
 {:.table-name}表x 基于ZooKeeper的QueryMaster HA配置
 <table class="table">
   <tr>

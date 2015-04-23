@@ -23,8 +23,8 @@ import java.net.{Inet4Address, NetworkInterface, InetAddress, BindException}
 import java.util.{Locale, Properties}
 
 import scala.collection.Map
-import scala.util.control.NonFatal
 import scala.collection.JavaConversions._
+import scala.util.control.{ControlThrowable, NonFatal}
 
 import org.eclipse.jetty.util.MultiException
 
@@ -319,6 +319,40 @@ object Utils extends Logging {
       case e: java.net.URISyntaxException =>
         throw new NetFlowException("Invalid query master URL: " + netflowUrl, e)
     }
+  }
+
+  /**
+   * Execute a block of code that evaluates to Unit, forwarding any uncaught exceptions to the
+   * default UncaughtExceptionHandler
+   */
+  def tryOrExit(block: => Unit) {
+    try {
+      block
+    } catch {
+      case e: ControlThrowable => throw e
+      case t: Throwable => NetFlowUncaughtExceptionHandler.uncaughtException(t)
+    }
+  }
+
+  /**
+   * Detect whether this thread might be executing a shutdown hook. Will always return true if
+   * the current thread is a running a shutdown hook but may spuriously return true otherwise (e.g.
+   * if System.exit was just called by a concurrent thread).
+   *
+   * Currently, this detects whether the JVM is shutting down by Runtime#addShutdownHook throwing
+   * an IllegalStateException.
+   */
+  def inShutdown(): Boolean = {
+    try {
+      val hook = new Thread {
+        override def run() {}
+      }
+      Runtime.getRuntime.addShutdownHook(hook)
+      Runtime.getRuntime.removeShutdownHook(hook)
+    } catch {
+      case ise: IllegalStateException => return true
+    }
+    false
   }
 
 }
