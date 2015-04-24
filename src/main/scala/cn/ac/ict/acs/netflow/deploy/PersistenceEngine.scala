@@ -65,22 +65,22 @@ trait PersistenceEngine {
   final def removeWorker(worker: QueryWorkerInfo): Unit = {
     unpersist("worker_" + worker.id)
   }
-//
-//  final def addDriver(driver: DriverInfo): Unit = {
-//    persist("driver_" + driver.id, driver)
-//  }
-//
-//  final def removeDriver(driver: DriverInfo): Unit = {
-//    unpersist("driver_" + driver.id)
-//  }
-//
-//  /**
-//   * Returns the persisted data sorted by their respective ids (which implies that they're
-//   * sorted by time of creation).
-//   */
-//  final def readPersistedData(): (Seq[ApplicationInfo], Seq[DriverInfo], Seq[WorkerInfo]) = {
-//    (read[ApplicationInfo]("app_"), read[DriverInfo]("driver_"), read[WorkerInfo]("worker_"))
-//  }
+
+  final def addDriver(query: QueryInfo): Unit = {
+    persist("query_" + query.id, query)
+  }
+
+  final def removeDriver(query: QueryInfo): Unit = {
+    unpersist("query_" + query.id)
+  }
+
+  /**
+   * Returns the persisted data sorted by their respective ids (which implies that they're
+   * sorted by time of creation).
+   */
+  final def readPersistedData(): (Seq[QueryInfo], Seq[QueryWorkerInfo]) = {
+    (read[QueryInfo]("query_"), read[QueryWorkerInfo]("worker_"))
+  }
 
   def close() {}
 }

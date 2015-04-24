@@ -22,9 +22,10 @@ import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-import akka.remote.RemotingLifecycleEvent
+import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
 import akka.actor._
 import akka.pattern.ask
+import akka.serialization.SerializationExtension
 
 import org.joda.time.format.DateTimeFormat
 
@@ -92,8 +93,9 @@ class QueryMaster(
     val (persistenceEngine_, leaderElectionAgent_) = RECOVERY_MODE match {
       case "ZOOKEEPER"  =>
         logInfo("Persisting recovery state to ZooKeeper")
-        //TODO ZK Impl here
-        (new BlackHolePersistenceEngine(), new MonarchyLeaderAgent(this))
+        val zkFactory =
+          new ZooKeeperRecoveryModeFactory(conf, SerializationExtension(context.system))
+        (zkFactory.createPersistenceEngine(), zkFactory.createLeaderElectionAgent(this))
       case _ =>
         logInfo("No state persisted as a MonarchyLeader")
         (new BlackHolePersistenceEngine(), new MonarchyLeaderAgent(this))
@@ -124,10 +126,66 @@ class QueryMaster(
   }
 
 
-  def receiveWithLogging: PartialFunction[Any, Unit] = {
+  def beginRecovery(
+      storedQueries: Seq[QueryInfo],
+      storedWorkers: Seq[QueryWorkerInfo]): Unit = {
+
+    for (query <- storedQueries) {
+      logInfo("Trying to recover query: " + query.id)
+      try {
+        registerQuery(query)
+        //TODO
+      } catch {
+        case e: Exception => logInfo("Query " + query.id + " had exception")
+      }
+    }
+
+    for (worker <- storedWorkers) {
+      logInfo("Trying to recover worker: " + worker.id)
+      try {
+        registerWorker(worker)
+        worker.state = QueryWorkerState.UNKNOWN
+        worker.actor ! MasterChanged(queryMasterUrl, queryMasterWebUIUrl)
+      } catch {
+        case e: Exception => logInfo("Worker " + worker.id + " had exception on reconnect")
+      }
+    }
+  }
+
+  def completeRecovery(): Unit = {
+    // Ensure "only-once" recovery semantics using a short synchronization period.
+    synchronized {
+      if (state != QueryMasterRecoveryState.RECOVERING) {
+        return
+      }
+      state = QueryMasterRecoveryState.COMPLETING_RECOVERY
+    }
+
+    workers.filter(_.state == QueryWorkerState.UNKNOWN).foreach(removeWorker)
+    //TODO: Queries
+
+    state = QueryMasterRecoveryState.ALIVE
+    schedule()
+    logInfo("Recovery complete - resuming operations!")
+  }
+
+  override def receiveWithLogging = {
     case AppointedAsLeader =>
-      //TODO: dummy placeholder
-      state = QueryMasterRecoveryState.ALIVE
+      val (storedQueries, storedWorkers) = persistenceEngine.readPersistedData()
+      state = if (storedQueries.isEmpty && storedWorkers.isEmpty) {
+        QueryMasterRecoveryState.ALIVE
+      } else {
+        QueryMasterRecoveryState.RECOVERING
+      }
+      logInfo("I have been elected leader! New state: " + state)
+      if (state == QueryMasterRecoveryState.RECOVERING) {
+        beginRecovery(storedQueries, storedWorkers)
+        recoveryCompletionTask = context.system.scheduler.scheduleOnce(WORKER_TIMEOUT.millis, self,
+          CompleteRecovery)
+      }
+
+    case CompleteRecovery =>
+      completeRecovery()
 
     case RevokedLeadership => {
       logError("Leadership has been revoked -- query master shutting down.")
@@ -180,9 +238,25 @@ class QueryMaster(
 
     case BoundPortsRequest =>
       sender ! BoundPortsResponse(port, webUiPort)
+
+    case DisassociatedEvent(_, address, _) => {
+      // The disconnected client could've been either a worker or an app; remove whichever it was
+      logInfo(s"$address got disassociated, removing it.")
+      addressToWorker.get(address).foreach(removeWorker)
+//      addressToApp.get(address).foreach(finishApplication)
+      if (state == QueryMasterRecoveryState.RECOVERING && canCompleteRecovery) {
+        completeRecovery()
+      }
+    }
   }
 
-  def createQuery() = ???
+  def canCompleteRecovery =
+    workers.count(_.state == QueryWorkerState.UNKNOWN) == 0
+//      apps.count(_.state == ApplicationState.UNKNOWN) == 0
+
+  def registerQuery(query: QueryInfo): Unit = {
+
+  }
 
   def registerWorker(worker: QueryWorkerInfo): Boolean = {
     // There may be one or more refs to dead workers on this same node (with different ID's),
