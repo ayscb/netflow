@@ -26,15 +26,40 @@ package object util {
 }
 
 object TimeUtil {
+
+  // get the file path based on time , which likes " 2015/02/21/03/23 "
+  def getCurrentTimePath(conf: NetFlowConf) : String = {
+    DateTime.now().toString(
+      DateTimeFormat.forPattern(conf.doctTimeIntervalFormat.toString))
+  }
+
+  def getTimeBasePathBySeconds(conf: NetFlowConf, seconds :Long) : String = {
+    val str = conf.doctTimeIntervalFormat
+    new DateTime(seconds * 1000).toString(str)
+  }
+
+  // get next interval time .
+  // if the dictionary interval time is 10 min ,
+  // if the time is  1:12 , the method will return 1:20
+  def getNextBaseTime( conf:NetFlowConf, second : Long) : Long ={
+    val value = conf.doctTimeIntervalValue.toLong
+    second / value * value + value
+  }
+
+  // get current interval time .
+  // if the dictionary interval time is 10 min ,
+  // if the time is  1:12 , the method will return 1:10
+  def getCurrentBastTime( conf:NetFlowConf, second : Long) : Long ={
+    val value = conf.doctTimeIntervalValue.toLong
+    second / value * value
+  }
+
   def timeToSeconds(conf: NetFlowConf, t: String) =
     DateTime.parse(t, conf.timeFormat).getMillis / 1000
 
   def secnodsToTime(conf: NetFlowConf, seconds :Long )  =
     new DateTime(seconds * 1000).toString(conf.timeFormat)
 
-  def secnodsToTime(seconds :Long )  =
-    new DateTime(seconds * 1000).toString(
-      DateTimeFormat.forPattern("yyyy-MM-dd HH:mm"))
 }
 
 trait IP {

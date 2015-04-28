@@ -58,18 +58,16 @@ object GBFTest {
       .filter($"flow_time" > startTime)
       .filter($"flow_time" < endTime)
       .filter($"ipv4_dst_addr" === filterIp)
-      .select("ipv4_dst_addr")
-      .groupBy("ipv4_dst_addr")
-      .agg("ipv4_dst_addr" -> "count")
+      .select("ipv4_src_addr")
+      .groupBy("ipv4_src_addr")
+      .agg("ipv4_src_addr" -> "count")
 
     //    ipWithCount.explain()
 
-    ipWithCount.foreach(row => {
-      println("Result: [ "
-        + IPv4.bytes2String(row.getAs[Array[Byte]](0))
-        + " : " + row.get(1)
-        + " ]")
-    })
+    ipWithCount.rdd.map(row =>
+      (IPv4.bytes2String(row.getAs[Array[Byte]](0)), row.getAs[Long](1)))
+      .reduceByKey( (a,b)=> (a + b),1 )
+      .saveAsTextFile(args(4))
 
     sc.stop()
   }

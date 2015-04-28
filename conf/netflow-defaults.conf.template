@@ -5,14 +5,16 @@
 netflow.fs.default.name             hdfs://192.168.80.110:8020
 netflow.time.format                 yyyy-MM-dd:HH:mm
 
+parquet.enable.dictionary           true
+parquet.compression                 snappy
+
 # Load settings
 netflow.load.interval               4
-netflow.load.dataRate               242
+netflow.load.dataRate               1
 
-netflow.load.startTime              2015-01-01:01:00
-netflow.load.endTime                2015-01-01:01:01
-netflow.load.path                   parquet100
+netflow.load.startTime              2015-01-01:01:10
+netflow.load.endTime                2015-01-01:01:20
+netflow.load.path                   par201501010110-20150101012022
 
 
 # Sql settings
-# netflow.sql.

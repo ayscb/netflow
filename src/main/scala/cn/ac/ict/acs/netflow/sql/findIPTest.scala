@@ -18,7 +18,7 @@
  */
 package cn.ac.ict.acs.netflow.sql
 
-import cn.ac.ict.acs.netflow.{TimeUtil, IPv4, NetFlowConf}
+import cn.ac.ict.acs.netflow.{NetFlowConf, TimeUtil, IPv4}
 import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.{SparkContext, SparkConf}
 
@@ -39,8 +39,6 @@ object findIPTest {
    *        arg(1) - ip to be used in filter
    */
   def main(args: Array[String]) {
-
-    val nfConf = new NetFlowConf
 
     val sparkConf = new SparkConf().setAppName("NF_find_ip_and_time_record")
     val sc = new SparkContext(sparkConf)
@@ -63,9 +61,9 @@ object findIPTest {
     ipWithCount.foreach(row => {
       println("Result: [ "
         + row(0) + " "
-        + TimeUtil.secnodsToTime(row.getAs[Long](0)) + " "
+        + TimeUtil.secnodsToTime(new NetFlowConf(),row.getAs[Long](0)) + " "
         + IPv4.bytes2String(row.getAs[Array[Byte]](1)) + " "
-        + IPv4.bytes2String(row.getAs[Array[Byte]](1))
+        + IPv4.bytes2String(row.getAs[Array[Byte]](2))
         + " ]")
     })
 

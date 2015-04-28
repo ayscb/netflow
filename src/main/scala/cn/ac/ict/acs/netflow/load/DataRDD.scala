@@ -31,7 +31,7 @@ class DataRDD(startTime: Long,
               endTime: Long,
               intervalSecond: Int,
               dataRate: Long,
-              template: Template,
+              template: TemplateV2,
               sc: SparkContext)
   extends RDD[Row](sc, Nil) {
 
@@ -44,12 +44,12 @@ class DataRDD(startTime: Long,
     var currTime = split.splitStartTime
     var totalBytes = 0L
 
-    val arrys = template.getArrayContainer
-
     new Iterator[Row] {
       val content: GenericMutableRow = new GenericMutableRow(101)
+      var dataTime : Long = 0
 
-      override def hasNext: Boolean = currTime < splitEndTime
+      override def hasNext: Boolean =
+        currTime < splitEndTime
 
       override def next(): Row = {
         totalBytes += template.getRowLength
@@ -58,7 +58,8 @@ class DataRDD(startTime: Long,
           totalBytes = 0
         }
 
-        template.getRowData(currTime, content, arrys)
+       // template.getRowData(currTime, content, arrys)
+        template.getRowData(currTime, content)
         content
       }
     }

@@ -18,7 +18,6 @@
  */
 package cn.ac.ict.acs.netflow.sql
 
-import cn.ac.ict.acs.netflow.util.FileUtil
 import cn.ac.ict.acs.netflow.{IPv4, NetFlowConf}
 import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.{SparkContext, SparkConf}

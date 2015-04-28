@@ -19,8 +19,9 @@
 package cn.ac.ict.acs.netflow.load
 
 import org.apache.spark.sql.catalyst.expressions.GenericMutableRow
+
 import scala.collection.mutable
-import scala.collection.mutable.Map
+import scala.collection.mutable.ArrayBuffer
 import scala.io.Source
 import scala.util.Random
 
@@ -29,10 +30,9 @@ import scala.util.Random
  * Created by ayscb on 2015/3/29.
  */
 
-case class Template(template: mutable.Map[Int, Int], rowBytes: Int) {
+case class TemplateV2(template: mutable.Map[Int, Int], rowBytes: Int) {
 
-  @transient var rd: Random = new Random()
-
+  @transient lazy val rd: Random = new Random()
 
   val variableKey = Set(1, 2, 3, 10, 14, 16, 17, 19, 20,
     23, 24, 40, 41, 42, 82, 83, 84, 85, 86, 94, 100)
@@ -43,10 +43,10 @@ case class Template(template: mutable.Map[Int, Int], rowBytes: Int) {
   def getRowLength = rowBytes
 
   def getRowData(currTime: Long,
-                 row: GenericMutableRow,
-                 arrayContainer: Array[Array[Byte]]): Unit = {
+                 row: GenericMutableRow
+                 ): Unit = {
 
-    rd = if (rd == null) new Random(currTime) else rd
+    // rd = if (rd == null) new Random(currTime) else rd
     if (template.size == 0) throw new java.lang.RuntimeException("should call praseCommand first")
 
     row.setLong(0, currTime) // time
@@ -54,9 +54,8 @@ case class Template(template: mutable.Map[Int, Int], rowBytes: Int) {
     var i = 0
     for (key <- template.keySet) {
       val valLen = template.getOrElse(key, -1)
-
       if (variableKeys.contains(key)) {
-        setVarDataLength(key, valLen, arrayContainer(i), row)
+        setVarDataLength(key, valLen, row)
         i += 1
       } else {
         setFixeLengthData(key, valLen, row)
@@ -64,65 +63,59 @@ case class Template(template: mutable.Map[Int, Int], rowBytes: Int) {
     }
   }
 
-  // we want to reuse the array buffer
-  def getArrayContainer: Array[Array[Byte]] = {
-    val arrs = new Array[Array[Byte]](variableKeys.size)
-    var i = 0
-    for (key <- template.keySet if variableKeys.contains(key)) {
-      arrs(i) = new Array[Byte](template.getOrElse(key, 0))
-      i += 1
-    }
-    arrs
-  }
 
   private def setFixeLengthData(key: Int, valueLen: Int, row: GenericMutableRow): Unit = {
     valueLen match {
       case 1 =>
-        val v = rd.nextInt(Template.BYTE_MAX).toShort
+        val v = rd.nextInt(TemplateV2.BYTE_MAX).toShort
         row.setShort(key, v)
 
       case 2 =>
-        val v = rd.nextInt(Template.SHORT_MAX)
+        val v = rd.nextInt(TemplateV2.SHORT_MAX)
         row.setInt(key, v)
 
       case 4 =>
-        val v = Math.abs(rd.nextLong() % Template.INT_MAX)
+        val v = Math.abs(rd.nextLong() % TemplateV2.INT_MAX)
         row.setLong(key, v)
     }
   }
 
   private def setVarDataLength(key: Int, valueLen: Int,
-                               container: Array[Byte], row: GenericMutableRow): Unit = {
-    key match {
-      case (8 | 12 | 15) => getIPV4(container) // ipv4
-      case (27 | 28 | 62 | 63) => getIPV6(container) // ipv6
-      case (56 | 57 | 80 | 81) => getMAC(container) // mac
-      case _ => getStringDataLength(template.getOrElse(key, -1), container)
-    }
-    row.update(key, container)
+                               row: GenericMutableRow): Unit = {
+    val value = key match {
+                  case (8 | 12 | 15) => getIPV4 // ipv4
+                  case (27 | 28 | 62 | 63) => getIPV6 // ipv6
+                  case (56 | 57 | 80 | 81) => getMAC // mac
+                  case _ => getStringDataLength(template.getOrElse(key, -1))
+                }
+    row.update(key,value)
   }
 
-  private def getStringDataLength(dataLen: Int, container: Array[Byte]): Unit = {
-    if (dataLen != container.length) {
-      throw new scala.RuntimeException(" expect :" + dataLen + " actual : " + container.length)
+  private def getStringDataLength(dataLen: Int): Array[Byte] = {
+    if( dataLen == -1){
+      throw new IllegalArgumentException("dataLen should be > 0 " +
+        ", but now dataLen = " + dataLen)
     }
-    for (i <- 0 until dataLen) rd.nextBytes(container)
+
+    val result = new Array[Byte](dataLen)
+    rd.nextBytes(result)
+    result
   }
 
-  private def getIPV4(container: Array[Byte]): Unit = getStringDataLength(4, container)
+  private def getIPV4 = getStringDataLength(4)
 
   // 16个字节 分8组 (  FE80:0000:0000:0000:AAAA:0000:00C2:0002 )
-  private def getIPV6(container: Array[Byte]): Unit = getStringDataLength(16, container)
+  private def getIPV6 = getStringDataLength(16)
 
   // 6个字节 表示的是  00-23-5A-15-99-42
-  private def getMAC(container: Array[Byte]): Unit = getStringDataLength(6, container)
+  private def getMAC = getStringDataLength(6)
 }
 
-object Template {
+object TemplateV2 {
 
-  val BYTE_MAX = 255 / 2
-  val SHORT_MAX = 65535 / 2
-  val INT_MAX = 4294967295L / 2
+  val BYTE_MAX = 255
+  val SHORT_MAX = 65535
+  val INT_MAX = 4294967295L
   val IP_MAX = 256
 
   private val template: mutable.Map[Int, Int] = new mutable.HashMap[Int, Int]
@@ -135,7 +128,7 @@ object Template {
    *
    * @param fileName template  file path
    */
-  def load(fileName: String): Template = {
+  def load(fileName: String): TemplateV2 = {
 
     val file = Source.fromFile(fileName)
     if (file == null) {
@@ -152,6 +145,6 @@ object Template {
     }
 
     file.close()
-    Template(template, rowLength)
+    TemplateV2(template, rowLength)
   }
 }

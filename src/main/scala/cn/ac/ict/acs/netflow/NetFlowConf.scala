@@ -21,28 +21,33 @@ package cn.ac.ict.acs.netflow
 import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
 
+import org.apache.hadoop.conf.{Configuration, Configured}
 import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
+import org.joda.time.format.{DateTimeFormatter, DateTimeFormat}
 
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
 
 object NetFlowConf {
   val DFS_NAME = "netflow.fs.default.name"
-  val TIME_FORMAT = "netflow.time.format"
+  val DOC_TIME_INTERVAL = "netflow.document.time.interval"      // the document we will organize ,s( seconds )
+  val NETFLOW_BASE_ROOT = " netflow.base.root"
 
+  val TIME_FORMAT = "netflow.time.format"     // for test
+
+  val TIME_PATH_FORMAT="netflow.time.path.format"
   val KB = 1024
   val MB = 1024 * KB
 }
 
+// for test
 object LoadConf {
-  val LOAD_INTERVAL = "netflow.load.interval"
-  val LOAD_DATARATE = "netflow.load.dataRate"
-  val LOAD_STARTTIME = "netflow.load.startTime"
-  val LOAD_ENDTIME = "netflow.load.endTime"
-  val LOAD_PATH = "netflow.load.path"
+  val LOAD_INTERVAL =   "netflow.load.interval"
+  val LOAD_DATARATE =   "netflow.load.dataRate"
+  val LOAD_STARTTIME =  "netflow.load.startTime"
+  val LOAD_ENDTIME =    "netflow.load.endTime"
+  val LOAD_PATH =       "netflow.load.path"
 }
-
 
 class NetFlowConf extends Serializable {
   import NetFlowConf._
@@ -50,17 +55,41 @@ class NetFlowConf extends Serializable {
 
   @transient private val settings = new ConcurrentHashMap[String, String]()
 
-
   /** ************************ NetFLow Params/Hints ******************* */
 
   def dfsName = get(DFS_NAME, "hdfs://localhost:9000")
 
-  def timeFormatStr = get(TIME_FORMAT, "yyyy-MM-dd:HH:mm")
+  def timeFormat: DateTimeFormatter = {
+    val timeFormatStr = get(TIME_FORMAT, "yyyy-MM-dd:HH:mm")
+    DateTimeFormat.forPattern(timeFormatStr)
+  }
 
-  def timeFormat = DateTimeFormat.forPattern(timeFormatStr)
+  def doctTimeIntervalValue :String = get(DOC_TIME_INTERVAL,"600")
 
+  def doctTimeIntervalFormat:DateTimeFormatter = {
+    // 10 min as default
+    val value = get(DOC_TIME_INTERVAL, "600").toLong
+    val strFormat : String = value match {
+      case x  if x < 60    => "/yyyy/MM/dd/HH/mm/ss" // second level
+      case x if x < 3600  =>  "/yyyy/MM/dd/HH/mm" // minute level
+      case x if x < 86400 =>  "/yyyy/MM/dd/" // hour level
+      case _              =>  "/yyyy/MM/dd/HH/"
+    }
+    DateTimeFormat.forPattern(strFormat.toString)
+  }
 
+  def getBaseRoot = get(NETFLOW_BASE_ROOT,"netflow")
 
+  lazy val conf = {
+    val _conf = new Configuration()
+    val s = _conf.get("fs.defaultFS")
+    if( _conf.get("fs.defaultFS").startsWith("file")){
+      _conf.set("fs.defaultFS",dfsName)
+    }
+    _conf
+  }
+
+  def hadoopConfigure = conf
   /** ************************ Load Params/Hints ******************* */
 
   def loadInterval = getInt(LOAD_INTERVAL, 4)
@@ -74,10 +103,7 @@ class NetFlowConf extends Serializable {
   def loadPath = getAbsolutePath(get(LOAD_PATH))    // we get the path which should begin with "\"
 
 
-
-
   /** ************************ Base Utils/Implementations ******************* */
-
 
   def load(path: String): NetFlowConf = {
     set(util.ConfigurationUtil.loadPropertiesFile(path))
@@ -149,6 +175,11 @@ class NetFlowConf extends Serializable {
   }
 
   /** Get a parameter as a double, falling back to a default if not set */
+  def getFloat(key :String,  defaultValue: Float) : Float = {
+    getOption(key).map(_.toFloat).getOrElse(defaultValue)
+  }
+
+  /** Get a parameter as a double, falling back to a default if not set */
   def getDouble(key: String, defaultValue: Double): Double = {
     getOption(key).map(_.toDouble).getOrElse(defaultValue)
   }
@@ -166,4 +197,12 @@ class NetFlowConf extends Serializable {
   private def getAbsolutePath( path :String): String =
     if ( path.startsWith("/") ) path else "/".concat(path)
 
+  //get the format level
+  private def getTimeStrFromInterval( timeStr : String) = {
+      timeStr.toLong match {
+      case x => if ( x< 60 )      "/yyyy/MM/dd/HH/mm/"        // second level
+      case x => if ( x < 3600 )   "/yyyy/MM/dd/HH/"           // minute level
+      case x => if ( x < 86400 )  "/yyyy/MM/dd/"              // hour level
+    }
+  }
 }
