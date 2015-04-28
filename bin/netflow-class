@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+
+# Figure out where NetFlow is installed
+FWDIR="$(cd "`dirname "$0"`"/..; pwd)"
+
+# Export this as NETFLOW_HOME
+export NETFLOW_HOME="$FWDIR"
+export NETFLOW_CONF_DIR="${NETFLOW_CONF_DIR:-"$NETFLOW_HOME/conf"}"
+
+. "$FWDIR"/bin/load-netflow-env.sh
+
+if [ -z "$1" ]; then
+  echo "Usage: netflow-class <class> [<args>]" 1>&2
+  exit 1
+fi
+
+# Use 512m as the default memory, to be overridden by specific options
+DEFAULT_MEM="-512m"
+
+NETFLOW_DAEMON_JAVA_OPTS="$NETFLOW_DAEMON_JAVA_OPTS -Dnetflow.akka.logLifecycleEvents=true"
+
+# Add java opts and memory settings for QueryMaster, and QueryWorker
+case "$1" in
+  # Master, and Worker use NETFLOW_DAEMON_JAVA_OPTS (and specific opts) + NETFLOW_DAEMON_MEMORY.
+  'cn.ac.ict.acs.netflow.deploy.QueryMaster')
+    OUR_JAVA_OPTS="$NETFLOW_DAEMON_JAVA_OPTS $NETFLOW_QUERY_MASTER_OPTS"
+    OUR_JAVA_MEM=${NETFLOW_DAEMON_MEMORY:-$DEFAULT_MEM}
+    ;;
+  'cn.ac.ict.acs.netflow.deploy.QueryWorker')
+    OUR_JAVA_OPTS="$NETFLOW_DAEMON_JAVA_OPTS $NETFLOW_QUERY_WORKER_OPTS"
+    OUR_JAVA_MEM=${NETFLOW_DAEMON_MEMORY:-$DEFAULT_MEM}
+    ;;
+  *)
+    OUR_JAVA_OPTS="$NETFLOW_JAVA_OPTS"
+    OUR_JAVA_MEM=$DEFAULT_MEM
+    ;;
+esac
+
+# Find the java binary
+if [ -n "${JAVA_HOME}" ]; then
+  RUNNER="${JAVA_HOME}/bin/java"
+else
+  if [ `command -v java` ]; then
+    RUNNER="java"
+  else
+    echo "JAVA_HOME is not set" >&2
+    exit 1
+  fi
+fi
+JAVA_VERSION=$("$RUNNER" -version 2>&1 | grep 'version' | sed 's/.* version "\(.*\)\.\(.*\)\..*"/\1\2/; 1q')
+
+# Set JAVA_OPTS to be able to load native libraries and to set heap size
+if [ "$JAVA_VERSION" -ge 18 ]; then
+  JAVA_OPTS="$OUR_JAVA_OPTS"
+else
+  JAVA_OPTS="-XX:MaxPermSize=128m $OUR_JAVA_OPTS"
+fi
+JAVA_OPTS="$JAVA_OPTS -Xms$OUR_JAVA_MEM -Xmx$OUR_JAVA_MEM"
+
+# Load extra JAVA_OPTS from conf/java-opts, if it exists
+if [ -e "$NETFLOW_CONF_DIR/java-opts" ] ; then
+  JAVA_OPTS="$JAVA_OPTS `cat "$NETFLOW_CONF_DIR"/java-opts`"
+fi
+
+# Attention: when changing the way the JAVA_OPTS are assembled, the change must be reflected in CommandUtils.scala!
+
+# Compute classpath using external script
+classpath_output=$("$FWDIR"/bin/compute-classpath.sh)
+if [[ "$?" != "0" ]]; then
+  echo "$classpath_output"
+  exit 1
+else
+  CLASSPATH="$classpath_output"
+fi
+
+export CLASSPATH
+
+if [ -n "$NETFLOW_PRINT_LAUNCH_COMMAND" ]; then
+  echo -n "NetFlow Command: " 1>&2
+  echo "$RUNNER" -cp "$CLASSPATH" $JAVA_OPTS "$@" 1>&2
+  echo -e "========================================\n" 1>&2
+fi
+exec "$RUNNER" -cp "$CLASSPATH" $JAVA_OPTS "$@"

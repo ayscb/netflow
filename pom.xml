@@ -12,6 +12,10 @@
     <java.version>1.7</java.version>
     <hadoop.version>2.4.0</hadoop.version>
     <spark.version>1.4.0-SNAPSHOT</spark.version>
+    <jetty.version>8.1.14.v20131031</jetty.version>
+
+    <netflow.jar.basename>netflow-assembly-${project.version}.jar</netflow.jar.basename>
+    <netflow.jar>${project.build.directory}/${netflow.jar.basename}</netflow.jar>
 
     <PermGen>64m</PermGen>
     <MaxPermGen>512m</MaxPermGen>
@@ -64,9 +68,26 @@
       <version>${scala.version}</version>
     </dependency>
     <dependency>
+      <groupId>com.typesafe.akka</groupId>
+      <artifactId>akka-actor_2.10</artifactId>
+      <version>2.3.9</version>
+    </dependency>
+    <dependency>
+      <groupId>com.typesafe.akka</groupId>
+      <artifactId>akka-remote_2.10</artifactId>
+      <version>2.3.9</version>
+    </dependency>
+    <dependency>
+      <groupId>com.typesafe.akka</groupId>
+      <artifactId>akka-slf4j_2.10</artifactId>
+      <version>2.3.9</version>
+    </dependency>
+
+    <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-client</artifactId>
       <version>${hadoop.version}</version>
+      <scope>provided</scope>
         <exclusions>
           <exclusion>
             <groupId>javax.servlet</groupId>
@@ -78,6 +99,7 @@
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-sql_2.10</artifactId>
       <version>${spark.version}</version>
+      <scope>provided</scope>
     </dependency>
 
     <dependency>
@@ -86,6 +108,7 @@
       <version>2.1</version>
     </dependency>
 
+<<<<<<< HEAD
     <dependency>
       <groupId>com.twitter</groupId>
       <artifactId>parquet-common</artifactId>
@@ -123,12 +146,24 @@
       <artifactId>scalatest_${scala.binary.version}</artifactId>
       <version>2.2.4</version>
       <scope>test</scope>
+=======
+    <!--
+      Import joda convert to avoid warnings during compilation, is this necessary?
+    -->
+    <dependency>
+      <groupId>org.joda</groupId>
+      <artifactId>joda-convert</artifactId>
+      <version>1.7</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-util</artifactId>
+      <version>${jetty.version}</version>
+>>>>>>> sql-1/master
     </dependency>
   </dependencies>
 
   <build>
-    <sourceDirectory>src/main/scala</sourceDirectory>
-    <testSourceDirectory>src/test/scala</testSourceDirectory>
     <plugins>
       <plugin>
         <groupId>net.alchim31.maven</groupId>
@@ -210,6 +245,46 @@
           </execution>
         </executions>
       </plugin>
+
+      <!--
+        The shade plug-in here is used to package all the dependencies into a big jar
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>2.2</version>
+        <configuration>
+          <shadedArtifactAttached>false</shadedArtifactAttached>
+          <outputFile>${netflow.jar}</outputFile>
+          <!--<artifactSet>
+            <includes>
+              <include>org.eclipse.jetty:jetty-util</include>
+            </includes>
+          </artifactSet> -->
+          <relocations>
+            <relocation>
+              <pattern>org.eclipse.jetty</pattern>
+              <shadedPattern>cn.netflow-project.shaded.jetty</shadedPattern>
+              <includes>
+                <include>org.eclipse.jetty.**</include>
+              </includes>
+            </relocation>
+          </relocations>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!--
+        The license plug-in is used here to enable automatically inserting
+        license information from LICENSE into each src file using mvn license:format
+      -->
       <plugin>
         <groupId>com.mycila.maven-license-plugin</groupId>
         <artifactId>maven-license-plugin</artifactId>
@@ -217,9 +292,44 @@
         <configuration>
           <header>src/license.txt</header>
           <strictCheck>true</strictCheck>
+          <excludes>
+            <exclude>.idea/**</exclude>
+            <exclude>*.xml</exclude>
+            <exclude>*.md</exclude>
+            <exclude>docs/**</exclude>
+            <exclude>conf/**</exclude>
+          </excludes>
         </configuration>
       </plugin>
+
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>2.2.1</version>
+        <configuration>
+          <attach>true</attach>
+        </configuration>
+        <executions>
+          <execution>
+            <id>create-source-jar</id>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>2.10.1</version>
+      </plugin>
     </plugins>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+    </resources>
   </build>
 
 </project>

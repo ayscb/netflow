@@ -21,10 +21,6 @@ package cn.ac.ict.acs.netflow
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
-package object util {
-
-}
-
 object TimeUtil {
 
   // get the file path based on time , which likes " 2015/02/21/03/23 "

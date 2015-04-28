@@ -21,7 +21,11 @@ package cn.ac.ict.acs.netflow
 import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
 
+<<<<<<< HEAD
 import org.apache.hadoop.conf.{Configuration, Configured}
+=======
+import cn.ac.ict.acs.netflow.util.Utils
+>>>>>>> sql-1/master
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormatter, DateTimeFormat}
 
@@ -49,13 +53,31 @@ object LoadConf {
   val LOAD_PATH =       "netflow.load.path"
 }
 
+<<<<<<< HEAD
 class NetFlowConf extends Serializable {
+=======
+
+class NetFlowConf(loadDefaults: Boolean) extends Serializable {
+>>>>>>> sql-1/master
   import NetFlowConf._
   import LoadConf._
 
+  def this() = this(true)
+
   @transient private val settings = new ConcurrentHashMap[String, String]()
 
+<<<<<<< HEAD
   /** ************************ NetFLow Params/Hints ******************* */
+=======
+  if (loadDefaults) {
+    // Load any netflow.* system properties that passed as -D<name>=<value> at start time
+    for ((key, value) <- Utils.getSystemProperties if key.startsWith("netflow.")) {
+      set(key, value)
+    }
+  }
+
+    /** ************************ NetFLow Params/Hints ******************* */
+>>>>>>> sql-1/master
 
   def dfsName = get(DFS_NAME, "hdfs://localhost:9000")
 
@@ -106,7 +128,7 @@ class NetFlowConf extends Serializable {
   /** ************************ Base Utils/Implementations ******************* */
 
   def load(path: String): NetFlowConf = {
-    set(util.ConfigurationUtil.loadPropertiesFile(path))
+    setAll(Utils.getPropertiesFromFile(path))
   }
 
   def set(props: Properties): NetFlowConf = {
