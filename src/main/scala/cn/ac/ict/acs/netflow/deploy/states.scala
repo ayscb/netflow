@@ -29,3 +29,9 @@ private[netflow] object QueryMasterRecoveryState extends Enumeration {
 
   val STANDBY, ALIVE, RECOVERING, COMPLETING_RECOVERY = Value
 }
+
+object QueryState extends Enumeration {
+  type QueryState = Value
+
+  val SUBMITTED, RUNNING, FINISHED, RELAUNCHING, UNKNOWN, KILLED, FAILED, ERROR = Value
+}

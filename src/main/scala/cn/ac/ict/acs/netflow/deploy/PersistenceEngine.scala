@@ -66,20 +66,28 @@ trait PersistenceEngine {
     unpersist("worker_" + worker.id)
   }
 
-  final def addDriver(query: QueryInfo): Unit = {
+  final def addQuery(query: QueryInfo): Unit = {
     persist("query_" + query.id, query)
   }
 
-  final def removeDriver(query: QueryInfo): Unit = {
+  final def removeQuery(query: QueryInfo): Unit = {
     unpersist("query_" + query.id)
+  }
+
+  final def addJob(job: Job): Unit = {
+    persist("job_" + job.id, job)
+  }
+
+  final def removeJob(jobId: String): Unit = {
+    unpersist("job_" + jobId)
   }
 
   /**
    * Returns the persisted data sorted by their respective ids (which implies that they're
    * sorted by time of creation).
    */
-  final def readPersistedData(): (Seq[QueryInfo], Seq[QueryWorkerInfo]) = {
-    (read[QueryInfo]("query_"), read[QueryWorkerInfo]("worker_"))
+  final def readPersistedData(): (Seq[Job], Seq[QueryInfo], Seq[QueryWorkerInfo]) = {
+    (read[Job]("job_"), read[QueryInfo]("query_"), read[QueryWorkerInfo]("worker_"))
   }
 
   def close() {}

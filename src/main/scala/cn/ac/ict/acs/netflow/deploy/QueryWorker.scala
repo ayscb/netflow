@@ -150,7 +150,7 @@ class QueryWorker(
   }
 
   def receiveWithLogging = {
-    case RegisteredWorker(masterUrl, masterWebUrl) =>
+    case RegisteredWorker(masterUrl, masterWebUrl) => {
       logInfo("Successfully registered with Query Master " + masterUrl)
       registered = true
       changeMaster(masterUrl, masterWebUrl)
@@ -160,42 +160,51 @@ class QueryWorker(
         context.system.scheduler.schedule(CLEANUP_INTERVAL_MILLIS.millis,
           CLEANUP_INTERVAL_MILLIS.millis, self, WorkDirCleanup)
       }
+    }
 
-    case RegisterWorkerFailed(message) =>
+    case RegisterWorkerFailed(message) => {
       if (!registered) {
         logError("Worker registration failed: " + message)
         System.exit(1)
       }
+    }
 
-    case ReconnectWorker(masterUrl) =>
+    case ReconnectWorker(masterUrl) => {
       logInfo(s"Master with url $masterUrl requested this worker to reconnect.")
       registerWithMaster()
+    }
 
     case ReregisterWithMaster =>
       reregisterWithMaster()
 
-    case MasterChanged(masterUrl, masterWebUrl) =>
+    case MasterChanged(masterUrl, masterWebUrl) => {
       // Get this message because of master recovery
       logInfo("Master has changed, new master is at " + masterUrl)
       changeMaster(masterUrl, masterWebUrl)
+      sender ! WorkerSchedulerStateResponse(workerId, queries.keys.toSeq)
+    }
 
-    case SendHeartbeat =>
+    case SendHeartbeat => {
       if (connected) { master ! Heartbeat(workerId) }
+    }
 
-    case x: DisassociatedEvent if x.remoteAddress == masterAddress =>
+    case x: DisassociatedEvent if x.remoteAddress == masterAddress => {
       logInfo(s"$x Disassociated !")
       masterDisconnected()
+    }
 
     // TODO
-    case LaunchQuery(masterUrl, queryId, queryDesc) =>
+    case LaunchQuery(queryId, queryDesc) => {
       logInfo(s"Asked to launch query $queryId")
 
       coresUsed += 0
       memoryUsed += 0
+    }
 
     // TODO
-    case KillQuery(queryId) =>
+    case KillQuery(queryId) => {
       logInfo(s"Asked to kill query $queryId")
+    }
 
     case WorkDirCleanup => //TODO: what should we do during cleanup?
 

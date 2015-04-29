@@ -16,14 +16,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow
+package cn.ac.ict.acs.netflow.deploy
 
-sealed abstract class OutputDesc
+import cn.ac.ict.acs.netflow.deploy.JobType.JobType
 
-case class Direct(schema: String) extends OutputDesc
+object JobType extends Enumeration {
+  type JobType = Value
+  
+  val ADHOC, REPORT, ONLINE = Value
+}
 
-case class File(path: String) extends OutputDesc
+/**
+ *
+ * @param id System wide unique id
+ * @param tpe
+ * @param first first launch time since epoch
+ * @param interval
+ * @param desc
+ */
+case class Job(
+    id: String,
+    tpe: JobType,
+    first: Long,
+    interval: Option[Long],
+    desc: QueryDescription) { //TODO: should ONLINE query require much more resource?
 
-case class Socket(address: String) extends OutputDesc
+}
 
-class QueryResult
+case class QueryDescription(
+    mem: Int = 256,
+    cores: Int = 1,
+    supervise: Boolean = true,
+    command: Command) {
+
+
+}

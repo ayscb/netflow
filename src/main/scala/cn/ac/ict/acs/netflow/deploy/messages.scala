@@ -18,7 +18,8 @@
  */
 package cn.ac.ict.acs.netflow.deploy
 
-import cn.ac.ict.acs.netflow.QueryDescription
+import cn.ac.ict.acs.netflow.deploy.JobType.JobType
+import cn.ac.ict.acs.netflow.deploy.QueryState.QueryState
 import cn.ac.ict.acs.netflow.util.Utils
 
 sealed trait QueryMasterMessages extends Serializable
@@ -70,6 +71,13 @@ object DeployMessages {
 
   case class Heartbeat(workerId: String) extends DeployMessage
 
+  case class QueryStateChange(
+      queryId: String,
+      state: QueryState,
+      exception: Option[Exception])
+
+  case class WorkerSchedulerStateResponse(id: String, queryIds: Seq[String])
+
   // Master to Worker
 
   case class RegisteredWorker(masterUrl: String, masterWebUiUrl: String) extends DeployMessage
@@ -89,18 +97,41 @@ object DeployMessages {
   // Send during master recovery procedure
   case class MasterChanged(masterUrl: String, masterWebUrl: String)
 
+  // Master internal & worker to Master
+  case class KillQueryResponse(queryId: String, success: Boolean, message: String)
+
 }
 
 object Messages {
 
+  case class SubmitQuery(jobId: String, tpe: JobType, queryDesc: QueryDescription)
+
   case object SendHeartbeat
 
-  case class RegisterQuery(queryId: String)
+  // firstShot is millis since epoch
+  case class RegisterJob(
+      tpe: JobType,
+      firstShot: Long,
+      interval: Option[Long],
+      desc: QueryDescription) {
 
-  case object RegisterQueryFailed
+    require({
+      if (tpe == JobType.REPORT) {
+        interval.isDefined
+      } else {
+        !interval.isDefined && firstShot == 0
+      }
+    }, "ReportJob should define interval as execution cycle" +
+      " Meanwhile, online or adhoc job should not utilize it")
+  }
+
+  case class CancelJob(jobId: String)
+
+  case class RegisterJobResponse(success: Boolean, jobId: Option[String], message: String)
+
+  case class CancelJobResponse(jobId: String, success: Boolean, message: String)
 
   case class LaunchQuery(
-    masterUrl: String,
     queryId: String,
     queryDesc: QueryDescription)
 

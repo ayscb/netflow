@@ -22,7 +22,6 @@ import scala.collection.mutable
 
 import akka.actor.ActorRef
 
-import cn.ac.ict.acs.netflow.QueryDescription
 import cn.ac.ict.acs.netflow.util.Utils
 
 class QueryWorkerInfo(
@@ -38,7 +37,7 @@ class QueryWorkerInfo(
   Utils.checkHost(host, "Expected hostname")
   assert (port > 0)
 
-  @transient var queries: mutable.HashMap[String, QueryDescription] = _
+  @transient var queries: mutable.HashMap[String, QueryInfo] = _
   @transient var state: QueryWorkerState.Value = _
   @transient var coresUsed: Int = _
   @transient var memoryUsed: Int = _
@@ -65,6 +64,18 @@ class QueryWorkerInfo(
 
   def setState(state: QueryWorkerState.Value) = {
     this.state = state
+  }
+
+  def addQuery(query: QueryInfo) {
+    queries(query.id) = query
+    memoryUsed += query.desc.mem
+    coresUsed += query.desc.cores
+  }
+
+  def removeQuery(query: QueryInfo) {
+    queries -= query.id
+    memoryUsed -= query.desc.mem
+    coresUsed -= query.desc.cores
   }
 
 }

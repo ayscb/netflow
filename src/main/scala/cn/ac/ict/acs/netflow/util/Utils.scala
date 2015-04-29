@@ -300,7 +300,7 @@ object Utils extends Logging {
    *
    * @throws NetFlowException if `sparkUrl` is invalid.
    */
-  def extractHostPortFromSparkUrl(netflowUrl: String): (String, Int) = {
+  def extractHostPortFromNetFlowUrl(netflowUrl: String): (String, Int) = {
     try {
       val uri = new java.net.URI(netflowUrl)
       val host = uri.getHost

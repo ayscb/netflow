@@ -18,8 +18,20 @@
  */
 package cn.ac.ict.acs.netflow.deploy
 
-class QueryInfo(
-    val id: String
-  ) extends Serializable {
+import cn.ac.ict.acs.netflow.deploy.QueryState.QueryState
+import org.joda.time.DateTime
+
+case class QueryInfo(
+    jobId: String,
+    id: String,
+    startTime: Long,
+    desc: QueryDescription,
+    submitDate: DateTime) {
+
+  @transient var state: QueryState = QueryState.SUBMITTED
+  /* If we fail when launching the driver, the exception is stored here. */
+  @transient var exception: Option[Exception] = None
+  /* Most recent worker assigned to this driver */
+  @transient var worker: Option[QueryWorkerInfo] = None
 
 }
