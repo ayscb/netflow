@@ -18,14 +18,44 @@
  */
 package cn.ac.ict.acs.netflow.deploy
 
-import scala.collection.Map
-
 case class Command(
-  queryString: String,
-  mainClass: String,
-  arguments: Seq[String],
-  environment: Map[String, String],
-  classPathEntries: Seq[String],
-  libraryPathEntries: Seq[String],
-  javaOpts: Seq[String]) {
+    queryString: Option[String],
+    queryPath: Option[String],
+    sparkMasterUrl: String,
+    mainClass: String,
+    jar: String, //path to jar which contains main class
+    deployMode: String = "cluster",
+    appName: String,
+    driverMemory: Option[String],
+    driverJavaOpts: Option[String],
+    driverLibPath: Option[String],
+    driverClassPath: Option[String],
+    driverCores: Option[Int],
+    executorMemory: Option[String],
+    supervise: Boolean = true,
+    totalExecutorCores: Option[Int]) {
+
+  require((queryString.isDefined && queryPath.isEmpty) ||
+    (queryString.isEmpty && queryPath.isDefined))
+
+  override def toString(): String = {
+    val sb = new StringBuilder(200)
+    sb ++= s"--master $sparkMasterUrl --class $mainClass "
+    sb ++= s"--deploy-mode $deployMode --name $appName "
+    driverMemory.foreach(dm => sb ++= s"--driver-memory $dm ")
+    driverJavaOpts.foreach(djo => sb ++= s"--driver-java-options $djo ")
+    driverLibPath.foreach(dlp => sb ++= s"--driver-library-path $dlp ")
+    driverClassPath.foreach(dcp => sb ++= s"--driver-class-path $dcp ")
+    driverCores.foreach(dc => sb ++= s"--driver-cores $dc ")
+    executorMemory.foreach(em => sb ++= s"--executor-memory $em ")
+    if (supervise) {
+      sb ++= "--supervise "
+    }
+    totalExecutorCores.foreach(tec => sb ++= s"--total-executor-cores $tec ")
+    sb ++= s"$jar "
+    queryString.foreach(qs => sb ++= s"$qs ")
+    queryPath.foreach(qp => sb ++= s"$qp ")
+
+    sb.toString()
+  }
 }

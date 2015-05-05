@@ -25,13 +25,12 @@ case class QueryInfo(
     jobId: String,
     id: String,
     startTime: Long,
-    desc: QueryDescription,
+    cmd: Command,
     submitDate: DateTime) {
 
   @transient var state: QueryState = QueryState.SUBMITTED
   /* If we fail when launching the driver, the exception is stored here. */
   @transient var exception: Option[Exception] = None
   /* Most recent worker assigned to this driver */
-  @transient var worker: Option[QueryWorkerInfo] = None
 
 }

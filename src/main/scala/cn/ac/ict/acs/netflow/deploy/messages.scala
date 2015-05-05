@@ -21,6 +21,7 @@ package cn.ac.ict.acs.netflow.deploy
 import cn.ac.ict.acs.netflow.deploy.JobType.JobType
 import cn.ac.ict.acs.netflow.deploy.QueryState.QueryState
 import cn.ac.ict.acs.netflow.util.Utils
+import org.jboss.netty.handler.codec.socks.SocksMessage.CmdStatus
 
 sealed trait QueryMasterMessages extends Serializable
 
@@ -36,11 +37,6 @@ object QueryMasterMessages {
   // Actor System to Master
 
   case object CheckForWorkerTimeOut
-
-//  case class BeginRecovery(
-//    storedApps: Seq[ApplicationInfo], storedWorkers: Seq[WorkerInfo])
-
-  case object CompleteRecovery
 
   case object BoundPortsRequest extends QueryMasterMessages
 
@@ -104,7 +100,7 @@ object DeployMessages {
 
 object Messages {
 
-  case class SubmitQuery(jobId: String, tpe: JobType, queryDesc: QueryDescription)
+  case class SubmitQuery(jobId: String, tpe: JobType, cmd: Command)
 
   case object SendHeartbeat
 
@@ -113,7 +109,7 @@ object Messages {
       tpe: JobType,
       firstShot: Long,
       interval: Option[Long],
-      desc: QueryDescription) {
+      cmd: Command) {
 
     require({
       if (tpe == JobType.REPORT) {
@@ -133,7 +129,7 @@ object Messages {
 
   case class LaunchQuery(
     queryId: String,
-    queryDesc: QueryDescription)
+    cmd: Command)
 
   case class KillQuery(queryId: String)
 }

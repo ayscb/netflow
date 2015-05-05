@@ -32,22 +32,13 @@ object JobType extends Enumeration {
  * @param tpe
  * @param first first launch time since epoch
  * @param interval
- * @param desc
+ * @param cmd
  */
 case class Job(
     id: String,
     tpe: JobType,
     first: Long,
     interval: Option[Long],
-    desc: QueryDescription) { //TODO: should ONLINE query require much more resource?
-
-}
-
-case class QueryDescription(
-    mem: Int = 256,
-    cores: Int = 1,
-    supervise: Boolean = true,
-    command: Command) {
-
+    cmd: Command) { //TODO: should ONLINE query require much more resource?
 
 }

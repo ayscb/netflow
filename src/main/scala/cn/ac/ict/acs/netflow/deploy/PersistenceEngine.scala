@@ -22,12 +22,6 @@ import scala.reflect.ClassTag
 
 /**
  * Allows Master to persist any state that is necessary in order to recover from a failure.
- * The following semantics are required:
- *   - addApplication and addWorker are called before completing registration of a new app/worker.
- *   - removeApplication and removeWorker are called at any time.
- * Given these two requirements, we will have all apps and workers persisted, but
- * we might not have yet deleted apps or workers that finished (so their liveness must be verified
- * during recovery).
  *
  * The implementation of this trait defines how name-object pairs are stored or retrieved.
  */
@@ -50,29 +44,14 @@ trait PersistenceEngine {
    */
   def read[T: ClassTag](prefix: String): Seq[T]
 
-//  final def addApplication(app: ApplicationInfo): Unit = {
-//    persist("app_" + app.id, app)
+//
+//  final def addQuery(query: QueryInfo): Unit = {
+//    persist("query_" + query.id, query)
 //  }
 //
-//  final def removeApplication(app: ApplicationInfo): Unit = {
-//    unpersist("app_" + app.id)
+//  final def removeQuery(query: QueryInfo): Unit = {
+//    unpersist("query_" + query.id)
 //  }
-//
-  final def addWorker(worker: QueryWorkerInfo): Unit = {
-    persist("worker_" + worker.id, worker)
-  }
-
-  final def removeWorker(worker: QueryWorkerInfo): Unit = {
-    unpersist("worker_" + worker.id)
-  }
-
-  final def addQuery(query: QueryInfo): Unit = {
-    persist("query_" + query.id, query)
-  }
-
-  final def removeQuery(query: QueryInfo): Unit = {
-    unpersist("query_" + query.id)
-  }
 
   final def addJob(job: Job): Unit = {
     persist("job_" + job.id, job)
@@ -86,9 +65,7 @@ trait PersistenceEngine {
    * Returns the persisted data sorted by their respective ids (which implies that they're
    * sorted by time of creation).
    */
-  final def readPersistedData(): (Seq[Job], Seq[QueryInfo], Seq[QueryWorkerInfo]) = {
-    (read[Job]("job_"), read[QueryInfo]("query_"), read[QueryWorkerInfo]("worker_"))
-  }
+  final def readPersistedData(): (Seq[Job]) = { read[Job]("job_") }
 
   def close() {}
 }
