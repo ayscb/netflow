@@ -32,34 +32,28 @@ object DeployMessages {
 
   // Broker to Master
 
-  case class RegisterWorker(
+  case class RegisterBroker(
       id: String,
       host: String,
       port: Int,
-      cores: Int,
-      memory: Int,
-      webUiPort: Int)
+      restPort: Int)
     extends DeployMessage {
     Utils.checkHost(host, "Required hostname")
     assert (port > 0)
   }
 
-  case class Heartbeat(workerId: String) extends DeployMessage
-
-  case class QueryStateChange(
-      queryId: String,
-      state: QueryState,
-      exception: Option[Exception])
-
-  case class WorkerSchedulerStateResponse(id: String, queryIds: Seq[String])
+  case class Heartbeat(brokerId: String) extends DeployMessage
 
   // Master to Worker
 
-  case class RegisteredWorker(masterUrl: String, masterWebUiUrl: String) extends DeployMessage
+  case class RegisteredBroker(masterUrl: String, masterWebUiUrl: String) extends DeployMessage
 
-  case class RegisterWorkerFailed(message: String) extends DeployMessage
+  case class RegisterBrokerFailed(message: String) extends DeployMessage
 
-  case class ReconnectWorker(masterUrl: String) extends DeployMessage
+  case class ReconnectBroker(masterUrl: String) extends DeployMessage
+
+  // Broker Internal
+  case object ReregisterWithMaster extends DeployMessage
 
   // Master to Worker & QueryDriver?
 

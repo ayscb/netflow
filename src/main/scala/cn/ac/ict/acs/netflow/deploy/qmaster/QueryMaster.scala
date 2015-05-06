@@ -34,6 +34,7 @@ import org.joda.time.format.DateTimeFormat
 import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.deploy._
 import cn.ac.ict.acs.netflow.deploy.DeployMessages._
+import cn.ac.ict.acs.netflow.deploy.RestMessages._
 import cn.ac.ict.acs.netflow.deploy.qmaster.QueryMasterMessages._
 import cn.ac.ict.acs.netflow.util._
 
@@ -146,25 +147,37 @@ class QueryMaster(
       System.exit(0)
     }
 
-    case RegisterJob(tpe, firstShot, interval, cmd) => {
+    case RestRequestQueryMasterStatus => {
+
+    }
+
+    case RestRequestAllJobsInfo => {
+
+    }
+
+    case RestRequestJobInfo(jobId) => {
+
+    }
+
+    case RestRequestSubmitJob(tpe, firstShot, interval, cmd) => {
       if (state != QueryMasterRecoveryState.ALIVE) {
         val msg = s"Can only accept job registration in ALIVE state. Current state: $state."
-        sender ! RegisterJobResponse(false, None, msg)
+        sender ! RestRequestFailed(msg)
       } else {
         logInfo(s"New Job registered, Info: [type: ${tpe}, " +
           s"query: ${cmd.appName}]")
         val job = createJob(tpe, firstShot, interval, cmd)
         persistenceEngine.addJob(job)
         registerInScheduler(job)
-        sender ! RegisterJobResponse(true, Some(job.id),
+        sender ! RestResponseSubmitJobSuccess(job.id,
           s"Job successfully submitted as ${job.id}")
       }
     }
 
-    case CancelJob(jobId) => {
+    case RestRequestKillJob(jobId) => {
       if (state != QueryMasterRecoveryState.ALIVE) {
         val msg = s"Can only cancel job in ALIVE state. Current state: $state."
-        sender ! CancelJobResponse(jobId, false, msg)
+        sender ! RestRequestFailed(msg)
       } else {
         logInfo(s"Asked to cancel job ${jobId}")
         persistenceEngine.removeJob(jobId)
