@@ -16,13 +16,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.deploy
+package cn.ac.ict.acs.netflow.deploy.qmaster
 
 import java.util.concurrent.Executors
 
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Await}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext}
 
 import akka.actor._
 import akka.pattern.ask
@@ -31,10 +31,10 @@ import akka.serialization.SerializationExtension
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
-import cn.ac.ict.acs.netflow.{NetFlowException, NetFlowConf, Logging}
-import cn.ac.ict.acs.netflow.deploy.QueryMasterMessages._
+import cn.ac.ict.acs.netflow._
+import cn.ac.ict.acs.netflow.deploy._
 import cn.ac.ict.acs.netflow.deploy.DeployMessages._
-import cn.ac.ict.acs.netflow.deploy.Messages._
+import cn.ac.ict.acs.netflow.deploy.qmaster.QueryMasterMessages._
 import cn.ac.ict.acs.netflow.util._
 
 class QueryMaster(

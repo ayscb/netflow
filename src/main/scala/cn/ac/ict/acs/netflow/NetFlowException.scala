@@ -23,3 +23,5 @@ class NetFlowException(message: String, cause: Throwable)
 
   def this(message: String) = this(message, null)
 }
+
+case class NetFlowError(message: String)

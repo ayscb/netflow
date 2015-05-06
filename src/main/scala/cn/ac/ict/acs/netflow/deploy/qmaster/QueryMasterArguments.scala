@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.deploy
+package cn.ac.ict.acs.netflow.deploy.qmaster
 
 import cn.ac.ict.acs.netflow.NetFlowConf
 import cn.ac.ict.acs.netflow.util.{IntParam, Utils}

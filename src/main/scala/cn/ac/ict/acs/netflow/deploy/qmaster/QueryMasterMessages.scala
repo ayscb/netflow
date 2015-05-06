@@ -16,29 +16,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.deploy
+package cn.ac.ict.acs.netflow.deploy.qmaster
 
-import cn.ac.ict.acs.netflow.deploy.JobType.JobType
+sealed trait QueryMasterMessages extends Serializable
 
-object JobType extends Enumeration {
-  type JobType = Value
-  
-  val ADHOC, REPORT, ONLINE = Value
-}
+/** Contains messages seen only by the Master and its associated entities. */
+object QueryMasterMessages {
 
-/**
- *
- * @param id System wide unique id
- * @param tpe
- * @param first first launch time since epoch
- * @param interval
- * @param cmd
- */
-case class Job(
-    id: String,
-    tpe: JobType,
-    first: Long,
-    interval: Option[Long],
-    cmd: Command) { //TODO: should ONLINE query require much more resource?
+  // LeaderElectionAgent to Master
 
+  case object AppointedAsLeader
+
+  case object RevokedLeadership
+
+  // Actor System to Master
+
+  case object CheckForWorkerTimeOut
+
+  case object BoundPortsRequest extends QueryMasterMessages
+
+  case class BoundPortsResponse(actorPort: Int, webUIPort: Int)
+    extends QueryMasterMessages
 }

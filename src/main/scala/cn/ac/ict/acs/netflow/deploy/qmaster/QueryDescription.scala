@@ -16,14 +16,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.sql
+package cn.ac.ict.acs.netflow.deploy.qmaster
 
-class JsonParser {
+import cn.ac.ict.acs.netflow.deploy.Command
+import cn.ac.ict.acs.netflow.deploy.qmaster.JobType.JobType
 
+object JobType extends Enumeration {
+  type JobType = Value
+  
+  val ADHOC, REPORT, ONLINE = Value
 }
 
-object JsonParser {
-  def main(args: Array[String]) {
-    println(true)
-  }
+/**
+ *
+ * @param id System wide unique id
+ * @param tpe
+ * @param first first launch time since epoch
+ * @param interval
+ * @param cmd
+ */
+case class Job(
+    id: String,
+    tpe: JobType,
+    first: Long,
+    interval: Option[Long],
+    cmd: Command) { //TODO: should ONLINE query require much more resource?
+
 }

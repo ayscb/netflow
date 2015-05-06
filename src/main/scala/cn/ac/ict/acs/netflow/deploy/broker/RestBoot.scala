@@ -16,22 +16,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.deploy
+package cn.ac.ict.acs.netflow.deploy.broker
 
-private[netflow] object QueryWorkerState extends Enumeration {
-  type QueryWorkerState = Value
+import scala.concurrent.duration._
 
-  val ALIVE, DEAD, DECOMMISSIONED, UNKNOWN = Value
-}
+import akka.actor.{Props, ActorSystem}
+import akka.io.IO
+import akka.pattern.ask
+import akka.util.Timeout
 
-private[netflow] object QueryMasterRecoveryState extends Enumeration {
-  type MasterState = Value
+import spray.can.Http
 
-  val STANDBY, ALIVE, RECOVERING, COMPLETING_RECOVERY = Value
-}
+object RestBoot {
+  def main(args: Array[String]) {
+    implicit val actorSystem = ActorSystem("netflowRest")
+    val restService = actorSystem.actorOf(Props[RestBroker], "RestBroker")
 
-object QueryState extends Enumeration {
-  type QueryState = Value
+    implicit val timeOut = Timeout(5.seconds)
 
-  val SUBMITTED, RUNNING, FINISHED, RELAUNCHING, UNKNOWN, KILLED, FAILED, ERROR = Value
+    IO(Http) ? Http.Bind(restService, interface = "localhost", port = 19999)
+  }
 }

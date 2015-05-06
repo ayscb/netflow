@@ -18,118 +18,87 @@
  */
 package cn.ac.ict.acs.netflow.deploy
 
-import cn.ac.ict.acs.netflow.deploy.JobType.JobType
-import cn.ac.ict.acs.netflow.deploy.QueryState.QueryState
-import cn.ac.ict.acs.netflow.util.Utils
-import org.jboss.netty.handler.codec.socks.SocksMessage.CmdStatus
+import cn.ac.ict.acs.netflow.deploy.qmaster.JobState._
+import cn.ac.ict.acs.netflow.deploy.qmaster.JobType
+import cn.ac.ict.acs.netflow.deploy.qmaster.JobType._
 
-sealed trait QueryMasterMessages extends Serializable
+sealed trait RestMessage
 
-/** Contains messages seen only by the Master and its associated entities. */
-object QueryMasterMessages {
+object RestMessages {
 
-  // LeaderElectionAgent to Master
+  /**
+   * GET /status
+   */
+  case object RestRequestQueryMasterStatus extends RestMessage
 
-  case object AppointedAsLeader
+  case class RestResponseQueryMasterStatus(
+      version: String,
+      runningJobs: Seq[String],
+      finishedJobs: Seq[String] //TODO more info to return?
+    ) extends RestMessage
 
-  case object RevokedLeadership
+  /**
+   * GET /netflow/v1/jobs
+   */
+  case object RestRequestAllJobsInfo extends RestMessage
 
-  // Actor System to Master
+  case class RestResponseAllJobsInfo(jobs: Seq[RestResponseJobInfo]) extends RestMessage
 
-  case object CheckForWorkerTimeOut
+  /**
+   * GET /netflow/v1/job/<jobId>
+   *
+   * @param jobId
+   */
+  case class RestRequestJobInfo(jobId: String) extends RestMessage
 
-  case object BoundPortsRequest extends QueryMasterMessages
+  case class RestResponseJobInfo(
+      jobId: String,
+      jobState: JobState //TODO populate response later
+    ) extends RestMessage
 
-  case class BoundPortsResponse(actorPort: Int, webUIPort: Int)
-    extends QueryMasterMessages
-}
+//  /**
+//   * POST /netflow/v1/jobs
+//   *
+//   * @param tpe
+//   * @param firstShot millis since epoch
+//   * @param interval period between two scheduling if it is a report job
+//   * @param cmd
+//   */
+//  case class RestRequestSubmitJob(
+//      tpe: JobType,
+//      firstShot: Long,
+//      interval: Option[Long],
+//      cmd: Command) extends RestMessage {
+//
+//    require({
+//      if (tpe == JobType.REPORT) {
+//        interval.isDefined
+//      } else {
+//        !interval.isDefined && firstShot == 0
+//      }
+//    }, "ReportJob should define interval as execution cycle" +
+//      " Meanwhile, online or adhoc job should not utilize it")
+//  }
 
-sealed trait DeployMessage extends Serializable
+  case class RestRequestSubmitJob(jobStr: String) extends RestMessage
 
-/**
- * Contains Messages sent between deploy members
- */
-object DeployMessages {
+  case class RestResponseSubmitJobSuccess(
+      jobId: String,
+      message: String) extends RestMessage
 
-  // Worker to Master
+  /**
+   * DELETE /netflow/v1/jobs/<jobId>
+   *
+   * @param jobId
+   */
+  case class RestRequestKillJob(jobId: String) extends RestMessage
 
-  case class RegisterWorker(
-      id: String,
-      host: String,
-      port: Int,
-      cores: Int,
-      memory: Int,
-      webUiPort: Int)
-    extends DeployMessage {
-    Utils.checkHost(host, "Required hostname")
-    assert (port > 0)
-  }
+  case class RestResponseKillJobSuccess(
+      jobId: String,
+      message: String) extends RestMessage
 
-  case class Heartbeat(workerId: String) extends DeployMessage
+  // message of failure whatever the request was
+  case class RestRequestFailed(message: String) extends RestMessage
 
-  case class QueryStateChange(
-      queryId: String,
-      state: QueryState,
-      exception: Option[Exception])
-
-  case class WorkerSchedulerStateResponse(id: String, queryIds: Seq[String])
-
-  // Master to Worker
-
-  case class RegisteredWorker(masterUrl: String, masterWebUiUrl: String) extends DeployMessage
-
-  case class RegisterWorkerFailed(message: String) extends DeployMessage
-
-  case class ReconnectWorker(masterUrl: String) extends DeployMessage
-
-  // Worker internal
-
-  case object ReregisterWithMaster // used when a worker attempts to reconnect to a master
-
-  case object WorkDirCleanup // Sent to Worker actor periodically for cleaning up app folders
-
-  // Master to Worker & QueryDriver?
-
-  // Send during master recovery procedure
-  case class MasterChanged(masterUrl: String, masterWebUrl: String)
-
-  // Master internal & worker to Master
-  case class KillQueryResponse(queryId: String, success: Boolean, message: String)
-
-}
-
-object Messages {
-
-  case class SubmitQuery(jobId: String, tpe: JobType, cmd: Command)
-
-  case object SendHeartbeat
-
-  // firstShot is millis since epoch
-  case class RegisterJob(
-      tpe: JobType,
-      firstShot: Long,
-      interval: Option[Long],
-      cmd: Command) {
-
-    require({
-      if (tpe == JobType.REPORT) {
-        interval.isDefined
-      } else {
-        !interval.isDefined && firstShot == 0
-      }
-    }, "ReportJob should define interval as execution cycle" +
-      " Meanwhile, online or adhoc job should not utilize it")
-  }
-
-  case class CancelJob(jobId: String)
-
-  case class RegisterJobResponse(success: Boolean, jobId: Option[String], message: String)
-
-  case class CancelJobResponse(jobId: String, success: Boolean, message: String)
-
-  case class LaunchQuery(
-    queryId: String,
-    cmd: Command)
-
-  case class KillQuery(queryId: String)
+  case class XResponse(message: String) extends RestMessage
 }

@@ -16,14 +16,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.sql
+package cn.ac.ict.acs.netflow.deploy.qmaster
 
-class JsonParser {
+private[netflow] object QueryWorkerState extends Enumeration {
+  type QueryWorkerState = Value
 
+  val ALIVE, DEAD, DECOMMISSIONED, UNKNOWN = Value
 }
 
-object JsonParser {
-  def main(args: Array[String]) {
-    println(true)
-  }
+private[netflow] object QueryMasterRecoveryState extends Enumeration {
+  type MasterState = Value
+
+  val STANDBY, ALIVE, RECOVERING, COMPLETING_RECOVERY = Value
+}
+
+object QueryState extends Enumeration {
+  type QueryState = Value
+
+  val SUBMITTED, RUNNING, FINISHED, RELAUNCHING, UNKNOWN, KILLED, FAILED, ERROR = Value
+}
+
+object JobState extends Enumeration {
+  type JobState = Value
+
+  // Reported Job will return to SUBMITTED after each run
+  val SUBMITTED, RUNNING, FINISHED, KILLED = Value
 }
