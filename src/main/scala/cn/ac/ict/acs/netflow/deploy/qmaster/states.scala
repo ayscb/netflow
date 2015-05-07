@@ -18,7 +18,7 @@
  */
 package cn.ac.ict.acs.netflow.deploy.qmaster
 
-private[netflow] object QueryWorkerState extends Enumeration {
+private[netflow] object BrokerState extends Enumeration {
   type QueryWorkerState = Value
 
   val ALIVE, DEAD, DECOMMISSIONED, UNKNOWN = Value

@@ -18,7 +18,7 @@
  */
 package cn.ac.ict.acs.netflow.deploy
 
-import cn.ac.ict.acs.netflow.deploy.qmaster.Job
+import cn.ac.ict.acs.netflow.deploy.qmaster.{BrokerInfo, Job}
 
 import scala.reflect.ClassTag
 
@@ -55,6 +55,14 @@ trait PersistenceEngine {
 //    unpersist("query_" + query.id)
 //  }
 
+  final def addBroker(broker: BrokerInfo): Unit = {
+    persist("broker_" + broker.id, broker)
+  }
+
+  final def removeBroker(broker: BrokerInfo): Unit = {
+    unpersist("broker_" + broker.id)
+  }
+
   final def addJob(job: Job): Unit = {
     persist("job_" + job.id, job)
   }
@@ -67,7 +75,9 @@ trait PersistenceEngine {
    * Returns the persisted data sorted by their respective ids (which implies that they're
    * sorted by time of creation).
    */
-  final def readPersistedData(): (Seq[Job]) = { read[Job]("job_") }
+  final def readPersistedData(): (Seq[Job], Seq[BrokerInfo]) = {
+    (read[Job]("job_"), read[BrokerInfo]("broker_"))
+  }
 
   def close() {}
 }

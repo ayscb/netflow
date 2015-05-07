@@ -16,24 +16,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.deploy.broker
+package cn.ac.ict.acs.netflow.deploy.qmaster
 
-import scala.concurrent.duration._
+import akka.actor.ActorRef
 
-import akka.actor.{Props, ActorSystem}
-import akka.io.IO
-import akka.pattern.ask
-import akka.util.Timeout
+import cn.ac.ict.acs.netflow.util.Utils
 
-import spray.can.Http
+class BrokerInfo(
+  val id: String,
+  val host: String,
+  val port: Int,
+  val restPort: Int,
+  val actor: ActorRef)
+  extends Serializable {
 
-object RestBoot {
-  def main(args: Array[String]) {
-    implicit val actorSystem = ActorSystem("netflowRest")
-    val restService = actorSystem.actorOf(Props[RestBroker], "RestBroker")
+  Utils.checkHost(host, "Expected hostname")
+  assert (port > 0)
 
-    implicit val timeOut = Timeout(5.seconds)
+  init()
 
-    IO(Http) ? Http.Bind(restService, interface = "localhost", port = 19999)
+  @transient var state: BrokerState.Value = _
+  @transient var lastHeartbeat: Long = _
+
+  private def init(): Unit = {
+    state = BrokerState.ALIVE
+    lastHeartbeat = System.currentTimeMillis()
+  }
+
+  def hostPort(): String = {
+    host + ":" + port + ":" + restPort
+  }
+
+  def setState(state: BrokerState.Value) = {
+    this.state = state
   }
 }

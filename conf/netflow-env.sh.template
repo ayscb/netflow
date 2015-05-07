@@ -8,6 +8,8 @@
 # - NETFLOW_QUERY_MASTER_PORT / NETFLOW_QUERY_MASTER_WEBUI_PORT, to use non-default ports for the query master
 # - NETFLOW_QUERY_MASTER_OPTS, to set config properties only for the query master (e.g. "-Dx=y")
 
+# - NETFLOW_BROKER_PORT / NETFLOW_BROKER_REST_PORT, to use non-default ports for the broker
+
 # - NETFLOW_QUERY_WORKER_CORES, to set the number of cores for query worker to use on this machine
 # - NETFLOW_QUERY_WORKER_MEMORY, to set how much total memory query worker have to give spark drivers (e.g. 1000m, 2g)
 # - NETFLOW_QUERY_WORKER_PORT / NETFLOW_QUERY_WORKER_WEBUI_PORT, to use non-default ports for the worker

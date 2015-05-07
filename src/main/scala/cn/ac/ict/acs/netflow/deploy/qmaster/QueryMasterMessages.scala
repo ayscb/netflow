@@ -31,7 +31,9 @@ object QueryMasterMessages {
 
   // Actor System to Master
 
-  case object CheckForWorkerTimeOut
+  case object CheckForBrokerTimeOut
+
+  case object CompleteRecovery
 
   case object BoundPortsRequest extends QueryMasterMessages
 

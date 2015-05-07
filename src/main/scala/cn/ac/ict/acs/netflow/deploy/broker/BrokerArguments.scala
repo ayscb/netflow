@@ -1,3 +1,21 @@
+/**
+ * Copyright 2015 ICT.
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package cn.ac.ict.acs.netflow.deploy.broker
 
 import cn.ac.ict.acs.netflow.NetFlowConf
@@ -12,11 +30,11 @@ class BrokerArguments(args: Array[String], conf: NetFlowConf)  {
   var propertiesFile: String = _
 
   // Check for settings in environment variables
-  if (System.getenv("NETFLOW_QUERY_WORKER_PORT") != null) {
-    port = System.getenv("NETFLOW_QUERY_WORKER_PORT").toInt
+  if (System.getenv("NETFLOW_BROKER_PORT") != null) {
+    port = System.getenv("NETFLOW_BROKER_PORT").toInt
   }
-  if (System.getenv("NETFLOW_QUERY_WORKER_WEBUI_PORT") != null) {
-    restPort = System.getenv("NETFLOW_QUERY_WORKER_WEBUI_PORT").toInt
+  if (System.getenv("NETFLOW_BROKER_REST_PORT") != null) {
+    restPort = System.getenv("NETFLOW_BROKER_REST_PORT").toInt
   }
 
   parse(args.toList)
@@ -72,7 +90,7 @@ class BrokerArguments(args: Array[String], conf: NetFlowConf)  {
         "Options:\n" +
         "  -h HOST, --host HOST     Hostname to listen on\n" +
         "  -p PORT, --port PORT     Port to listen on (default: random)\n" +
-        "  --rest-port PORT        Port for web UI (default: 19999)\n" +
+        "  --rest-port PORT         Port for web UI (default: 19999)\n" +
         "  --properties-file FILE   Path to a custom netflow properties file.\n" +
         "                           Default is conf/netflow-defaults.conf.")
     System.exit(exitCode)

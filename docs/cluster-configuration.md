@@ -63,9 +63,9 @@
   	<td>网页上保留的已完成Query的最大个数，更早的Query会被从网页上剔除</td>
   </tr>
   <tr>
-  	<td><code>netflow.queryWorker.timeout</code></td>
+  	<td><code>netflow.broker.timeout</code></td>
   	<td>60（秒）</td>
-  	<td>QueryMaster在多长的时间间隔内未收到QueryWorker心跳时会认为该worker丢失</td>
+  	<td>QueryMaster在多长的时间间隔内未收到Broker心跳时会认为其丢失</td>
   </tr>
 </table> 
 

@@ -18,8 +18,6 @@
  */
 package cn.ac.ict.acs.netflow.deploy.broker
 
-import cn.ac.ict.acs.netflow.NetFlowError
-
 import scala.concurrent.duration._
 
 import akka.actor._
@@ -33,11 +31,13 @@ import spray.httpx.Json4sSupport
 import spray.routing.RequestContext
 
 import cn.ac.ict.acs.netflow.deploy.RestMessage
+import cn.ac.ict.acs.netflow.{NetFlowConf, NetFlowError}
 
 class RequestHandlerActor(
     rc: RequestContext,
     requestMessage: RestMessage,
-    master: ActorSelection
+    master: ActorSelection,
+    conf: NetFlowConf
   ) extends Actor with Json4sSupport {
 
   implicit def json4sFormats = DefaultFormats
@@ -46,8 +46,8 @@ class RequestHandlerActor(
     master ! requestMessage
   }
 
-  //TODO: get timeout setting from configuration, probably create a new conf
-  context.setReceiveTimeout(10.seconds)
+  val receiveTimeOut = conf.getLong("netflow.broker.request.timeout", 30).seconds
+  context.setReceiveTimeout(receiveTimeOut)
 
   def receive = {
     case responseMessage: RestMessage => {

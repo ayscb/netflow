@@ -27,6 +27,7 @@ import scala.concurrent.{Await, ExecutionContext}
 import akka.actor._
 import akka.pattern.ask
 import akka.serialization.SerializationExtension
+import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
 
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
@@ -50,6 +51,7 @@ class QueryMaster(
   val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(20))
 
   val createTimeFormat = DateTimeFormat.forPattern("yyyyMMddHHmmss")
+  val BROKER_TIMEOUT = conf.getLong("netflow.broker.timeout", 60) * 1000
   val RETAINED_QUERY = conf.getInt("netflow.deploy.retainedQuerys", 200)
 
   //TODO find right place to set spark configurations used by netflow
@@ -59,8 +61,17 @@ class QueryMaster(
 
   val sparkSubmitPath = SPARK_HOME + "/bin/spark-submit"
 
+  // Remove a dead broker after given interval
+  val REAPER_ITERATIONS = conf.getInt("netflow.dead.broker.persistence", 15)
   // Master recovery mode
   val RECOVERY_MODE = conf.get("netflow.deploy.recoveryMode", "NONE")
+
+  // This may contain dead workers
+  val brokers = new mutable.HashSet[BrokerInfo]
+  // Current alive workers
+  val idToBroker = new mutable.HashMap[String, BrokerInfo]
+  // Current alive workers
+  val addressToBroker = new mutable.HashMap[Address, BrokerInfo]
 
   // Registered Job query may be scheduled and cancel later
   val idToJob = new mutable.HashMap[String, Cancellable]
@@ -84,12 +95,18 @@ class QueryMaster(
 
   var leaderElectionAgent: LeaderElectionAgent = _
 
+  private var recoveryCompletionTask: Cancellable = _
+
   override def preStart(): Unit = {
     logInfo("Starting NetFlow QueryMaster at " + queryMasterUrl)
     logInfo(s"Running NetFlow version ${cn.ac.ict.acs.netflow.NETFLOW_VERSION}")
+    // Listen for remote client disconnection events, since they don't go through Akka's watch()
+    context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
 
     //TODO: a pseudo webuiurl here
     queryMasterWebUIUrl = "http://" + host + ":" + webUiPort
+
+    context.system.scheduler.schedule(0.millis, BROKER_TIMEOUT.millis, self, CheckForBrokerTimeOut)
 
     val (persistenceEngine_, leaderElectionAgent_) = RECOVERY_MODE match {
       case "ZOOKEEPER" =>
@@ -124,9 +141,100 @@ class QueryMaster(
     self ! RevokedLeadership
   }
 
+  def beginRecovery(
+    storedJobs: Seq[Job],
+    storedBrokers: Seq[BrokerInfo]): Unit = {
+
+    for (job <- storedJobs) {
+      logInfo(s"Trying to recover job: ${job.id}")
+      registerInScheduler(job)
+    }
+
+    for (broker <- storedBrokers) {
+      logInfo("Trying to recover broker: " + broker.id)
+      try {
+        registerBroker(broker)
+        broker.state = BrokerState.UNKNOWN
+        broker.actor ! MasterChanged(queryMasterUrl, queryMasterWebUIUrl)
+      } catch {
+        case e: Exception => logInfo("Broker " + broker.id + " had exception on reconnect")
+      }
+    }
+  }
+
+  def canCompleteRecovery =
+    brokers.count(_.state == BrokerState.UNKNOWN) == 0
+
+  def completeRecovery(): Unit = {
+    // Ensure "only-once" recovery semantics using a short synchronization period.
+    synchronized {
+      if (state != QueryMasterRecoveryState.RECOVERING) {
+        return
+      }
+      state = QueryMasterRecoveryState.COMPLETING_RECOVERY
+    }
+    brokers.filter(_.state == BrokerState.UNKNOWN).foreach(removeBroker)
+    state = QueryMasterRecoveryState.ALIVE
+    logInfo("Recovery complete - resuming operations!")
+  }
+
+  def registerBroker(broker: BrokerInfo): Boolean = {
+    // There may be one or more refs to dead brokers on this same node (with different ID's),
+    // remove them.
+    brokers.filter { b =>
+      (b.host == broker.host && b.port == broker.port) && (b.state == BrokerState.DEAD)
+    }.foreach { w =>
+      brokers -= w
+    }
+
+    val brokerAddress = broker.actor.path.address
+    if (addressToBroker.contains(brokerAddress)) {
+      val oldBroker = addressToBroker(brokerAddress)
+      if (oldBroker.state == BrokerState.UNKNOWN) {
+        // A worker registering from UNKNOWN implies that the worker was restarted during recovery.
+        // The old worker must thus be dead, so we will remove it and accept the new worker.
+        removeBroker(oldBroker)
+      } else {
+        logInfo("Attempted to re-register worker at same address: " + brokerAddress)
+        return false
+      }
+    }
+
+    brokers += broker
+    idToBroker(broker.id) = broker
+    addressToBroker(brokerAddress) = broker
+    true
+  }
+
+  def removeBroker(broker: BrokerInfo): Unit = {
+    logInfo("Removing broker " + broker.id + " on " + broker.host + ":" + broker.port)
+    broker.setState(BrokerState.DEAD)
+    idToBroker -= broker.id
+    addressToBroker -= broker.actor.path.address
+    persistenceEngine.removeBroker(broker)
+  }
+
+  /** Check for, and remove, any timed-out brokers */
+  def timeOutDeadBrokers() {
+    // Copy the workers into an array so we don't modify the hashset while iterating through it
+    val currentTime = System.currentTimeMillis()
+    val toRemove = brokers.filter(_.lastHeartbeat < currentTime - BROKER_TIMEOUT).toArray
+    for (broker <- toRemove) {
+      if (broker.state != BrokerState.DEAD) {
+        logWarning("Removing %s because we got no heartbeat in %d seconds".format(
+          broker.id, BROKER_TIMEOUT / 1000))
+        removeBroker(broker)
+      } else {
+        if (broker.lastHeartbeat < currentTime - ((REAPER_ITERATIONS + 1) * BROKER_TIMEOUT)) {
+          brokers -= broker // we've seen this DEAD worker in the UI, etc. for long enough; cull it
+        }
+      }
+    }
+  }
+
   override def receiveWithLogging = {
     case AppointedAsLeader => {
-      val storedJobs = persistenceEngine.readPersistedData()
+      val (storedJobs, storedBroker) = persistenceEngine.readPersistedData()
       state = if (storedJobs.isEmpty) {
         QueryMasterRecoveryState.ALIVE
       } else {
@@ -134,17 +242,71 @@ class QueryMaster(
       }
       logInfo("I have been elected leader! New state: " + state)
       if (state == QueryMasterRecoveryState.RECOVERING) {
-        for (job <- storedJobs) {
-          logInfo(s"Trying to recover job: ${job.id}")
-          registerInScheduler(job)
-        }
-        state = QueryMasterRecoveryState.ALIVE
+        beginRecovery(storedJobs, storedBroker)
+        recoveryCompletionTask = context.system.scheduler.scheduleOnce(BROKER_TIMEOUT.millis, self,
+          CompleteRecovery)
+      }
+    }
+
+    case CompleteRecovery =>
+      completeRecovery()
+
+    case BrokerStateResponse(brokerId) => {
+      idToBroker.get(brokerId) match {
+        case Some(broker) =>
+          logInfo("broker has been re-registered: " + brokerId)
+          broker.state = BrokerState.ALIVE
+
+        case None =>
+          logWarning(s"Scheduler state from unknown broker: ${brokerId}")
+      }
+
+      if (canCompleteRecovery) {
+        completeRecovery()
       }
     }
 
     case RevokedLeadership => {
       logError("Leadership has been revoked -- query master shutting down.")
       System.exit(0)
+    }
+
+    case RegisterBroker(id, host, port, restPort) => {
+      logInfo("Registering broker %s:%d".format(host, port))
+      if (state == QueryMasterRecoveryState.STANDBY) {
+        // ignore, don't send response
+      } else if (idToBroker.contains(id)) {
+        sender ! RegisterBrokerFailed("Duplicate worker ID")
+      } else {
+        val broker = new BrokerInfo(id, host, port, restPort, sender)
+        if (registerBroker(broker)) {
+          persistenceEngine.addBroker(broker)
+          sender ! RegisteredBroker(queryMasterUrl, queryMasterWebUIUrl)
+        } else {
+          val brokerAddress = broker.actor.path.address
+          logWarning("Broker registration failed. Attempted to re-register worker at same " +
+            "address: " + brokerAddress)
+          sender ! RegisterBrokerFailed("Attempted to re-register worker at same address: "
+            + brokerAddress)
+        }
+      }
+    }
+
+    case Heartbeat(brokerId) => {
+      idToBroker.get(brokerId) match {
+        case Some(broker) =>
+          broker.lastHeartbeat = System.currentTimeMillis()
+        case None => {
+          if (brokers.map(_.id).contains(brokerId)) {
+            logWarning(s"Got heartbeat from unregistered broker $brokerId." +
+              " Asking it to re-register.")
+            sender ! ReconnectBroker(queryMasterUrl)
+          } else {
+            logWarning(s"Got heartbeat from unregistered worker $brokerId." +
+              " This worker was never registered, so ignoring the heartbeat.")
+          }
+        }
+      }
     }
 
     case RestRequestQueryMasterStatus => {
@@ -157,6 +319,10 @@ class QueryMaster(
 
     case RestRequestJobInfo(jobId) => {
 
+    }
+
+    case CheckForBrokerTimeOut => {
+      timeOutDeadBrokers()
     }
 
     case RestRequestSubmitJob(tpe, firstShot, interval, cmd) => {
@@ -223,6 +389,15 @@ class QueryMaster(
 
     case BoundPortsRequest =>
       sender ! BoundPortsResponse(port, webUiPort)
+
+    case DisassociatedEvent(_, address, _) => {
+      // The disconnected client could've been either a worker or an app; remove whichever it was
+      logInfo(s"$address got disassociated, removing it.")
+      addressToBroker.get(address).foreach(removeBroker)
+      if (state == QueryMasterRecoveryState.RECOVERING && canCompleteRecovery) {
+        completeRecovery()
+      }
+    }
   }
 
   def createQuery(jobId: String, cmd: Command): QueryInfo = {

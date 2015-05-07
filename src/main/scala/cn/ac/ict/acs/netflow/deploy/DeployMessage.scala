@@ -44,6 +44,8 @@ object DeployMessages {
 
   case class Heartbeat(brokerId: String) extends DeployMessage
 
+  case class BrokerStateResponse(brokerId: String) extends DeployMessage
+
   // Master to Worker
 
   case class RegisteredBroker(masterUrl: String, masterWebUiUrl: String) extends DeployMessage

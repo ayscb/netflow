@@ -24,11 +24,14 @@ import scala.util.Random
 import scala.concurrent.duration._
 
 import akka.actor._
+import akka.pattern.ask
+import akka.io.IO
 import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
 
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
+import spray.can.Http
 import spray.http.MediaTypes._
 import spray.routing.{RequestContext, Route, HttpService}
 
@@ -42,6 +45,7 @@ import cn.ac.ict.acs.netflow.util._
 class RestBroker(
     val host: String,
     val port: Int,
+    val restPort: Int,
     val masterAkkaUrls: Array[String],
     val actorSystemName: String,
     val actorName: String,
@@ -99,7 +103,8 @@ trait BrokerLike {
 
   override def preStart(): Unit = {
     assert(!registered)
-    logInfo("Starting NetFlow Broker %s:%d".format(host, port))
+    logInfo(("Starting NetFlow Broker %s:%d, listening" +
+      " to %d as REST Serive").format(host, port, restPort))
     logInfo(s"Running NetFlow version ${cn.ac.ict.acs.netflow.NETFLOW_VERSION}")
 
     context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
@@ -151,7 +156,7 @@ trait BrokerLike {
 
   /**
    * Re-register with the master because a network failure or a master failure has occurred.
-   * If the re-registration attempt threshold is exceeded, the worker exits with error.
+   * If the re-registration attempt threshold is exceeded, the broker exits with error.
    * Note that for thread-safety this should only be called from the actor.
    */
   private def reregisterWithMaster(): Unit = {
@@ -211,7 +216,7 @@ trait BrokerLike {
   }
 
   def generateBrokerId(): String = {
-    "worker-%s-%s-%d".format((new DateTime).toString(createTimeFormat), host, port)
+    "broker-%s-%s-%d".format((new DateTime).toString(createTimeFormat), host, port)
   }
 
   val lifecycleMaintenance: Receive = {
@@ -241,6 +246,7 @@ trait BrokerLike {
       // Get this message because of master recovery
       logInfo("Master has changed, new master is at " + masterUrl)
       changeMaster(masterUrl, masterWebUrl)
+      sender ! BrokerStateResponse(brokerId)
     }
 
     case SendHeartbeat => {
@@ -300,7 +306,7 @@ trait RestService extends HttpService {
   }
 
   def handleRequest(rc: RequestContext, message: RestMessage, master: ActorSelection) = {
-    context.actorOf(Props(classOf[RequestHandlerActor], rc, message, master))
+    context.actorOf(Props(classOf[RequestHandlerActor], rc, message, master, conf))
   }
 }
 
@@ -312,9 +318,9 @@ object RestBroker extends Logging {
     SignalLogger.register(log)
     val newConf = new NetFlowConf
     val args = new BrokerArguments(argStrings, newConf)
-    val (actorSystem, _) = startSystemAndActor(args.host, args.port, args.restPort,
-      args.masters, conf = newConf)
-    Utils.startServiceOnPort()
+    val (actorSystem, _, _, _) = startSystemAndActor(args.host, args.port, args.restPort,
+      args.masters, newConf)
+    actorSystem.awaitTermination()
   }
 
   def startSystemAndActor(
@@ -322,14 +328,50 @@ object RestBroker extends Logging {
     port: Int,
     restPort: Int,
     masterUrls: Array[String],
-    conf: NetFlowConf = new NetFlowConf): (ActorSystem, Int) = {
+    conf: NetFlowConf = new NetFlowConf): (ActorSystem, ActorRef, Int, Int) = {
 
-    val sysName = systemName + UUID.randomUUID()
+    val sysName = systemName + "_" + UUID.randomUUID()
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem(sysName, host, port, conf)
     val masterAkkaUrls = masterUrls.map(
       QueryMaster.toAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
-    actorSystem.actorOf(Props(classOf[RestBroker], host, boundPort, restPort,
-      masterAkkaUrls, sysName, actorName, conf), name = actorName)
-    (actorSystem, boundPort)
+    val (actor, boundRestPort) = createActorAndListen(actorSystem, host,
+      boundPort, restPort, masterAkkaUrls, systemName, actorName, conf)
+
+    (actorSystem, actor, boundPort, boundRestPort)
+  }
+
+  def createActorAndListen(
+      actorSystem: ActorSystem,
+      host: String,
+      port: Int,
+      restPort: Int,
+      masterAkkaUrls: Array[String],
+      actorSystemName: String,
+      actorName: String,
+      conf: NetFlowConf) = {
+    val startActorAndListen: Int => (ActorRef, Int) = { actualRestPort =>
+      doCreateActorAndListen(actorSystem, host, port, actualRestPort,
+        masterAkkaUrls, actorSystemName, actorName, conf)
+    }
+    Utils.startServiceOnPort(restPort, startActorAndListen, conf, actorName)
+  }
+
+  def doCreateActorAndListen(
+      actorSystem: ActorSystem,
+      host: String,
+      port: Int,
+      restPort: Int,
+      masterAkkaUrls: Array[String],
+      actorSystemName: String,
+      actorName: String,
+      conf: NetFlowConf): (ActorRef, Int) = {
+
+    val actor = actorSystem.actorOf(Props(classOf[RestBroker], host, port, restPort,
+      masterAkkaUrls, actorSystemName, actorName, conf), name = actorName)
+
+    implicitly val timeOut = AkkaUtils.askTimeout(conf)
+
+      IO(Http) ? Http.Bind(actor, interface = host, restPort)
+    (actor, restPort)
   }
 }
