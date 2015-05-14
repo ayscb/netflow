@@ -20,20 +20,19 @@ package cn.ac.ict.acs.netflow.util
 
 import java.io.{IOException, FileInputStream, InputStreamReader, File}
 import java.net.{Inet4Address, NetworkInterface, InetAddress, BindException}
+import java.util.concurrent.{Executors, ThreadPoolExecutor, ThreadFactory}
 import java.util.{Locale, Properties}
-
+import com.google.common.util.concurrent.ThreadFactoryBuilder
+import org.eclipse.jetty.util.MultiException
 import scala.collection.Map
 import scala.collection.JavaConversions._
 import scala.util.control.{ControlThrowable, NonFatal}
 
-import org.eclipse.jetty.util.MultiException
-
 import cn.ac.ict.acs.netflow.{Logging, NetFlowConf, NetFlowException}
-
-
 
 object Utils extends Logging {
 
+  //***************************** statrt service *********************************************
   /**
    * Attempt to start a service on the given port, or fail after a number of attempts.
    * Each subsequent attempt uses 1 + the port used in the previous attempt (unless the port is 0).
@@ -85,17 +84,15 @@ object Utils extends Logging {
     throw new NetFlowException(s"Failed to start service$serviceString on port $startPort")
   }
 
-  /**
-   * Maximum number of retries when binding to a port before giving up.
-   */
-  def portMaxRetries(conf: NetFlowConf): Int = {
+  /** Maximum number of retries when binding to a port before giving up. */
+  private def portMaxRetries(conf: NetFlowConf): Int = {
     conf.getInt("netflow.port.maxRetries", 16)
   }
 
   /**
    * Return whether the exception is caused by an address-port collision when binding.
    */
-  def isBindCollision(exception: Throwable): Boolean = {
+  private def isBindCollision(exception: Throwable): Boolean = {
     exception match {
       case e: BindException =>
         if (e.getMessage != null) {
@@ -108,6 +105,8 @@ object Utils extends Logging {
     }
   }
 
+  //******************************* local host *******************************************
+
   def checkHost(host: String, message: String = "") {
     assert(host.indexOf(':') == -1, message)
   }
@@ -116,26 +115,22 @@ object Utils extends Logging {
     assert(hostPort.indexOf(':') != -1, message)
   }
 
-  def getAddressHostName(address: String): String = {
+  /** Get the local host's IP address in dotted-quad format (e.g. 1.2.3.4). */
+  lazy val localIpAddress: String = findLocalIpAddress()
+
+  /** Get the local machine's hostname. */
+  lazy val localIpAddressHostname: String = getAddressHostName(localIpAddress)
+
+
+  def localHostName(): String = {
+    sys.env.getOrElse("NETFLOW_LOCAL_HOSTNAME",localIpAddressHostname)
+  }
+
+  private def getAddressHostName(address: String): String = {
     InetAddress.getByName(address).getHostName
   }
 
-  private var customHostname: Option[String] = sys.env.get("NETFLOW_LOCAL_HOSTNAME")
-
-  /**
-   * Get the local host's IP address in dotted-quad format (e.g. 1.2.3.4).
-   */
-  lazy val localIpAddress: String = findLocalIpAddress()
-  lazy val localIpAddressHostname: String = getAddressHostName(localIpAddress)
-
-  /**
-   * Get the local machine's hostname.
-   */
-  def localHostName(): String = {
-    customHostname.getOrElse(localIpAddressHostname)
-  }
-
-  def findLocalIpAddress(): String = {
+  private def findLocalIpAddress(): String = {
     val defaultIpOverride = System.getenv("NETFLOW_LOCAL_IP")
     if (defaultIpOverride != null) {
       defaultIpOverride
@@ -169,6 +164,7 @@ object Utils extends Logging {
     }
   }
 
+  //*********************************** Properties ******************************************
   /**
    * Load default NetFlow properties from the given file. If no file is provided,
    * use the common defaults file. This mutates state in the given NetFlowConf and
@@ -227,20 +223,8 @@ object Utils extends Logging {
     sysProps.toMap
   }
 
-  /**
-   * Execute a block of code that evaluates to Unit, re-throwing any non-fatal uncaught
-   * exceptions as IOException.  This is used when implementing Externalizable and Serializable's
-   * read and write methods, since Java's serializer will not report non-IOExceptions properly;
-   * see SPARK-4080 for more context.
-   */
-  def tryOrIOException(block: => Unit) {
-    try {
-      block
-    } catch {
-      case e: IOException => throw e
-      case NonFatal(t) => throw new IOException(t)
-    }
-  }
+  //*************************** bytes *******************************************************
+
 
   /**
    * Convert a quantity in bytes to a human-readable string such as "4.0 MB".
@@ -321,6 +305,23 @@ object Utils extends Logging {
     }
   }
 
+//******************************* try ... something *********************************************
+
+  /**
+   * Execute a block of code that evaluates to Unit, re-throwing any non-fatal uncaught
+   * exceptions as IOException.  This is used when implementing Externalizable and Serializable's
+   * read and write methods, since Java's serializer will not report non-IOExceptions properly;
+   * see SPARK-4080 for more context.
+   */
+  def tryOrIOException(block: => Unit) {
+    try {
+      block
+    } catch {
+      case e: IOException => throw e
+      case NonFatal(t) => throw new IOException(t)
+    }
+  }
+
   /**
    * Execute a block of code that evaluates to Unit, forwarding any uncaught exceptions to the
    * default UncaughtExceptionHandler
@@ -333,6 +334,46 @@ object Utils extends Logging {
       case t: Throwable => NetFlowUncaughtExceptionHandler.uncaughtException(t)
     }
   }
+
+  /**
+   * Execute a block of code, then a finally block, but if exceptions happen in
+   * the finally block, do not suppress the original exception.
+   *
+   * This is primarily an issue with `finally { out.close() }` blocks, where
+   * close needs to be called to clean up `out`, but if an exception happened
+   * in `out.write`, it's likely `out` may be corrupted and `out.close` will
+   * fail as well. This would then suppress the original/likely more meaningful
+   * exception from the original `out.write` call.
+   */
+  def tryWithSafeFinally[T](block: => T)(finallyBlock: => Unit): T = {
+    // It would be nice to find a method on Try that did this
+    var originalThrowable: Throwable = null
+    try {
+      block
+    } catch {
+      case t: Throwable =>
+        // Purposefully not using NonFatal, because even fatal exceptions
+        // we don't want to have our finallyBlock suppress
+        originalThrowable = t
+        throw originalThrowable
+    } finally {
+      try {
+        finallyBlock
+      } catch {
+        case t: Throwable =>
+          if (originalThrowable != null) {
+            // We could do originalThrowable.addSuppressed(t), but it's
+            // not available in JDK 1.6.
+            logWarning(s"Suppressing exception in finally: " + t.getMessage, t)
+            throw originalThrowable
+          } else {
+            throw t
+          }
+      }
+    }
+  }
+
+  //*******************************************************************************************
 
   /**
    * Detect whether this thread might be executing a shutdown hook. Will always return true if
@@ -353,6 +394,45 @@ object Utils extends Logging {
       case ise: IllegalStateException => return true
     }
     false
+  }
+
+  def invoke(
+              clazz: Class[_],
+              obj: AnyRef,
+              methodName: String,
+              args: (Class[_], AnyRef)*): AnyRef = {
+    val (types, values) = args.unzip
+    val method = clazz.getDeclaredMethod(methodName, types: _*)
+    method.setAccessible(true)
+    method.invoke(obj, values.toSeq: _*)
+  }
+  //*************************************************************************
+  private val daemonThreadFactoryBuilder: ThreadFactoryBuilder =
+    new ThreadFactoryBuilder().setDaemon(true)
+
+  /**
+   * Create a thread factory that names threads with a prefix and also sets the threads to daemon.
+   */
+  def namedThreadFactory(prefix: String): ThreadFactory = {
+    daemonThreadFactoryBuilder.setNameFormat(prefix + "-%d").build()
+  }
+
+  /**
+   * Wrapper over newCachedThreadPool. Thread names are formatted as prefix-ID, where ID is a
+   * unique, sequentially assigned integer.
+   */
+  def newDaemonCachedThreadPool(prefix: String): ThreadPoolExecutor = {
+    val threadFactory = namedThreadFactory(prefix)
+    Executors.newCachedThreadPool(threadFactory).asInstanceOf[ThreadPoolExecutor]
+  }
+
+  /**
+   * Wrapper over newFixedThreadPool. Thread names are formatted as prefix-ID, where ID is a
+   * unique, sequentially assigned integer.
+   */
+  def newDaemonFixedThreadPool(nThreads: Int, prefix: String): ThreadPoolExecutor = {
+    val threadFactory = namedThreadFactory(prefix)
+    Executors.newFixedThreadPool(nThreads, threadFactory).asInstanceOf[ThreadPoolExecutor]
   }
 
 }

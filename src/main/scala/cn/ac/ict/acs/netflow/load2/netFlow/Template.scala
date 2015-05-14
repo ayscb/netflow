@@ -16,7 +16,7 @@ abstract class Template( val tmpId : Int, val fieldsCount : Int ) extends clonea
   protected val valueList = new ArrayBuffer[Int](fieldsCount)
 
   def updateTemplate(id : Int, fieldsNum : Int, data : ByteBuffer) : Unit
-  def getTemplate : ((Array[Int], Array[Int]), Int)
+  def getTemplate : ((Array[Int], Array[Int]), Int)     // ( key, value, byteCount )
   def getTemplate1 : Template
 
   override def iterator: Iterator[(Int,Int)] = new Iterator[(Int,Int)]{
@@ -33,7 +33,7 @@ abstract class Template( val tmpId : Int, val fieldsCount : Int ) extends clonea
   }
 }
 
-class UnSafeTemplate ( tmpId : Int, fieldsCount :Int )extends Template(tmpId,fieldsCount) {
+class UnSafeTemplate ( tmpId : Int, fieldsCount :Int ) extends Template(tmpId,fieldsCount) {
 
   override def getTemplate: ((Array[Int], Array[Int]), Int) = {
     ((keyList.toArray, valueList.toArray), recordBytes)

@@ -5,12 +5,12 @@
 netflow.fs.default.name             hdfs://192.168.80.110:8020
 netflow.time.format                 yyyy-MM-dd:HH:mm
 
-<<<<<<< HEAD
+
 parquet.enable.dictionary           true
 parquet.compression                 snappy
-=======
-# netflow.port.maxRetries           Maximum num of retries when binding to a port before giving up
->>>>>>> sql-1/master
+
+# Maximum num of retries when binding to a port before giving up
+# netflow.port.maxRetries
 
 # Load settings
 netflow.load.interval               4
@@ -19,6 +19,5 @@ netflow.load.dataRate               1
 netflow.load.startTime              2015-01-01:01:10
 netflow.load.endTime                2015-01-01:01:20
 netflow.load.path                   par201501010110-20150101012022
-
 
 # Sql settings

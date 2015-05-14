@@ -103,13 +103,6 @@
     </dependency>
 
     <dependency>
-      <groupId>joda-time</groupId>
-      <artifactId>joda-time</artifactId>
-      <version>2.1</version>
-    </dependency>
-
-<<<<<<< HEAD
-    <dependency>
       <groupId>com.twitter</groupId>
       <artifactId>parquet-common</artifactId>
       <version>1.6.0rc7</version>
@@ -134,7 +127,6 @@
       <artifactId>parquet-format</artifactId>
       <version>2.2.0</version>
     </dependency>
-
     <dependency>
       <groupId>com.twitter</groupId>
       <artifactId>parquet-hadoop</artifactId>
@@ -146,21 +138,52 @@
       <artifactId>scalatest_${scala.binary.version}</artifactId>
       <version>2.2.4</version>
       <scope>test</scope>
-=======
+    </dependency>
+
     <!--
       Import joda convert to avoid warnings during compilation, is this necessary?
     -->
+    <dependency>
+      <groupId>joda-time</groupId>
+      <artifactId>joda-time</artifactId>
+      <version>2.1</version>
+    </dependency>
     <dependency>
       <groupId>org.joda</groupId>
       <artifactId>joda-convert</artifactId>
       <version>1.7</version>
     </dependency>
+
     <dependency>
       <groupId>org.eclipse.jetty</groupId>
       <artifactId>jetty-util</artifactId>
       <version>${jetty.version}</version>
->>>>>>> sql-1/master
     </dependency>
+
+    <!-- add by me -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+      <version>1.7.10</version>
+    </dependency>
+    <dependency>
+      <groupId>log4j</groupId>
+      <artifactId>log4j</artifactId>
+      <version>1.2.17</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.3.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>14.0.1</version>
+    </dependency>
+
   </dependencies>
 
   <build>

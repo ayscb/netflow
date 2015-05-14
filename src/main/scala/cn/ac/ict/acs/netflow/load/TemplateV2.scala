@@ -63,7 +63,6 @@ case class TemplateV2(template: mutable.Map[Int, Int], rowBytes: Int) {
     }
   }
 
-
   private def setFixeLengthData(key: Int, valueLen: Int, row: GenericMutableRow): Unit = {
     valueLen match {
       case 1 =>

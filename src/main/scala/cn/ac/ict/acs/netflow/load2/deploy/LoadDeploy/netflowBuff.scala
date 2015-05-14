@@ -16,11 +16,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.load2
+package cn.ac.ict.acs.netflow.load2.deploy.LoadDeploy
 
 /**
- * Created by ayscb on 2015/4/17.
+ * Created by ayscb on 2015/5/5.
  */
-class test {
-
+class netflowBuffManager {
 }

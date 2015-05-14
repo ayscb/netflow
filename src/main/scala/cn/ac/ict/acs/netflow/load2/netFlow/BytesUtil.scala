@@ -46,10 +46,7 @@ object BytesUtil {
     v & 0xFFFFFFFFL
   }
 
-
-
   ///---------- no use -----------------------------
-
 
   def toBytes(value :Short) : Array[Byte]= {
     val tmp = new Array[Byte](2)
@@ -80,23 +77,5 @@ object BytesUtil {
     buff(2) = ((value >>> 8) & 0xFF ).asInstanceOf[Byte]
     buff(1) = ((value >>> 16) & 0xFF).asInstanceOf[Byte]
     buff(0) = ((value >>> 24) & 0xFF ).asInstanceOf[Byte]
-  }
-
-  def main(args: Array[String]) {
-
-    // short to bytes and bytes to short
-    val s1=0
-    val s2 = 10
-    val s3 = 55531
-    val shortval = BytesUtil.toBytes(s3.asInstanceOf[Short])
-    println(BytesUtil.toUShort(shortval,0,shortval.length))
-
-    // int to bytes
-    val i1 = 0
-    val i2 = Int.MaxValue
-    val i3 : Long = ( Int.MaxValue + 1 ) * 2 - 1
-
-    val intval = BytesUtil.toBytes(i3.asInstanceOf[Int])
-    print( BytesUtil.toUInt(intval,0,intval.length ))
   }
 }

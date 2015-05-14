@@ -23,31 +23,54 @@ import org.joda.time.format.DateTimeFormat
 
 object TimeUtil {
 
-  // get the file path based on time , which likes " 2015/02/21/03/23 "
-  def getCurrentTimePath(conf: NetFlowConf) : String = {
-    DateTime.now().toString(
-      DateTimeFormat.forPattern(conf.doctTimeIntervalFormat.toString))
-  }
-
+  /**
+   * get the file path as "2015/02/21/03/23"
+   * @param conf
+   * @param seconds
+   * @return
+   */
   def getTimeBasePathBySeconds(conf: NetFlowConf, seconds :Long) : String = {
     val str = conf.doctTimeIntervalFormat
     new DateTime(seconds * 1000).toString(str)
   }
 
-  // get next interval time .
-  // if the dictionary interval time is 10 min ,
-  // if the time is  1:12 , the method will return 1:20
-  def getNextBaseTime( conf:NetFlowConf, second : Long) : Long ={
+  /**
+   * get next interval time.
+   * Support the dictionary interval time is 10 min ,
+   * when the time is  1:12 , the method will return 1:00
+   * @param conf
+   * @param second
+   * @return
+   */
+  def getPreviousBaseTime( conf:NetFlowConf, second : Long ):Long ={
     val value = conf.doctTimeIntervalValue.toLong
-    second / value * value + value
+    second / value * value - value
   }
 
-  // get current interval time .
-  // if the dictionary interval time is 10 min ,
-  // if the time is  1:12 , the method will return 1:10
+  /**
+   * get current interval time .
+   * if the dictionary interval time is 10 min ,
+   * if the time is  1:12 , the method will return 1:10
+   * @param conf
+   * @param second
+   * @return
+   */
   def getCurrentBastTime( conf:NetFlowConf, second : Long) : Long ={
     val value = conf.doctTimeIntervalValue.toLong
     second / value * value
+  }
+
+  /**
+   * get next interval time .
+   * if the dictionary interval time is 10 min ,
+   * if the time is  1:12 , the method will return 1:20
+   * @param conf
+   * @param second
+   * @return
+   */
+  def getNextBaseTime( conf:NetFlowConf, second : Long) : Long ={
+    val value = conf.doctTimeIntervalValue.toLong
+    second / value * value + value
   }
 
   def timeToSeconds(conf: NetFlowConf, t: String) =

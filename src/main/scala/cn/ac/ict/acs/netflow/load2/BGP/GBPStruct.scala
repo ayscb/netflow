@@ -16,25 +16,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.load2.DataReceive
-
-import java.nio.ByteBuffer
-
-import akka.actor.Actor
-import akka.actor.Actor.Receive
+package cn.ac.ict.acs.netflow.load2.BGP
 
 /**
- * Created by ayscb on 2015/4/21.
+ * two level index struct, x,y,a,b for example
+ *
+ * first index store the x.y full offset , so there should be 65536 value in sequence array
+ * second index store the a full offset, so there should be 256 index in sequence arrays
+ *
+ * Created by ayscb on 2015/4/30.
  */
+class GBPStruct {
+  class data{}
+  case class firstInfo ( dataInfo : data, morePrefix : Boolean, secondIndex : Option[secondInfo] )
+  case class secondInfo( dataInfo : data, morePrefix : Boolean, trieIndex : Option[trieTree])
+  case class trieTree( )
 
-sealed trait Message
+  // store x.y
+  val firstIndex = new Array[firstInfo](65536)
 
-case class receiveFromUDP( data :ByteBuffer ) extends Message
-case class receiveFromFile ( fileStr : String ) extends Message
-case class receiveFromArray ( data : Array[Byte] ,offset : Int, length :Int ) extends Message
-case class receiveFromBuffer ( data : ByteBuffer ) extends Message
-
-
-class workerActor extends Actor{
-  override def receive: Receive = ???
+  // store a
+  val secondIndex = new Array[secondInfo](256)
 }

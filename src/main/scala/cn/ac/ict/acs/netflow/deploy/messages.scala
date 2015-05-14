@@ -20,6 +20,7 @@ package cn.ac.ict.acs.netflow.deploy
 
 import cn.ac.ict.acs.netflow.QueryDescription
 import cn.ac.ict.acs.netflow.util.Utils
+import org.apache.spark.deploy.master.{WorkerInfo, ApplicationInfo}
 
 sealed trait QueryMasterMessages extends Serializable
 
@@ -49,9 +50,7 @@ object QueryMasterMessages {
 
 sealed trait DeployMessage extends Serializable
 
-/**
- * Contains Messages sent between deploy members
- */
+/** Contains Messages sent between deploy members */
 object DeployMessages {
 
   // Worker to Master
@@ -89,6 +88,27 @@ object DeployMessages {
   // Send during master recovery procedure
   case class MasterChanged(masterUrl: String, masterWebUrl: String)
 
+}
+
+sealed trait LoadMasterMessage extends Serializable
+
+/** Contains messages sent only by the LoadMaster and its associated entities**/
+object LoadMasterMessage{
+  // LeaderElectionAgent to Master
+
+  case object ElectedLeader
+
+  case object RevokedLeadership
+
+  // Actor System to Master
+
+  case object CheckForWorkerTimeOut
+
+  case object CompleteRecovery
+
+  case object BoundPortsRequest
+
+  case class BoundPortsResponse(actorPort: Int, webUIPort: Int, restPort: Option[Int])
 }
 
 object Messages {

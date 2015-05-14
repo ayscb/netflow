@@ -111,24 +111,23 @@ object AnalysisFlowData {
   //*********************************************************************
 }
 
-class AnalysisFlowData(netflowConf : NetFlowConf){
+class AnalysisFlowData(val netflowConf : NetFlowConf){
 
   // for analysis the file  ( thread !!)
   private val reuse: Array[Byte] = new Array[Byte](6)
   private val netflowDataBuffer = ByteBuffer.allocate(1500)   // receive the udp package
-  private val writeUtil : NetFlowWriterUtil = NetFlowWriterUtil(netflowConf)    // for write
+  private val writeUtil  = new NetFlowWriterUtil(netflowConf)    // for write
 
   //for test
   var writetest : FileWriter = _
 
-  def setTestwriter( write : FileWriter ) = {writetest = write}
+  def setTestwriter( write : FileWriter ) = writetest = write
 
   def analysisnetflow( data : ByteBuffer): Unit = {
     val startT = System.nanoTime()
 
     AnalysisFlowData.vaildData(data) match {
       case Some(analysis) =>
-     //   val analysiss = analysis.clone()
         // dell with the netflow
         val headerData = analysis.unPackHeader(data)
         val totalFlowSet = analysis.getTotalFlowSet(headerData)
@@ -179,7 +178,5 @@ class AnalysisFlowData(netflowConf : NetFlowConf){
   }
 
   def closeWriter() = writeUtil.closeParquetWriter()
-
-  //def closeDic() = writeUtil.closeDictionary()
 
 }

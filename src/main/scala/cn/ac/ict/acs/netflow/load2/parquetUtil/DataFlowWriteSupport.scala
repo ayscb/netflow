@@ -90,8 +90,8 @@ abstract class DataFlowWriteSupport extends WriteSupport[NetflowGroup] with Logg
       )
         data.position(data.position() + dataLen)
 
-      case INT96 => throw new RuntimeException("no support this type")
-      case _ => throw new RuntimeException("no support this type")
+      case INT96 => throw new RuntimeException("[ parquet ] No support this type")
+      case _ => throw new RuntimeException("[ parquet ] No support this type")
     }
   }
 
@@ -107,8 +107,8 @@ abstract class DataFlowWriteSupport extends WriteSupport[NetflowGroup] with Logg
         write.addBinary(
           Binary.fromByteArray(util.Arrays.copyOf(dataArray, dataArray.size))
         )
-      case INT96 => throw new RuntimeException("no support this type")
-      case _ => throw new RuntimeException("no support this type")
+      case INT96 => throw new RuntimeException("[ parquet ] No support this type")
+      case _ => throw new RuntimeException("[ parquet ] No support this type")
     }
   }
 

@@ -20,7 +20,7 @@ package cn.ac.ict.acs.netflow.load2.parquetUtil
 
 
 import java.lang.management.ManagementFactory
-import cn.ac.ict.acs.netflow.util.Logging
+import cn.ac.ict.acs.netflow.Logging
 import parquet.hadoop.ParquetWriter
 import scala.collection.mutable
 

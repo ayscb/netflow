@@ -214,6 +214,7 @@ class QueryWorker(
   }
 
   def registerWithMaster() {
+    //dd
     // DisassociatedEvent may be triggered multiple times, so don't attempt registration
     // if there are outstanding registration attempts scheduled.
     registrationRetryTimer match {

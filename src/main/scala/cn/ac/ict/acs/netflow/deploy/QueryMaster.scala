@@ -159,6 +159,7 @@ class QueryMaster(
     }
 
     case Heartbeat(workerId) =>
+
       idToWorker.get(workerId) match {
         case Some(workerInfo) =>
           workerInfo.lastHeartbeat = System.currentTimeMillis()

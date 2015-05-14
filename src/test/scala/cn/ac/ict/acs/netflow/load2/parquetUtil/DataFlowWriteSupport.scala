@@ -16,11 +16,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow
+package cn.ac.ict.acs.netflow.load2.parquetUtil
+
+import cn.ac.ict.acs.netflow.{TimeUtil, NetFlowConf}
+import org.scalatest.tags.CPU
 
 /**
- * Created by ayscb on 2015/4/17.
+ * Created by ayscb on 2015/5/12.
  */
-class test {
+@CPU
+class DataFlowWriteSupport extends org.scalatest.FunSuite {
 
+  test(" check the TimeUtil "){
+    val conf = new NetFlowConf()
+    val dateStr = "2015-02-21:22:12"
+    val sec = TimeUtil.timeToSeconds(conf,dateStr)
+    val dateStr2 = TimeUtil.secnodsToTime(conf,sec)
+    assert(dateStr2 == dateStr)
+  }
 }

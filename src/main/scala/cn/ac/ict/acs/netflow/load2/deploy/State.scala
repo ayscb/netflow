@@ -16,12 +16,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.load2.DataReceive
+package cn.ac.ict.acs.netflow.load2.deploy
+
 
 /**
- * Created by ayscb on 2015/4/21.
+ * Created by ayscb on 2015/4/28.
  */
-object DataCache {
 
-
+private[netflow] object MasterRecoveryState extends Enumeration {
+  type MasterState = Value
+  val STANDBY, ALIVE, RECOVERING, COMPLETING_RECOVERY = Value
 }
+
+private[netflow] object WorkerState extends Enumeration{
+  type WorkerState = Value
+  val ALIVE, DEAD, DECOMMISSIONED, UNKNOWN = Value
+}
+
+//private [netflow] object ReceiverState extends Enumeration{
+//  type ReceiverState = Value
+//  val ALIVE, DEAD, DECOMMISSIONED, UNKNOWN = Value
+//}
+
+

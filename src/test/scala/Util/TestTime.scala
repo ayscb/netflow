@@ -22,9 +22,4 @@ class TestTime extends org.scalatest.FunSuite{
 
   }
 
-  def main(args: Array[String]) {
-    val conf = new NetFlowConf()
-    val path = TimeUtil.getCurrentTimePath(conf)
-    println(path)
-  }
 }

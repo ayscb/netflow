@@ -65,15 +65,15 @@ private[netflow] object AkkaUtils extends Logging {
     val akkaTimeout = conf.getInt("netflow.akka.timeout",
       conf.getInt("netflow.network.timeout", 120))
     val akkaFrameSize = maxFrameSizeBytes(conf)
-    val akkaLogLifecycleEvents = conf.getBoolean("netflow.akka.logLifecycleEvents", false)
+    val akkaLogLifecycleEvents = conf.getBoolean("netflow.akka.logLifecycleEvents", defaultValue = false)
     val lifecycleEvents = if (akkaLogLifecycleEvents) "on" else "off"
     if (!akkaLogLifecycleEvents) {
       // As a workaround for Akka issue #3787, we coerce the "EndpointWriter" log to be silent.
       // See: https://www.assembla.com/spaces/akka/tickets/3787#/
-      Option(Logger.getLogger("akka.remote.EndpointWriter")).map(l => l.setLevel(Level.FATAL))
+      Option(Logger.getLogger("akka.remote.EndpointWriter")).foreach(l => l.setLevel(Level.FATAL))
     }
 
-    val logAkkaConfig = if (conf.getBoolean("netflow.akka.logAkkaConfig", false)) "on" else "off"
+    val logAkkaConfig = if (conf.getBoolean("netflow.akka.logAkkaConfig", defaultValue = false)) "on" else "off"
 
     val akkaHeartBeatPauses = conf.getInt("netflow.akka.heartbeat.pauses", 6000)
     val akkaHeartBeatInterval = conf.getInt("netflow.akka.heartbeat.interval", 1000)
@@ -224,13 +224,9 @@ private[netflow] object AkkaUtils extends Logging {
     protocol(akkaConf.hasPath(sslProp) && akkaConf.getBoolean(sslProp))
   }
 
-  def protocol(ssl: Boolean = false): String = {
-    if (ssl) {
-      "akka.ssl.tcp"
-    } else {
-      "akka.tcp"
-    }
-  }
+  private def protocol(ssl: Boolean = false): String =
+    if (ssl) "akka.ssl.tcp" else "akka.tcp"
+
 
   def address(
       protocol: String,
