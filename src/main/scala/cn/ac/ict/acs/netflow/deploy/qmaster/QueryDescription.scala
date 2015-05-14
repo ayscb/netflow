@@ -16,16 +16,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.deploy
+package cn.ac.ict.acs.netflow.deploy.qmaster
 
-private[netflow] object QueryWorkerState extends Enumeration {
-  type QueryWorkerState = Value
+import cn.ac.ict.acs.netflow.deploy.Command
+import cn.ac.ict.acs.netflow.deploy.qmaster.JobType.JobType
 
-  val ALIVE, DEAD, DECOMMISSIONED, UNKNOWN = Value
+object JobType extends Enumeration {
+  type JobType = Value
+  
+  val ADHOC, REPORT, ONLINE = Value
 }
 
-private[netflow] object QueryMasterRecoveryState extends Enumeration {
-  type MasterState = Value
+/**
+ *
+ * @param id System wide unique id
+ * @param tpe
+ * @param first first launch time since epoch
+ * @param interval
+ * @param cmd
+ */
+case class Job(
+    id: String,
+    tpe: JobType,
+    first: Long,
+    interval: Option[Long],
+    cmd: Command) { //TODO: should ONLINE query require much more resource?
 
-  val STANDBY, ALIVE, RECOVERING, COMPLETING_RECOVERY = Value
 }

@@ -16,14 +16,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow
+package cn.ac.ict.acs.netflow.deploy.qmaster
 
-sealed abstract class OutputDesc
+sealed trait QueryMasterMessages extends Serializable
 
-case class Direct(schema: String) extends OutputDesc
+/** Contains messages seen only by the Master and its associated entities. */
+object QueryMasterMessages {
 
-case class File(path: String) extends OutputDesc
+  // LeaderElectionAgent to Master
 
-case class Socket(address: String) extends OutputDesc
+  case object AppointedAsLeader
 
-class QueryResult
+  case object RevokedLeadership
+
+  // Actor System to Master
+
+  case object CheckForBrokerTimeOut
+
+  case object CompleteRecovery
+
+  case object BoundPortsRequest extends QueryMasterMessages
+
+  case class BoundPortsResponse(actorPort: Int, webUIPort: Int)
+    extends QueryMasterMessages
+}

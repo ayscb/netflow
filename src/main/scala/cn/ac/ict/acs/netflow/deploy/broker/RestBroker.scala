@@ -16,38 +16,50 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.deploy
+package cn.ac.ict.acs.netflow.deploy.broker
 
-import java.io.File
 import java.util.UUID
 
-import scala.collection.mutable
 import scala.util.Random
 import scala.concurrent.duration._
 
 import akka.actor._
+import akka.pattern.ask
+import akka.io.IO
 import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
 
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
-import cn.ac.ict.acs.netflow.{NetFlowConf, Logging}
-import cn.ac.ict.acs.netflow.deploy.DeployMessages._
-import cn.ac.ict.acs.netflow.deploy.Messages._
-import cn.ac.ict.acs.netflow.util.{Utils, AkkaUtils, SignalLogger, ActorLogReceive}
+import spray.can.Http
+import spray.http.MediaTypes._
+import spray.routing.{RequestContext, Route, HttpService}
 
-class QueryWorker(
-    host: String,
-    port: Int,
-    webUiPort: Int,
-    cores: Int,
-    memory: Int,
-    masterAkkaUrls: Array[String],
-    actorSystemName: String,
-    actorName: String,
-    workDirPath: String = null,
+import cn.ac.ict.acs.netflow._
+import cn.ac.ict.acs.netflow.deploy.RestMessage
+import cn.ac.ict.acs.netflow.deploy.RestMessages._
+import cn.ac.ict.acs.netflow.deploy.DeployMessages._
+import cn.ac.ict.acs.netflow.deploy.qmaster.QueryMaster
+import cn.ac.ict.acs.netflow.util._
+
+class RestBroker(
+    val host: String,
+    val port: Int,
+    val restPort: Int,
+    val masterAkkaUrls: Array[String],
+    val actorSystemName: String,
+    val actorName: String,
     val conf: NetFlowConf)
-  extends Actor with ActorLogReceive with Logging {
+  extends Actor with RestService with BrokerLike with ActorLogReceive with Logging {
+
+  implicit def actorRefFactory: ActorContext = context
+
+  override def receiveWithLogging =
+    lifecycleMaintenance orElse runRoute(routeImpl)
+}
+
+trait BrokerLike {
+  this: RestBroker =>
 
   import context.dispatcher
 
@@ -57,7 +69,7 @@ class QueryWorker(
   val createTimeFormat = DateTimeFormat.forPattern("yyyyMMddHHmmss")
 
   // Send a heartbeat every (heartbeat timeout) / 4 milliseconds
-  val HEARTBEAT_MILLIS = conf.getLong("netflow.queryWorker.timeout", 60) * 1000 / 4
+  val HEARTBEAT_MILLIS = conf.getLong("netflow.broker.timeout", 60) * 1000 / 4
 
   // Model retries to connect to the master, after Hadoop's model.
   // The first six attempts to reconnect are in shorter intervals (between 5 and 15 seconds)
@@ -76,70 +88,25 @@ class QueryWorker(
   val PROLONGED_REGISTRATION_RETRY_INTERVAL = (math.round(60
     * REGISTRATION_RETRY_FUZZ_MULTIPLIER)).seconds
 
-  //TODO do we have workDir in netflow?
-  val CLEANUP_ENABLED = conf.getBoolean("netflow.QueryWorker.cleanup.enabled", false)
-  // How often worker will clean up old app folders
-  val CLEANUP_INTERVAL_MILLIS =
-    conf.getLong("netflow.QueryWorker.cleanup.interval", 60 * 30) * 1000
-  // TTL for app folders/data;  after TimeToLive expires it will be cleaned up
-  val APP_DATA_RETENTION_SECS =
-    conf.getLong("netflow.QueryWorker.cleanup.appDataTtl", 7 * 24 * 3600)
-
   var master: ActorSelection = null
   var masterAddress: Address = null
   var activeMasterUrl: String = ""
   var activeMasterWebUiUrl : String = ""
-  val akkaUrl = AkkaUtils.address(
-    AkkaUtils.protocol(context.system),
-    actorSystemName,
-    host,
-    port,
-    actorName)
   @volatile var registered = false
   @volatile var connected = false
-  val workerId = generateWorkerId()
-  val netflowHome =
-    new File(sys.env.get("NETFLOW_HOME").getOrElse("."))
 
-  var workDir: File = null
-  val queries = new mutable.HashMap[String, QueryRunner]
-  val finishedQueries = new mutable.HashMap[String, QueryRunner]
-  val queryDirectories = new mutable.HashMap[String, Seq[String]]
+  val brokerId = generateBrokerId()
 
-  var coresUsed = 0
-  var memoryUsed = 0
   var connectionAttemptCount = 0
 
   var registrationRetryTimer: Option[Cancellable] = None
 
-  def coresFree: Int = cores - coresUsed
-  def memoryFree: Int = memory - memoryUsed
-
-  def createWorkDir(): Unit = {
-    workDir = Option(workDirPath).map(new File(_)).getOrElse(new File(netflowHome, "work"))
-    try {
-      // This sporadically fails - not sure why ... !workDir.exists() && !workDir.mkdirs()
-      // So attempting to create and then check if directory was created or not.
-      workDir.mkdirs()
-      if ( !workDir.exists() || !workDir.isDirectory) {
-        logError("Failed to create work directory " + workDir)
-        System.exit(1)
-      }
-      assert (workDir.isDirectory)
-    } catch {
-      case e: Exception =>
-        logError("Failed to create work directory " + workDir, e)
-        System.exit(1)
-    }
-  }
-
   override def preStart(): Unit = {
     assert(!registered)
-    logInfo("Starting NetFlow QueryWorker %s:%d with %d cores, %s RAM".format(
-      host, port, cores, Utils.megabytesToString(memory)))
+    logInfo(("Starting NetFlow Broker %s:%d, listening" +
+      " to %d as REST Serive").format(host, port, restPort))
     logInfo(s"Running NetFlow version ${cn.ac.ict.acs.netflow.NETFLOW_VERSION}")
-    logInfo("NetFlow home: " + netflowHome)
-    createWorkDir()
+
     context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
 
     registerWithMaster()
@@ -147,58 +114,6 @@ class QueryWorker(
 
   override def postStop(): Unit = {
     registrationRetryTimer.foreach(_.cancel())
-  }
-
-  def receiveWithLogging = {
-    case RegisteredWorker(masterUrl, masterWebUrl) =>
-      logInfo("Successfully registered with Query Master " + masterUrl)
-      registered = true
-      changeMaster(masterUrl, masterWebUrl)
-      context.system.scheduler.schedule(0.millis, HEARTBEAT_MILLIS.millis, self, SendHeartbeat)
-      if (CLEANUP_ENABLED) {
-        logInfo(s"Worker cleanup enabled; old application directories will be deleted in: $workDir")
-        context.system.scheduler.schedule(CLEANUP_INTERVAL_MILLIS.millis,
-          CLEANUP_INTERVAL_MILLIS.millis, self, WorkDirCleanup)
-      }
-
-    case RegisterWorkerFailed(message) =>
-      if (!registered) {
-        logError("Worker registration failed: " + message)
-        System.exit(1)
-      }
-
-    case ReconnectWorker(masterUrl) =>
-      logInfo(s"Master with url $masterUrl requested this worker to reconnect.")
-      registerWithMaster()
-
-    case ReregisterWithMaster =>
-      reregisterWithMaster()
-
-    case MasterChanged(masterUrl, masterWebUrl) =>
-      // Get this message because of master recovery
-      logInfo("Master has changed, new master is at " + masterUrl)
-      changeMaster(masterUrl, masterWebUrl)
-
-    case SendHeartbeat =>
-      if (connected) { master ! Heartbeat(workerId) }
-
-    case x: DisassociatedEvent if x.remoteAddress == masterAddress =>
-      logInfo(s"$x Disassociated !")
-      masterDisconnected()
-
-    // TODO
-    case LaunchQuery(masterUrl, queryId, queryDesc) =>
-      logInfo(s"Asked to launch query $queryId")
-
-      coresUsed += 0
-      memoryUsed += 0
-
-    // TODO
-    case KillQuery(queryId) =>
-      logInfo(s"Asked to kill query $queryId")
-
-    case WorkDirCleanup => //TODO: what should we do during cleanup?
-
   }
 
   def changeMaster(url: String, webUrl: String): Unit = {
@@ -236,13 +151,13 @@ class QueryWorker(
     for (masterAkkaUrl <- masterAkkaUrls) {
       logInfo("Connecting to QueryMaster " + masterAkkaUrl + "...")
       val actor = context.actorSelection(masterAkkaUrl)
-      actor ! RegisterWorker(workerId, host, port, cores, memory, webUiPort)
+      actor ! RegisterBroker(brokerId, host, port, restPort)
     }
   }
 
   /**
    * Re-register with the master because a network failure or a master failure has occurred.
-   * If the re-registration attempt threshold is exceeded, the worker exits with error.
+   * If the re-registration attempt threshold is exceeded, the broker exits with error.
    * Note that for thread-safety this should only be called from the actor.
    */
   private def reregisterWithMaster(): Unit = {
@@ -274,8 +189,7 @@ class QueryWorker(
          * less likely scenario.
          */
         if (master != null) {
-          master ! RegisterWorker(
-            workerId, host, port, cores, memory, webUiPort)
+          master ! RegisterBroker(brokerId, host, port, restPort)
         } else {
           // We are retrying the initial registration
           tryRegisterAllMasters()
@@ -302,41 +216,163 @@ class QueryWorker(
     registerWithMaster()
   }
 
-  def generateWorkerId(): String = {
-    "worker-%s-%s-%d".format((new DateTime).toString(createTimeFormat), host, port)
+  def generateBrokerId(): String = {
+    "broker-%s-%s-%d".format((new DateTime).toString(createTimeFormat), host, port)
+  }
+
+  val lifecycleMaintenance: Receive = {
+    case RegisteredBroker(masterUrl, masterWebUrl) => {
+      logInfo("Successfully registered with Query Master " + masterUrl)
+      registered = true
+      changeMaster(masterUrl, masterWebUrl)
+      context.system.scheduler.schedule(0.millis, HEARTBEAT_MILLIS.millis, self, SendHeartbeat)
+    }
+
+    case RegisterBrokerFailed(message) => {
+      if (!registered) {
+        logError("Worker registration failed: " + message)
+        System.exit(1)
+      }
+    }
+
+    case ReconnectBroker(masterUrl) => {
+      logInfo(s"Master with url $masterUrl requested this worker to reconnect.")
+      registerWithMaster()
+    }
+
+    case ReregisterWithMaster =>
+      reregisterWithMaster()
+
+    case MasterChanged(masterUrl, masterWebUrl) => {
+      // Get this message because of master recovery
+      logInfo("Master has changed, new master is at " + masterUrl)
+      changeMaster(masterUrl, masterWebUrl)
+      sender ! BrokerStateResponse(brokerId)
+    }
+
+    case SendHeartbeat => {
+      if (connected) { master ! Heartbeat(brokerId) }
+    }
+
+    case x: DisassociatedEvent if x.remoteAddress == masterAddress => {
+      logInfo(s"$x Disassociated !")
+      masterDisconnected()
+    }
   }
 }
 
-object QueryWorker extends Logging {
-  val systemName = "netflowQueryWorker"
-  val actorName = "QueryWorker"
+trait RestService extends HttpService {
+  this: RestBroker =>
+
+  val routeImpl = respondWithMediaType(`application/json`) {
+    path("status") {
+      get {
+        requestQueryMaster {
+          RestRequestQueryMasterStatus
+        }
+      }
+    } ~
+    pathPrefix("netflow" / "v1" / "jobs") {
+      pathEndOrSingleSlash {
+        get {
+          requestQueryMaster {
+            RestRequestAllJobsInfo
+          }
+        } ~
+        post {
+          entity(as[String]) { jobBody =>
+            requestQueryMaster {
+              RestRequestSubmitJob(jobBody)
+            }
+          }
+        }
+      } ~
+      path(Rest) { jobId =>
+        get {
+          requestQueryMaster {
+            RestRequestJobInfo(jobId)
+          }
+        } ~
+        delete {
+          requestQueryMaster {
+            RestRequestKillJob(jobId)
+          }
+        }
+      }
+    }
+  }
+
+  def requestQueryMaster(message: RestMessage): Route = {
+    ctx => handleRequest(ctx, message, master)
+  }
+
+  def handleRequest(rc: RequestContext, message: RestMessage, master: ActorSelection) = {
+    context.actorOf(Props(classOf[RequestHandlerActor], rc, message, master, conf))
+  }
+}
+
+object RestBroker extends Logging {
+  val systemName = "netflowRest"
+  val actorName = "RestBroker"
 
   def main(argStrings: Array[String]) {
     SignalLogger.register(log)
-    val conf = new NetFlowConf
-    val args = new QueryWorkerArguments(argStrings, conf)
-    val (actorSystem, _) = startSystemAndActor(args.host, args.port, args.webUiPort,
-      args.cores, args.memory, args.masters, args.workDir, conf = conf)
+    val newConf = new NetFlowConf
+    val args = new BrokerArguments(argStrings, newConf)
+    val (actorSystem, _, _, _) = startSystemAndActor(args.host, args.port, args.restPort,
+      args.masters, newConf)
     actorSystem.awaitTermination()
   }
 
   def startSystemAndActor(
-      host: String,
-      port: Int,
-      webUiPort: Int,
-      cores: Int,
-      memory: Int,
-      masterUrls: Array[String],
-      workDir: String,
-      workerNumber: Option[Int] = None,
-      conf: NetFlowConf = new NetFlowConf): (ActorSystem, Int) = {
+    host: String,
+    port: Int,
+    restPort: Int,
+    masterUrls: Array[String],
+    conf: NetFlowConf = new NetFlowConf): (ActorSystem, ActorRef, Int, Int) = {
 
-    val sysName = systemName + workerNumber.map(_.toString).getOrElse("")
+    val sysName = systemName + "_" + UUID.randomUUID()
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem(sysName, host, port, conf)
     val masterAkkaUrls = masterUrls.map(
       QueryMaster.toAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
-    actorSystem.actorOf(Props(classOf[QueryWorker], host, boundPort, webUiPort, cores,
-      memory, masterAkkaUrls, sysName, actorName, workDir, conf), name = actorName)
-    (actorSystem, boundPort)
+    val (actor, boundRestPort) = createActorAndListen(actorSystem, host,
+      boundPort, restPort, masterAkkaUrls, systemName, actorName, conf)
+
+    (actorSystem, actor, boundPort, boundRestPort)
+  }
+
+  def createActorAndListen(
+      actorSystem: ActorSystem,
+      host: String,
+      port: Int,
+      restPort: Int,
+      masterAkkaUrls: Array[String],
+      actorSystemName: String,
+      actorName: String,
+      conf: NetFlowConf) = {
+    val startActorAndListen: Int => (ActorRef, Int) = { actualRestPort =>
+      doCreateActorAndListen(actorSystem, host, port, actualRestPort,
+        masterAkkaUrls, actorSystemName, actorName, conf)
+    }
+    Utils.startServiceOnPort(restPort, startActorAndListen, conf, actorName)
+  }
+
+  def doCreateActorAndListen(
+      actorSystem: ActorSystem,
+      host: String,
+      port: Int,
+      restPort: Int,
+      masterAkkaUrls: Array[String],
+      actorSystemName: String,
+      actorName: String,
+      conf: NetFlowConf): (ActorRef, Int) = {
+
+    val actor = actorSystem.actorOf(Props(classOf[RestBroker], host, port, restPort,
+      masterAkkaUrls, actorSystemName, actorName, conf), name = actorName)
+
+    implicitly val timeOut = AkkaUtils.askTimeout(conf)
+
+      IO(Http) ? Http.Bind(actor, interface = host, restPort)
+    (actor, restPort)
   }
 }

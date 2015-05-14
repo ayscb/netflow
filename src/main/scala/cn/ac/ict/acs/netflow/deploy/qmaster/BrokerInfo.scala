@@ -16,55 +16,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.deploy
-
-import scala.collection.mutable
+package cn.ac.ict.acs.netflow.deploy.qmaster
 
 import akka.actor.ActorRef
 
-import cn.ac.ict.acs.netflow.QueryDescription
 import cn.ac.ict.acs.netflow.util.Utils
 
-class QueryWorkerInfo(
-    val id: String,
-    val host: String,
-    val port: Int,
-    val cores: Int,
-    val memory: Int,
-    val actor: ActorRef,
-    val webUiPort: Int)
+class BrokerInfo(
+  val id: String,
+  val host: String,
+  val port: Int,
+  val restPort: Int,
+  val actor: ActorRef)
   extends Serializable {
 
   Utils.checkHost(host, "Expected hostname")
   assert (port > 0)
 
-  @transient var queries: mutable.HashMap[String, QueryDescription] = _
-  @transient var state: QueryWorkerState.Value = _
-  @transient var coresUsed: Int = _
-  @transient var memoryUsed: Int = _
-
-  @transient var lastHeartbeat: Long = _
-
   init()
 
-  def coresFree: Int = cores - coresUsed
-  def memoryFree: Int = memory - memoryUsed
+  @transient var state: BrokerState.Value = _
+  @transient var lastHeartbeat: Long = _
 
   private def init(): Unit = {
-    queries = new mutable.HashMap
-    state = QueryWorkerState.ALIVE
-    coresUsed = 0
-    memoryUsed = 0
+    state = BrokerState.ALIVE
     lastHeartbeat = System.currentTimeMillis()
   }
 
-  def hostPort: String = {
-    assert (port > 0)
-    host + ":" + port
+  def hostPort(): String = {
+    host + ":" + port + ":" + restPort
   }
 
-  def setState(state: QueryWorkerState.Value) = {
+  def setState(state: BrokerState.Value) = {
     this.state = state
   }
-
 }

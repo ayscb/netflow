@@ -16,28 +16,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow
+package cn.ac.ict.acs.netflow.deploy.qmaster
 
-class NetFlowContext {
+private[netflow] object BrokerState extends Enumeration {
+  type QueryWorkerState = Value
 
-//  def submitQuery(query: Query): QueryResult = {
-//
-//    null
-//  }
-//
-//  def submitAdhoc(query: AdhocQuery): QueryResult = ???
-//
-//  def registerReport(query: ReportQuery): Unit = ???
-//
-//  def startReport(name: String): Unit = ???
-//
-//  def stopReport(name: String): Unit = ???
-//
-//  def registerOnline(query: OnlineQuery): Unit = ???
-//
-//  def startOnline(name: String): Unit = ???
-//
-//  def stopOnline(name: String): Unit = ???
+  val ALIVE, DEAD, DECOMMISSIONED, UNKNOWN = Value
+}
 
+private[netflow] object QueryMasterRecoveryState extends Enumeration {
+  type MasterState = Value
 
+  val STANDBY, ALIVE, RECOVERING, COMPLETING_RECOVERY = Value
+}
+
+object QueryState extends Enumeration {
+  type QueryState = Value
+
+  val SUBMITTED, RUNNING, FINISHED, RELAUNCHING, UNKNOWN, KILLED, FAILED, ERROR = Value
+}
+
+object JobState extends Enumeration {
+  type JobState = Value
+
+  // Reported Job will return to SUBMITTED after each run
+  val SUBMITTED, RUNNING, FINISHED, KILLED = Value
 }

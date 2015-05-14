@@ -16,28 +16,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow
+package cn.ac.ict.acs.netflow.sql
 
-class NetFlowContext {
+class JsonParser {
 
-//  def submitQuery(query: Query): QueryResult = {
-//
-//    null
-//  }
-//
-//  def submitAdhoc(query: AdhocQuery): QueryResult = ???
-//
-//  def registerReport(query: ReportQuery): Unit = ???
-//
-//  def startReport(name: String): Unit = ???
-//
-//  def stopReport(name: String): Unit = ???
-//
-//  def registerOnline(query: OnlineQuery): Unit = ???
-//
-//  def startOnline(name: String): Unit = ???
-//
-//  def stopOnline(name: String): Unit = ???
+}
 
-
+object JsonParser {
+  def main(args: Array[String]) {
+    println(true)
+  }
 }
