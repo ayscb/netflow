@@ -19,8 +19,8 @@
 package cn.ac.ict.acs.netflow.deploy
 
 import cn.ac.ict.acs.netflow.deploy.qmaster.JobState._
-import cn.ac.ict.acs.netflow.deploy.qmaster.JobType
-import cn.ac.ict.acs.netflow.deploy.qmaster.JobType._
+import JobType
+import JobType._
 
 sealed trait RestMessage
 
@@ -59,26 +59,8 @@ object RestMessages {
   /**
    * POST /netflow/v1/jobs
    *
-   * @param tpe
-   * @param firstShot millis since epoch
-   * @param interval period between two scheduling if it is a report job
-   * @param cmd
    */
-  case class RestRequestSubmitJob(
-      tpe: JobType,
-      firstShot: Long,
-      interval: Option[Long],
-      cmd: Command) extends RestMessage {
-
-    require({
-      if (tpe == JobType.REPORT) {
-        interval.isDefined
-      } else {
-        !interval.isDefined && firstShot == 0
-      }
-    }, "ReportJob should define interval as execution cycle" +
-      " Meanwhile, online or adhoc job should not utilize it")
-  }
+  case class RestRequestSubmitJob(jobDesc: JobDescription) extends RestMessage
 
   case class RestResponseSubmitJobSuccess(
       jobId: String,

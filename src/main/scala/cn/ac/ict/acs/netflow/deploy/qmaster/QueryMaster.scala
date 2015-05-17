@@ -325,7 +325,7 @@ class QueryMaster(
       timeOutDeadBrokers()
     }
 
-    case RestRequestSubmitJob(tpe, firstShot, interval, cmd) => {
+    case RestRequestSubmitJob(jobDesc) => {
       if (state != QueryMasterRecoveryState.ALIVE) {
         val msg = s"Can only accept job registration in ALIVE state. Current state: $state."
         sender ! RestRequestFailed(msg)

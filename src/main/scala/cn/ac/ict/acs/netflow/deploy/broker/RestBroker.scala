@@ -28,15 +28,17 @@ import akka.pattern.ask
 import akka.io.IO
 import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
 
+import org.json4s.DefaultFormats
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
 import spray.can.Http
 import spray.http.MediaTypes._
+import spray.httpx.Json4sJacksonSupport
 import spray.routing.{RequestContext, Route, HttpService}
 
 import cn.ac.ict.acs.netflow._
-import cn.ac.ict.acs.netflow.deploy.RestMessage
+import cn.ac.ict.acs.netflow.deploy.{JobDescription, RestMessage}
 import cn.ac.ict.acs.netflow.deploy.RestMessages._
 import cn.ac.ict.acs.netflow.deploy.DeployMessages._
 import cn.ac.ict.acs.netflow.deploy.qmaster.QueryMaster
@@ -260,8 +262,10 @@ trait BrokerLike {
   }
 }
 
-trait RestService extends HttpService {
+trait RestService extends HttpService with Json4sJacksonSupport {
   this: RestBroker =>
+
+  implicit def json4sJacksonFormats = DefaultFormats
 
   val routeImpl = respondWithMediaType(`application/json`) {
     path("status") {
@@ -271,7 +275,7 @@ trait RestService extends HttpService {
         }
       }
     } ~
-    pathPrefix("netflow" / "v1" / "jobs") {
+    pathPrefix("v1" / "jobs") {
       pathEndOrSingleSlash {
         get {
           requestQueryMaster {
@@ -279,9 +283,9 @@ trait RestService extends HttpService {
           }
         } ~
         post {
-          entity(as[String]) { jobBody =>
+          entity(as[JobDescription]) { jobDesc =>
             requestQueryMaster {
-              RestRequestSubmitJob(jobBody)
+              RestRequestSubmitJob(jobDesc)
             }
           }
         }
@@ -371,7 +375,8 @@ object RestBroker extends Logging {
 
     implicitly val timeOut = AkkaUtils.askTimeout(conf)
 
-      IO(Http) ? Http.Bind(actor, interface = host, restPort)
+    IO(Http) ? Http.Bind(actor, interface = host, restPort)
+
     (actor, restPort)
   }
 }

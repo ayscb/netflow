@@ -18,7 +18,7 @@
  */
 package cn.ac.ict.acs.netflow.deploy
 
-import cn.ac.ict.acs.netflow.deploy.qmaster.{BrokerInfo, Job}
+import cn.ac.ict.acs.netflow.deploy.qmaster.BrokerInfo
 
 import scala.reflect.ClassTag
 

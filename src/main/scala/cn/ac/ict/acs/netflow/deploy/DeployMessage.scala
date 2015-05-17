@@ -19,7 +19,7 @@
 package cn.ac.ict.acs.netflow.deploy
 
 import cn.ac.ict.acs.netflow.util.Utils
-import cn.ac.ict.acs.netflow.deploy.qmaster.{QueryState, JobType}
+import cn.ac.ict.acs.netflow.deploy.qmaster.QueryState
 import JobType.JobType
 import QueryState.QueryState
 
