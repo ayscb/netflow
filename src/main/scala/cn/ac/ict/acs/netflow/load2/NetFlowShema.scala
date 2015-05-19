@@ -1,9 +1,9 @@
-package cn.ac.ict.acs.netflow.load2.parquetUtil
+package cn.ac.ict.acs.netflow.load2
 
 import cn.ac.ict.acs.netflow.NetFlowConf
 import parquet.schema.PrimitiveType.PrimitiveTypeName._
 import parquet.schema.Type.Repetition.{OPTIONAL, REPEATED, REQUIRED}
-import parquet.schema.{MessageTypeParser, GroupType, MessageType, PrimitiveType}
+import parquet.schema.{GroupType, MessageType, MessageTypeParser, PrimitiveType}
 
 /**
  * netflow v9 version for parquet

@@ -21,20 +21,6 @@ import java.nio.ByteBuffer
 
 class V9Analysis extends NetFlowAnalysis {
 
-//  //--------v9 header -------------
-//  val version = 9
-//  // 16 bit
-//  var flowSetCount = 0
-//  // 16 bit
-//  var systemUptime = 0L
-//  // 32 bit
-//  var unixSeconds = 0L
-//  // 32 bit
-//  var packageSequence = 0L
-//  // 32 bit
-//  var sourceID = 0L // 32 bit
-//  // ------------------------------
-
   override def unPackHeader(data: ByteBuffer): NetflowHeader = {
     new NetflowHeader(
  //     BytesUtil.toUShort(data),   // version
@@ -44,13 +30,6 @@ class V9Analysis extends NetFlowAnalysis {
       BytesUtil.toUInt(data),     // packageSequence
       BytesUtil.toUInt(data)      // sourceID
     )
-
-      // data.getShort // skip version field
-//    flowSetCount = BytesUtil.toUShort(data)
-//    systemUptime = BytesUtil.toUInt(data)
-//    unixSeconds = BytesUtil.toUInt(data)
-//    packageSequence = BytesUtil.toUInt(data)
-//    sourceID = BytesUtil.toUInt(data)
   }
 
   override def isTemplateFlowSet(data: ByteBuffer) : Boolean = {
