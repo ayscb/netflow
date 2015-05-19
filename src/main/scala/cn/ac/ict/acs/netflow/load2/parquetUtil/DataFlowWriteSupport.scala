@@ -21,6 +21,7 @@ package cn.ac.ict.acs.netflow.load2.parquetUtil
 import java.nio.ByteBuffer
 import java.util
 
+import cn.ac.ict.acs.netflow.load2.NetFlowShema
 import cn.ac.ict.acs.netflow.load2.netFlow.BytesUtil
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.Logging

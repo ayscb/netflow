@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 package cn.ac.ict.acs.netflow.load
-import cn.ac.ict.acs.netflow.{NetFlowSchema, NetFlowConf}
+import cn.ac.ict.acs.netflow.NetFlowConf
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Row, SQLContext}
 import org.apache.spark.{SparkContext, SparkConf}

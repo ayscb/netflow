@@ -333,3 +333,27 @@ trait ResolveNetflowService  {
 
   def getCurrentThreadsNum: Int = writerThreadsQueue.size
 }
+
+object test{
+  private def doStartUDPRunner(udpPort: Int): (Thread, Int) = {
+    val runner =
+      new Thread(" Listening udp " + udpPort + " Thread ") {
+        override def run(): Unit = {
+          val channel = DatagramChannel.open()
+          channel.configureBlocking(true)
+          channel.socket().bind(new InetSocketAddress(udpPort))
+          while (!Thread.interrupted()) {
+            val buff = ByteBuffer.allocate(1500)
+            channel.receive(buff)
+            print(buff.array())
+          }
+        }
+      }
+    runner.setDaemon(true)
+    (runner, udpPort)
+  }
+
+  def main(args: Array[String]) {
+    doStartUDPRunner( 10003)
+  }
+}

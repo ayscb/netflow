@@ -2,7 +2,8 @@ package cn.ac.ict.acs.netflow.load2.netFlow
 
 import java.nio.ByteBuffer
 import java.util.concurrent.locks.ReentrantReadWriteLock
-import cn.ac.ict.acs.netflow.load2.parquetUtil.NetFlowShema
+import cn.ac.ict.acs.netflow.load2.NetFlowShema
+
 import scala.collection.mutable.ArrayBuffer
 
 /**

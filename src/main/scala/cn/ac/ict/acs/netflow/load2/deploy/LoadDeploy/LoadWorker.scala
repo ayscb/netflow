@@ -23,6 +23,7 @@ import java.util.UUID
 import akka.actor._
 import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
 import cn.ac.ict.acs.netflow.load2.deploy.DeployMessages._
+import cn.ac.ict.acs.netflow.load2.deploy.LoadMasterMessage.CombineParquet
 import cn.ac.ict.acs.netflow.load2.deploy.LoadWorkerMessage.BufferOverFlow
 import cn.ac.ict.acs.netflow.load2.deploy.WorkerMessage.SendHeartbeat
 import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
@@ -173,6 +174,9 @@ class LoadWorker(
       case x: DisassociatedEvent if x.remoteAddress == masterAddress =>
         logInfo(s"$x Disassociated !")
         masterDisconnected()
+
+      case CombineParquet =>
+
 
     }
 
