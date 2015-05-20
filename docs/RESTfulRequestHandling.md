@@ -32,26 +32,26 @@ HttpServerConnection->RestBroker: HttpRequest
 RestBroker-> +RequestHandler: 分派HttpRequest
 
 opt if /status && GET
-  RequestHandler->QueryMaster: RestRequestQueryMasterStatus
-  QueryMaster-> RequestHandler: RestResponseQueryMasterStatus(...)
+  RequestHandler->QueryMaster: RestQueryMasterStatusRequest
+  QueryMaster-> RequestHandler: RestQueryMasterStatusResponse(...)
 end
 
 opt if /v1/jobs && GET
-  RequestHandler->QueryMaster: RestRequestAllJobsInfo
-  QueryMaster-> RequestHandler: RestResponseAllJobsInfo(...)
+  RequestHandler->QueryMaster: RestAllJobsInfoRequest
+  QueryMaster-> RequestHandler: RestAllJobsInfoResponse(...)
 end
 
 opt if /v1/jobs && POST
-  RequestHandler->QueryMaster: RestRequestSubmitJob(jobDesc)
-  QueryMaster-> RequestHandler: RestResponseSubmitJobSuccess(...)
+  RequestHandler->QueryMaster: RestSubmitJobRequest(jobDesc)
+  QueryMaster-> RequestHandler: RestSubmitJobSuccessResponse(...)
 end
 
 opt if /v1/jobs/<jobId> && GET
-  RequestHandler->QueryMaster: RestRequestJobInfo(jobId)
-  QueryMaster-> RequestHandler: RestResponseJobInfo(...)
+  RequestHandler->QueryMaster: RestJobInfoRequest(jobId)
+  QueryMaster-> RequestHandler: RestJobInfoResponse(...)
 end
 
 opt if /v1/jobs/<jobId> && DELETE
-  RequestHandler->QueryMaster: RestRequestKillJob(jobId)
-  QueryMaster-> RequestHandler: RestResponseKillJobSuccess(...)
+  RequestHandler->QueryMaster: RestKillJobRequest(jobId)
+  QueryMaster-> RequestHandler: RestKillJobSuccessResponse(...)
 end
