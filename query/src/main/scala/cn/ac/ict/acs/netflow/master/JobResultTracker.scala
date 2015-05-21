@@ -16,16 +16,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs
+package cn.ac.ict.acs.netflow.master
 
-package object netflow {
+import akka.actor.Actor
 
-  val NETFLOW_VERSION = "1.0-SNAPSHOT"
-  val SPARK_VERSION = "1.4.0-SNAPSHOT"
-  val HADOOP_VERSION = "2.4.0"
+import cn.ac.ict.acs.netflow.{JobMessages, Logging}
+import cn.ac.ict.acs.netflow.util.ActorLogReceive
 
-  val QUERYMASTER_ACTORSYSTEM = "netflowQueryMaster"
-  val QUERYMASTER_ACTOR = "QueryMaster"
-  val BROKER_ACTORSYSTEM = "netflowRest"
-  val BROKER_ACTOR = "RestBroker"
+class JobResultTracker(cacheSize: Int) extends Actor with ActorLogReceive with Logging {
+  import JobMessages._
+
+  private val cache = new LRUCache[String, Any](cacheSize)
+
+  def receiveWithLogging = {
+    case JobResult(jobId, result) => {
+      logInfo(s"Received job results for $jobId")
+      cache.put(jobId, result)
+    }
+
+    case GetJobResult(jobId) => {
+      logInfo(s"Retrieve job result for $jobId ")
+      sender ! cache.get(jobId).map(JobResult(jobId, _)).getOrElse(JobNotFound)
+    }
+  }
 }

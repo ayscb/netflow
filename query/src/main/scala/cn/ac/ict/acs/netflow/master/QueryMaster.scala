@@ -46,6 +46,7 @@ class QueryMaster(
   import QueryMasterMessages._
   import RestMessages._
   import DeployMessages._
+  import JobMessages._
 
   import context.dispatcher
 
@@ -53,18 +54,30 @@ class QueryMaster(
   val BROKER_TIMEOUT = conf.getLong("netflow.broker.timeout", 60) * 1000
   val RETAINED_QUERY = conf.getInt("netflow.deploy.retainedQuerys", 200)
 
-  //TODO find right place to set spark configurations used by netflow
+  // TODO find right place to set spark configurations used by netflow
   val sparkMasterUrl = conf.get("netflow.spark.master")
   val sparkRestMasterUrl = conf.get("netflow.spark.rest.master")
   val SPARK_HOME = System.getenv("SPARK_HOME")
   require(SPARK_HOME != null)
 
-  val sparkSubmitPath = SPARK_HOME + "/bin/spark-submit"
-
   // Remove a dead broker after given interval
   val REAPER_ITERATIONS = conf.getInt("netflow.dead.broker.persistence", 15)
   // Master recovery mode
   val RECOVERY_MODE = conf.get("netflow.deploy.recoveryMode", "NONE")
+
+  val RESULT_CACHE_SIZE = conf.getInt("netflow.adhoc.result.cacheSize", 30)
+
+  val defaultAppArgs = new mutable.ArrayBuffer[String]()
+  defaultAppArgs += "a"
+  defaultAppArgs += "b"
+  val defaultSparkProperties = new mutable.HashMap[String, String]
+  defaultSparkProperties("a") = "b"
+  defaultSparkProperties("c") = "d"
+  val defaultEnvironmentVariables = new mutable.HashMap[String, String]
+  defaultEnvironmentVariables("a") = "b"
+  defaultEnvironmentVariables("c") = "d"
+  val defaultJarName = ""
+  val defaultClassName = ""
 
   // This may contain dead workers
   val brokers = new mutable.HashSet[BrokerInfo]
@@ -97,13 +110,15 @@ class QueryMaster(
 
   var sparkRestClient: RestSubmissionClient = _
 
+  var resultTracker: ActorRef = _
+
   override def preStart(): Unit = {
     logInfo("Starting NetFlow QueryMaster at " + queryMasterUrl)
     logInfo(s"Running NetFlow version ${cn.ac.ict.acs.netflow.NETFLOW_VERSION}")
     // Listen for remote client disconnection events, since they don't go through Akka's watch()
     context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
 
-    //TODO: a pseudo webuiurl here
+    // TODO: a pseudo webuiurl here
     queryMasterWebUIUrl = "http://" + host + ":" + webUiPort
 
     context.system.scheduler.schedule(0.millis, BROKER_TIMEOUT.millis, self, CheckForBrokerTimeOut)
@@ -122,6 +137,8 @@ class QueryMaster(
     leaderElectionAgent = leaderElectionAgent_
 
     sparkRestClient = new RestSubmissionClient(sparkRestMasterUrl)
+    resultTracker = context.actorOf(
+      Props(classOf[JobResultTracker], RESULT_CACHE_SIZE), "JobResultTracker")
   }
 
   override def preRestart(reason: Throwable, message: Option[Any]) {
@@ -311,6 +328,60 @@ class QueryMaster(
       }
     }
 
+    case JobLaunched(jobId) => {
+      if (state != QueryMasterRecoveryState.ALIVE) {
+        val msg = s"Can only accept job registration in ALIVE state. Current state: $state."
+        sender ! WrongMaster(msg)
+      } else {
+        logInfo(s"Job $jobId get scheduled on Spark.")
+        idToJobs.get(jobId) match {
+          case Some(j) => {
+            j._startTime = Some(DateTime.now()) // a place to call start
+            val tp = if (j.jobType == JobType.ONLINE) "STREAM" else "SQL"
+            val rt = if (j.jobType == JobType.ADHOC) Some(resultTracker) else None
+            sender ! JobInitialize(tp, j.query, j.outputPath, rt, sparkMasterUrl)
+          }
+          case None =>
+            sender ! JobNotFound
+        }
+      }
+    }
+
+    case JobFinished(jobId) => {
+      if (state != QueryMasterRecoveryState.ALIVE) {
+        val msg = s"Can only accept job registration in ALIVE state. Current state: $state."
+        sender ! WrongMaster(msg)
+      } else {
+        logInfo(s"Job $jobId finished normally.")
+        idToJobs.get(jobId) match {
+          case Some(j) => {
+            j.finish
+            sender ! JobEndACK
+          }
+          case None =>
+            sender ! JobNotFound
+        }
+      }
+    }
+
+    case JobFailed(jobId, err) => {
+      if (state != QueryMasterRecoveryState.ALIVE) {
+        val msg = s"Can only accept job registration in ALIVE state. Current state: $state."
+        sender ! WrongMaster(msg)
+      } else {
+        logInfo(s"Job $jobId failed with exception: ${err.toString}.")
+        logInfo(s"${err.getStackTraceString}")
+        idToJobs.get(jobId) match {
+          case Some(j) => {
+            j.fail(Some(err.toString))
+            sender ! JobEndACK
+          }
+          case None =>
+            sender ! JobNotFound
+        }
+      }
+    }
+
     case CheckForBrokerTimeOut => {
       timeOutDeadBrokers()
     }
@@ -437,21 +508,7 @@ class QueryMaster(
     val jar = desc.jar.getOrElse("default jar name here")
     val mainClass = desc.mainClass.getOrElse("default className here")
 
-    val defaultAppArgs = new mutable.ArrayBuffer[String]()
-    defaultAppArgs += "a"
-    defaultAppArgs += "b"
-
     val appArgs = desc.appArgs.getOrElse(defaultAppArgs.toArray)
-
-    val defaultSparkProperties = new mutable.HashMap[String, String]
-
-    defaultSparkProperties("a") = "b"
-    defaultSparkProperties("c") = "d"
-
-    val defaultEnvironmentVariables = new mutable.HashMap[String, String]
-
-    defaultSparkProperties("a") = "b"
-    defaultSparkProperties("c") = "d"
 
     val effectiveSparkProperties =
       desc.sparkProperties.map(_ ++ defaultSparkProperties).
@@ -596,9 +653,6 @@ class QueryMaster(
 object QueryMaster extends Logging {
   import QueryMasterMessages._
 
-  val systemName = "netflowQueryMaster"
-  private val actorName = "QueryMaster"
-
   def main(argStrings: Array[String]): Unit = {
     SignalLogger.register(log)
     val conf = new NetFlowConf
@@ -619,34 +673,13 @@ object QueryMaster extends Logging {
       port: Int,
       webUiPort: Int,
       conf: NetFlowConf): (ActorSystem, Int, Int) = {
-    val (actorSystem, boundPort) = AkkaUtils.createActorSystem(systemName, host, port, conf)
+    val (actorSystem, boundPort) =
+      AkkaUtils.createActorSystem(QUERYMASTER_ACTORSYSTEM, host, port, conf)
     val actor = actorSystem.actorOf(
-      Props(classOf[QueryMaster], host, boundPort, webUiPort, conf), actorName)
+      Props(classOf[QueryMaster], host, boundPort, webUiPort, conf), QUERYMASTER_ACTOR)
     val timeout = AkkaUtils.askTimeout(conf)
     val portsRequest = actor.ask(BoundPortsRequest)(timeout)
     val portsResponse = Await.result(portsRequest, timeout).asInstanceOf[BoundPortsResponse]
     (actorSystem, boundPort, portsResponse.webUIPort)
-  }
-
-  /**
-   * Returns an `akka.tcp://...` URL for the Master actor given a
-   * netflowkUrl `netflow-query://host:port`.
-   *
-   * @throws NetFlowException if the url is invalid
-   */
-  def toAkkaUrl(netflowUrl: String, protocol: String): String = {
-    val (host, port) = Utils.extractHostPortFromNetFlowUrl(netflowUrl)
-    AkkaUtils.address(protocol, systemName, host, port, actorName)
-  }
-
-  /**
-   * Returns an akka `Address` for the Master actor given a
-   * netflowkUrl `netflow-query://host:port`.
-   *
-   * @throws NetFlowException if the url is invalid
-   */
-  def toAkkaAddress(netflowUrl: String, protocol: String): Address = {
-    val (host, port) = Utils.extractHostPortFromNetFlowUrl(netflowUrl)
-    Address(protocol, systemName, host, port)
   }
 }

@@ -21,19 +21,19 @@ package cn.ac.ict.acs.netflow.util
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.Await
 
-import akka.actor.{ActorRef, ExtendedActorSystem, ActorSystem}
+import akka.actor.{Address, ActorRef, ExtendedActorSystem, ActorSystem}
 import akka.pattern.ask
 import com.typesafe.config.ConfigFactory
 import org.apache.log4j.{Level, Logger}
 
-import cn.ac.ict.acs.netflow.{NetFlowException, NetFlowConf, Logging}
+import cn.ac.ict.acs.netflow._
 
 /**
  * Various utility classes for working with Akka.
  *
  * Copied from org.apache.spark.util.AkkaUtils
  */
-private[netflow] object AkkaUtils extends Logging {
+object AkkaUtils extends Logging {
 
   /**
    * Creates an ActorSystem ready for remoting. Returns both the
@@ -214,6 +214,28 @@ private[netflow] object AkkaUtils extends Logging {
       port: Any,
       actorName: String): String = {
     s"$protocol://$systemName@$host:$port/user/$actorName"
+  }
+
+  /**
+   * Returns an `akka.tcp://...` URL for the Master actor given a
+   * netflowkUrl `netflow-query://host:port`.
+   *
+   * @throws NetFlowException if the url is invalid
+   */
+  def toQMAkkaUrl(netflowUrl: String, protocol: String): String = {
+    val (host, port) = Utils.extractHostPortFromNetFlowUrl(netflowUrl)
+    AkkaUtils.address(protocol, QUERYMASTER_ACTORSYSTEM, host, port, QUERYMASTER_ACTOR)
+  }
+
+  /**
+   * Returns an akka `Address` for the Master actor given a
+   * netflowkUrl `netflow-query://host:port`.
+   *
+   * @throws NetFlowException if the url is invalid
+   */
+  def toQMAkkaAddress(netflowUrl: String, protocol: String): Address = {
+    val (host, port) = Utils.extractHostPortFromNetFlowUrl(netflowUrl)
+    Address(protocol, QUERYMASTER_ACTORSYSTEM, host, port)
   }
 
 }

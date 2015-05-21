@@ -16,16 +16,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs
+package cn.ac.ict.acs.netflow
 
-package object netflow {
+case class Query(sql: String, functions: Seq[FuncDescription])
 
-  val NETFLOW_VERSION = "1.0-SNAPSHOT"
-  val SPARK_VERSION = "1.4.0-SNAPSHOT"
-  val HADOOP_VERSION = "2.4.0"
-
-  val QUERYMASTER_ACTORSYSTEM = "netflowQueryMaster"
-  val QUERYMASTER_ACTOR = "QueryMaster"
-  val BROKER_ACTORSYSTEM = "netflowRest"
-  val BROKER_ACTOR = "RestBroker"
-}
+case class FuncDescription(name: String, inputPath: String, format: String)

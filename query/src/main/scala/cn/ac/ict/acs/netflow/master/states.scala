@@ -34,6 +34,6 @@ object JobState extends Enumeration {
   type JobState = Value
 
   // Reported Job will return to SUBMITTED after each run
-  //TODO remove scheduled
+  // TODO remove scheduled
   val RUNNABLE, SCHEDULED, RUNNING, FINISHED, KILLED, FAILED, UNKNOWN = Value
 }

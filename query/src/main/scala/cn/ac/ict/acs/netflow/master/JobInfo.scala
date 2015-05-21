@@ -18,8 +18,8 @@
  */
 package cn.ac.ict.acs.netflow.master
 
+import cn.ac.ict.acs.netflow.Query
 import cn.ac.ict.acs.netflow.RestMessages.RestJobInfoResponse
-import cn.ac.ict.acs.netflow.broker.Query
 import cn.ac.ict.acs.netflow.util.Utils
 import org.joda.time.DateTime
 

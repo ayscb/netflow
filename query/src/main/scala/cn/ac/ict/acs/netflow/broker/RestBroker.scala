@@ -27,6 +27,7 @@ import akka.actor._
 import akka.pattern.ask
 import akka.io.IO
 import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
+import akka.util.Timeout
 
 import org.json4s.DefaultFormats
 import org.joda.time.DateTime
@@ -39,7 +40,6 @@ import spray.routing.{RequestContext, Route, HttpService}
 
 import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.util._
-import cn.ac.ict.acs.netflow.master.QueryMaster
 
 class RestBroker(
     val host: String,
@@ -120,8 +120,8 @@ trait BrokerLike {
     activeMasterUrl = url
     activeMasterWebUiUrl = webUrl
     master = context.actorSelection(
-      QueryMaster.toAkkaUrl(activeMasterUrl, AkkaUtils.protocol(context.system)))
-    masterAddress = QueryMaster.toAkkaAddress(activeMasterUrl, AkkaUtils.protocol(context.system))
+      AkkaUtils.toQMAkkaUrl(activeMasterUrl, AkkaUtils.protocol(context.system)))
+    masterAddress = AkkaUtils.toQMAkkaAddress(activeMasterUrl, AkkaUtils.protocol(context.system))
     connected = true
     // Cancel any outstanding re-registration attempts because we found a new master
     registrationRetryTimer.foreach(_.cancel())
@@ -167,6 +167,7 @@ trait BrokerLike {
         registrationRetryTimer = None
       } else if (connectionAttemptCount <= TOTAL_REGISTRATION_RETRIES) {
         logInfo(s"Retrying connection to master (attempt # $connectionAttemptCount)")
+        // scalastyle:off
         /**
          * Re-register with the active master this worker has been communicating with. If there
          * is none, then it means this worker is still bootstrapping and hasn't established a
@@ -187,6 +188,8 @@ trait BrokerLike {
          * still not safe if the old master recovers within this interval, but this is a much
          * less likely scenario.
          */
+        // scalastyle:on
+
         if (master != null) {
           master ! RegisterBroker(brokerId, host, port, restPort)
         } else {
@@ -320,8 +323,6 @@ trait RestService extends HttpService with Json4sJacksonSupport {
 }
 
 object RestBroker extends Logging {
-  val systemName = "netflowRest"
-  val actorName = "RestBroker"
 
   def main(argStrings: Array[String]) {
     SignalLogger.register(log)
@@ -339,12 +340,12 @@ object RestBroker extends Logging {
     masterUrls: Array[String],
     conf: NetFlowConf = new NetFlowConf): (ActorSystem, ActorRef, Int, Int) = {
 
-    val sysName = systemName + "_" + UUID.randomUUID()
+    val sysName = BROKER_ACTORSYSTEM + "_" + UUID.randomUUID()
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem(sysName, host, port, conf)
     val masterAkkaUrls = masterUrls.map(
-      QueryMaster.toAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
+      AkkaUtils.toQMAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
     val (actor, boundRestPort) = createActorAndListen(actorSystem, host,
-      boundPort, restPort, masterAkkaUrls, systemName, actorName, conf)
+      boundPort, restPort, masterAkkaUrls, BROKER_ACTORSYSTEM, BROKER_ACTOR, conf)
 
     (actorSystem, actor, boundPort, boundRestPort)
   }
@@ -378,9 +379,9 @@ object RestBroker extends Logging {
     val actor = actorSystem.actorOf(Props(classOf[RestBroker], host, port, restPort,
       masterAkkaUrls, actorSystemName, actorName, conf), name = actorName)
 
-    implicitly val timeOut = AkkaUtils.askTimeout(conf)
+    implicit val timeOut = Timeout(AkkaUtils.askTimeout(conf))
 
-    IO(Http) ? Http.Bind(actor, interface = host, restPort)
+    IO(Http)(actorSystem) ? Http.Bind(actor, interface = host, port = restPort)
 
     (actor, restPort)
   }

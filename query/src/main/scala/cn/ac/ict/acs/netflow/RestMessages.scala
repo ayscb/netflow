@@ -18,7 +18,7 @@
  */
 package cn.ac.ict.acs.netflow
 
-import cn.ac.ict.acs.netflow.broker.{Query, ValidJobDescription}
+import cn.ac.ict.acs.netflow.broker.ValidJobDescription
 import cn.ac.ict.acs.netflow.master.{JobType, JobState}
 import org.joda.time.DateTime
 
@@ -36,7 +36,7 @@ object RestMessages {
   case class RestQueryMasterStatusResponse(
       version: String,
       runningJobs: Seq[String],
-      finishedJobs: Seq[String] //TODO more info to return?
+      finishedJobs: Seq[String] // TODO more info to return?
     ) extends RestMessage
 
   /**

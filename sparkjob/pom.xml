@@ -6,11 +6,73 @@
     <artifactId>netflow</artifactId>
     <groupId>cn.ac.ict.acs</groupId>
     <version>1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
   <artifactId>netflow-sparkjob</artifactId>
-  <packaging>pom</packaging>
+  <packaging>jar</packaging>
 
+  <properties>
+    <sparkjob.jar.name>sparkjob-${project.version}.jar</sparkjob.jar.name>
+    <sparkjob.jar>target/scala-${scala.binary.version}/${sparkjob.jar.name}</sparkjob.jar>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>cn.ac.ict.acs</groupId>
+      <artifactId>netflow-common</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-client</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-sql_2.10</artifactId>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <outputDirectory>target/scala-${scala.binary.version}/classes</outputDirectory>
+    <testOutputDirectory>target/scala-${scala.binary.version}/test-classes</testOutputDirectory>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <configuration>
+          <shadedArtifactAttached>false</shadedArtifactAttached>
+          <outputFile>${sparkjob.jar}</outputFile>
+          <artifactSet>
+            <includes>
+              <include>cn.ac.ict.acs:netflow-common</include>
+              <include>cn.ac.ict.acs:netflow-sparkjob</include>
+            </includes>
+          </artifactSet>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.DontIncludeResourceTransformer">
+                  <resource>log4j.properties</resource>
+                </transformer>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer"/>
+              </transformers>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 
 </project>

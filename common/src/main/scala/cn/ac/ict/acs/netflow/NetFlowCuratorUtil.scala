@@ -24,8 +24,6 @@ import org.apache.curator.framework.{CuratorFrameworkFactory, CuratorFramework}
 import org.apache.curator.retry.ExponentialBackoffRetry
 import org.apache.zookeeper.KeeperException
 
-import cn.ac.ict.acs.netflow.{NetFlowConf, Logging}
-
 object NetFlowCuratorUtil extends Logging {
 
   val ZK_CONNECTION_TIMEOUT_MILLIS = 15000
