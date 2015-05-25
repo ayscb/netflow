@@ -46,8 +46,6 @@ class RestBroker(
     val port: Int,
     val restPort: Int,
     val masterAkkaUrls: Array[String],
-    val actorSystemName: String,
-    val actorName: String,
     val conf: NetFlowConf)
   extends Actor with RestService with BrokerLike with ActorLogReceive with Logging {
 
@@ -313,8 +311,13 @@ trait RestService extends HttpService with Json4sJacksonSupport {
     }
   }
 
-  def requestQueryMaster(message: RestMessage): Route = {
-    ctx => handleRequest(ctx, message, master)
+  def requestQueryMaster(message: RestMessage): Route = { ctx =>
+    logDebug(s"Get ${message.toString} from client")
+    if (master != null) {
+      handleRequest(ctx, message, master)
+    } else {
+      ctx.complete(500, "The Broker cannot connect to a valid QueryMaster")
+    }
   }
 
   def handleRequest(rc: RequestContext, message: RestMessage, master: ActorSelection) = {
@@ -340,12 +343,12 @@ object RestBroker extends Logging {
     masterUrls: Array[String],
     conf: NetFlowConf = new NetFlowConf): (ActorSystem, ActorRef, Int, Int) = {
 
-    val sysName = BROKER_ACTORSYSTEM + "_" + UUID.randomUUID()
+    val sysName = BROKER_ACTORSYSTEM + "-" + UUID.randomUUID().toString.takeRight(8)
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem(sysName, host, port, conf)
     val masterAkkaUrls = masterUrls.map(
       AkkaUtils.toQMAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
     val (actor, boundRestPort) = createActorAndListen(actorSystem, host,
-      boundPort, restPort, masterAkkaUrls, BROKER_ACTORSYSTEM, BROKER_ACTOR, conf)
+      boundPort, restPort, masterAkkaUrls, conf)
 
     (actorSystem, actor, boundPort, boundRestPort)
   }
@@ -356,14 +359,12 @@ object RestBroker extends Logging {
       port: Int,
       restPort: Int,
       masterAkkaUrls: Array[String],
-      actorSystemName: String,
-      actorName: String,
       conf: NetFlowConf) = {
     val startActorAndListen: Int => (ActorRef, Int) = { actualRestPort =>
       doCreateActorAndListen(actorSystem, host, port, actualRestPort,
-        masterAkkaUrls, actorSystemName, actorName, conf)
+        masterAkkaUrls, conf)
     }
-    Utils.startServiceOnPort(restPort, startActorAndListen, conf, actorName)
+    Utils.startServiceOnPort(restPort, startActorAndListen, conf, "RESTful-Service")
   }
 
   def doCreateActorAndListen(
@@ -372,12 +373,10 @@ object RestBroker extends Logging {
       port: Int,
       restPort: Int,
       masterAkkaUrls: Array[String],
-      actorSystemName: String,
-      actorName: String,
       conf: NetFlowConf): (ActorRef, Int) = {
 
     val actor = actorSystem.actorOf(Props(classOf[RestBroker], host, port, restPort,
-      masterAkkaUrls, actorSystemName, actorName, conf), name = actorName)
+      masterAkkaUrls, conf), name = BROKER_ACTOR)
 
     implicit val timeOut = Timeout(AkkaUtils.askTimeout(conf))
 

@@ -53,11 +53,13 @@ case class JobDescription(
       }
     } catch {
       case e: NoSuchElementException =>
-        return (null, false, Some(s"Job Type: ${jobType.get} is not a valid value"))
+        return (null, false,
+          Some(s"[jobType: ${jobType.get}] is not a valid one, " +
+            s"please choose among [ONLINE, ADHOC, REPORT]"))
     }
 
     val defer = try {
-      deferTime.map(_.toDuration).getOrElse(0.days)
+      deferTime.map(_.toDuration).getOrElse(0.seconds)
     } catch {
       case e: NetFlowException =>
         return (null, false, Some(e.getMessage))

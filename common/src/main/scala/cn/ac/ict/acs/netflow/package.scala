@@ -21,8 +21,11 @@ package cn.ac.ict.acs
 package object netflow {
 
   val NETFLOW_VERSION = "1.0-SNAPSHOT"
-  val SPARK_VERSION = "1.4.0-SNAPSHOT"
+  val SPARK_VERSION = "1.4.0-netflow"
   val HADOOP_VERSION = "2.4.0"
+
+  val SCALA_VERSION = "2.10.4"
+  val SCALA_BINARY_VERSION = "2.10"
 
   val QUERYMASTER_ACTORSYSTEM = "netflowQueryMaster"
   val QUERYMASTER_ACTOR = "QueryMaster"

@@ -22,6 +22,7 @@ import cn.ac.ict.acs.netflow.Query
 import cn.ac.ict.acs.netflow.RestMessages.RestJobInfoResponse
 import cn.ac.ict.acs.netflow.util.Utils
 import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -50,6 +51,8 @@ class JobInfo(
 
   def description = desc.getOrElse(mainClass)
 
+  val fmt = DateTimeFormat.forPattern("yyyy-MM-dd,HH:mm:ss")
+
   @transient var _state: JobState = RUNNABLE
   @transient var _submissionId: Option[String] = None
   @transient var _startTime: Option[DateTime] = None
@@ -58,9 +61,11 @@ class JobInfo(
   @transient var _driverState: Option[String] = None
 
   def toRestJobInfoResponse: RestJobInfoResponse = {
-    RestJobInfoResponse(id, desc, jobType, submitTime, deferTime, frequency, query,
-      jar, mainClass, appArgs, sparkProperties, environmentVariables, outputPath,
-      _state, _submissionId, _startTime, _endTime, _message, _driverState)
+    RestJobInfoResponse(id, desc, jobType.toString, submitTime.toString(fmt),
+      deferTime.toString, frequency.map(_.toString), query, jar, mainClass, appArgs,
+      sparkProperties, environmentVariables, outputPath,
+      _state.toString, _submissionId,
+      _startTime.map(_.toString(fmt)), _endTime.map(_.toString(fmt)), _message, _driverState)
   }
 
   private def readObject(in: java.io.ObjectInputStream): Unit = Utils.tryOrIOException {

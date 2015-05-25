@@ -1,0 +1,19 @@
+{
+  "jobName": "xyz",
+  "jobType": "adhoc",
+  "jobQuery": {
+    "sql": "select ipv4_dst_addr, count(ipvr_dst_addr) from t where flowtime > 20120101 && flowtime < 20120202 group by ipv4_det_addr",
+    "functions": [
+      {
+        "name": "tosubnet",
+        "inputPath": "hdfs://localhost:9000/subdef/1.txt",
+        "format": "kv"
+      },
+      {
+        "name": "insubnet",
+        "inputPath": "hdfs://localhost:9000/subdef/1.txt",
+        "format": "kv"
+      }
+    ]
+  }
+}

@@ -25,3 +25,5 @@
 # - NETFLOW_PID_DIR       Where the pid file is stored. (Default: /tmp)
 # - NETFLOW_IDENT_STRING  A string representing this instance of NETFLOW. (Default: $USER)
 # - NETFLOW_NICENESS      The scheduling priority for daemons. (Default: 0)
+
+# - SPARK_HOME

@@ -55,10 +55,11 @@ class QueryMaster(
   val RETAINED_QUERY = conf.getInt("netflow.deploy.retainedQuerys", 200)
 
   // TODO find right place to set spark configurations used by netflow
-  val sparkMasterUrl = conf.get("netflow.spark.master")
-  val sparkRestMasterUrl = conf.get("netflow.spark.rest.master")
-  val SPARK_HOME = System.getenv("SPARK_HOME")
-  require(SPARK_HOME != null)
+  val sparkMasterUrl = conf.get("netflow.spark.master", "spark://Yijie-MBP.local:7077")
+  val sparkRestMasterUrl = conf.get("netflow.spark.rest.master", "spark://Yijie-MBP.local:6066")
+
+  val sparkHome = System.getenv("SPARK_HOME")
+  require(sparkHome != null, "SPARK_HOME env must be set")
 
   // Remove a dead broker after given interval
   val REAPER_ITERATIONS = conf.getInt("netflow.dead.broker.persistence", 15)
@@ -66,18 +67,6 @@ class QueryMaster(
   val RECOVERY_MODE = conf.get("netflow.deploy.recoveryMode", "NONE")
 
   val RESULT_CACHE_SIZE = conf.getInt("netflow.adhoc.result.cacheSize", 30)
-
-  val defaultAppArgs = new mutable.ArrayBuffer[String]()
-  defaultAppArgs += "a"
-  defaultAppArgs += "b"
-  val defaultSparkProperties = new mutable.HashMap[String, String]
-  defaultSparkProperties("a") = "b"
-  defaultSparkProperties("c") = "d"
-  val defaultEnvironmentVariables = new mutable.HashMap[String, String]
-  defaultEnvironmentVariables("a") = "b"
-  defaultEnvironmentVariables("c") = "d"
-  val defaultJarName = ""
-  val defaultClassName = ""
 
   // This may contain dead workers
   val brokers = new mutable.HashSet[BrokerInfo]
@@ -94,7 +83,6 @@ class QueryMaster(
 
   Utils.checkHost(host, "Expected hostname")
 
-  var nextQueryNumber = 0
   var nextJobNumber = 0
 
   val queryMasterUrl = "netflow-query://" + host + ":" + port
@@ -111,6 +99,20 @@ class QueryMaster(
   var sparkRestClient: RestSubmissionClient = _
 
   var resultTracker: ActorRef = _
+
+  // preparing args and settings to launch spark jobs
+  val defaultJar = s"file:$sparkHome/lib/sparkjob-$NETFLOW_VERSION.jar"
+  val defaultMainClass = "cn.ac.ict.acs.netflow.JobActor"
+
+  val defaultSparkProperties = new mutable.HashMap[String, String]
+  defaultSparkProperties("spark.master") = sparkMasterUrl
+  defaultSparkProperties("spark.app.name") = defaultMainClass
+  defaultSparkProperties("spark.jars") = defaultJar
+  defaultSparkProperties("spark.driver.supervise") = "true"
+  val defaultEnvironmentVariables = new mutable.HashMap[String, String]
+  defaultEnvironmentVariables("SPARK_SCALA_VERSION") = SCALA_BINARY_VERSION
+  defaultEnvironmentVariables("SPARK_HOME") = sparkHome
+  defaultEnvironmentVariables("SPARK_ENV_LOADED") = "1"
 
   override def preStart(): Unit = {
     logInfo("Starting NetFlow QueryMaster at " + queryMasterUrl)
@@ -387,10 +389,20 @@ class QueryMaster(
     }
 
     case RestQueryMasterStatusRequest => {
-
+      sender ! RestQueryMasterStatusResponse(NETFLOW_VERSION, "v1",
+        idToBroker.keys.toSeq, idToJobs.keys.toSeq)
     }
 
     case RestAllJobsInfoRequest => {
+      val list = new mutable.ArrayBuffer[JobInfoAbstraction]()
+      idToJobs.foreach { case (id, j) =>
+        list += JobInfoAbstraction(id, j.submitTime.toString(createTimeFormat),
+          j.query.sql.take(15) + " ...", j._state.toString, j._submissionId,
+          j._startTime.map(_.toString(createTimeFormat)),
+          j._endTime.map(_.toString(createTimeFormat)),
+          j._message, j._driverState)
+      }
+      sender ! RestAllJobsInfoResponse(list.toSeq)
 
     }
 
@@ -446,6 +458,7 @@ class QueryMaster(
         idToJobs.get(jobId) match {
           case Some(j) =>
             if (j._state == JobState.RUNNABLE || j._state == JobState.SCHEDULED) {
+              j.kill
               sender ! RestKillJobResponse(jobId, true, Some("Job kill while waiting"))
             } else if (j._state == JobState.RUNNING) {
               if (j._submissionId.isDefined) {
@@ -493,7 +506,7 @@ class QueryMaster(
 
   def createJob(desc: ValidJobDescription): JobInfo = {
     def newJobId(submitDate: DateTime, tpe: JobType.Value): String = {
-      val jobId = "job-%s-%s-%6d".format(
+      val jobId = "job-%s-%s-%06d".format(
         tpe.toString.toLowerCase,
         submitDate.toString(createTimeFormat),
         nextJobNumber)
@@ -505,8 +518,13 @@ class QueryMaster(
 
     val id = newJobId(now, desc.jobType)
 
-    val jar = desc.jar.getOrElse("default jar name here")
-    val mainClass = desc.mainClass.getOrElse("default className here")
+    val jar = desc.jar.getOrElse(defaultJar)
+    val mainClass = desc.mainClass.getOrElse(defaultMainClass)
+
+    // JobActor's main method args
+    val defaultAppArgs = new mutable.ArrayBuffer[String]()
+    defaultAppArgs += queryMasterUrl
+    defaultAppArgs += id
 
     val appArgs = desc.appArgs.getOrElse(defaultAppArgs.toArray)
 
@@ -543,11 +561,12 @@ class QueryMaster(
     val timerTask = job.jobType match {
       case JobType.ADHOC =>
         // if time passed, we do not schedule it again
-        if (now <= intendStart) {
+        if (now - intendStart <= 30 * 1000) {
           val delay = intendStart - now
           context.system.scheduler.scheduleOnce(
             delay.millis, self, ScheduleJob(job.id))
         } else {
+          logError(s"Job ${job.id} was late for scheduling")
           null
         }
 

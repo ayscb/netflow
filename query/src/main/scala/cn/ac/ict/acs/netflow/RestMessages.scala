@@ -34,9 +34,10 @@ object RestMessages {
   case object RestQueryMasterStatusRequest extends RestMessage
 
   case class RestQueryMasterStatusResponse(
-      version: String,
-      runningJobs: Seq[String],
-      finishedJobs: Seq[String] // TODO more info to return?
+      NetFlowVersion: String,
+      APIVersion: String = "v1",
+      AliveBrokers: Seq[String],
+      ExistJobs: Seq[String] // TODO more info to return?
     ) extends RestMessage
 
   /**
@@ -44,7 +45,19 @@ object RestMessages {
    */
   case object RestAllJobsInfoRequest extends RestMessage
 
-  case class RestAllJobsInfoResponse(jobs: Seq[RestJobInfoResponse]) extends RestMessage
+  case class RestAllJobsInfoResponse(jobs: Seq[JobInfoAbstraction]) extends RestMessage
+
+  case class JobInfoAbstraction(
+      jobId: String,
+      submitTime: String,
+      sql: String,
+      state: String,
+      submissionId: Option[String],
+      startTime: Option[String],
+      endTime: Option[String],
+      message: Option[String],
+      driverState: Option[String]
+    )
 
   /**
    * GET /netflow/v1/job/<jobId>
@@ -56,10 +69,10 @@ object RestMessages {
   case class RestJobInfoResponse(
       jobId: String,
       desc: Option[String],
-      jobType: JobType.Value,
-      submitTime: DateTime,
-      deferTime: FiniteDuration,
-      frequency: Option[FiniteDuration],
+      jobType: String,
+      submitTime: String,
+      deferTime: String,
+      frequency: Option[String],
       query: Query,
       jar: String,
       mainClass: String,
@@ -67,10 +80,10 @@ object RestMessages {
       sparkProperties: Map[String, String],
       environmentVariables: Map[String, String],
       outputPath: String,
-      state: JobState.Value,
+      state: String,
       submissionId: Option[String],
-      startTime: Option[DateTime],
-      endTime: Option[DateTime],
+      startTime: Option[String],
+      endTime: Option[String],
       message: Option[String],
       driverState: Option[String]
     ) extends RestMessage

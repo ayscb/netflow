@@ -39,6 +39,7 @@ class JobActor(
   var resultTracker: ActorRef = _
 
   override def preStart() = {
+    logInfo(s"Job $jobId started with master: $masterUrl to be connected")
     val masterAddress = AkkaUtils.toQMAkkaUrl(masterUrl, AkkaUtils.protocol())
     master = context.actorSelection(masterAddress)
     master ! JobLaunched(jobId)
@@ -46,6 +47,7 @@ class JobActor(
 
   def receiveWithLogging = {
     case JobInitialize(tpe, query, outputPath, resultCache, sparkMaster) => {
+      logInfo(s"Get JobInfo from QueryMaster $query")
       if (resultCache.isDefined) {
         resultTracker = resultCache.get
       }
@@ -57,8 +59,10 @@ class JobActor(
       jobFuture onSuccess {
         case (success, expOpt) => {
           if (success) {
+            logInfo(s"Job's main part finished successfully")
             master ! JobFinished(jobId)
           } else {
+            logInfo(s"Job failed with exception", expOpt.get)
             master ! JobFailed(jobId, expOpt.get)
           }
         }
@@ -66,10 +70,12 @@ class JobActor(
     }
 
     case JobEndACK => {
+      logInfo(s"Ok to be shutdown")
       context.system.shutdown()
     }
 
     case JobNotFound => {
+      logWarning(s"No such job exists in QueryMaster, this should never happen")
       context.system.shutdown()
     }
   }
@@ -84,11 +90,16 @@ class JobActor(
       sc = new SparkContext(conf)
       val sqlContext = new SQLContext(sc)
 
-      val result = sqlContext.sql(query.sql)
+//      val result = sqlContext.sql(query.sql)
+
+      import sqlContext.implicits._
+      val a = sc.parallelize(Seq(1,2,3,4,5,6,7,8,9,10,11), 5)
+      val result = a.toDF()
+
       if (resultTracker != null) {
         resultTracker ! JobResult(jobId, result.head(10))
       }
-      result.write.parquet(outputPath)
+      result.write.json(outputPath + "/" + jobId)
 
       (true, None)
     } catch {
