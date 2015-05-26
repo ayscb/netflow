@@ -426,14 +426,14 @@ class QueryMaster(
         val msg = s"Can only accept job registration in ALIVE state. Current state: $state."
         sender ! RestFailureResponse(msg)
       } else {
-        logInfo(s"Request job status of $jobId")
+        logInfo(s"Request detailed information of job: $jobId")
         idToJobs.get(jobId) match {
           case Some(j) =>
             if (j._state == JobState.RUNNING) {
               if (j._submissionId.isDefined) {
                 requestJobStatusOnSpark(j)
                 sender ! j.toRestJobInfoResponse
-              } else {// this should never happen
+              } else { // this should never happen
                 logError("Running job without submissionId")
                 assert(false)
               }

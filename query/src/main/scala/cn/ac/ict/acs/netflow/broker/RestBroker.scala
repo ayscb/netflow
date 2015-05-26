@@ -51,8 +51,11 @@ class RestBroker(
 
   implicit def actorRefFactory: ActorContext = context
 
+  val currentRoutes =
+    respondWithMediaType(`application/json`)(jobRoutes ~ v1Routes ~ otherRoutes)
+
   override def receiveWithLogging =
-    lifecycleMaintenance orElse runRoute(routeImpl)
+    lifecycleMaintenance orElse runRoute(currentRoutes)
 }
 
 trait BrokerLike {
@@ -268,45 +271,57 @@ trait RestService extends HttpService with Json4sJacksonSupport {
 
   implicit def json4sJacksonFormats = DefaultFormats
 
-  val routeImpl = respondWithMediaType(`application/json`) {
-    path("status") {
-      get {
-        requestQueryMaster {
-          RestQueryMasterStatusRequest
-        }
+  val jobRoutes: Route = pathPrefix("v1" / "jobs") {
+    // GET /v1/jobs return all jobs information summarily
+    (get & pathEndOrSingleSlash) {
+      requestQueryMaster {
+        RestAllJobsInfoRequest
       }
     } ~
-    pathPrefix("v1" / "jobs") {
-      pathEndOrSingleSlash {
-        get {
-          requestQueryMaster {
-            RestAllJobsInfoRequest
-          }
-        } ~
-        post {
-          entity(as[JobDescription]) { jobDesc =>
-            val (vjd, success, message) = jobDesc.doValidate()
-            if (success) {
-              requestQueryMaster {
-                RestSubmitJobRequest(vjd)
-              }
-            } else {
-              complete(400, message.getOrElse("Invalid job description"))
+      // POST /v1/jobs submit job described in Request body
+      (post & pathEndOrSingleSlash) {
+        entity(as[JobDescription]) { jobDesc =>
+          val (vjd, success, message) = jobDesc.doValidate()
+          if (success) {
+            requestQueryMaster {
+              RestSubmitJobRequest(vjd)
             }
+          } else {
+            complete(400, message.getOrElse("Invalid job description"))
           }
         }
       } ~
-      path(Rest) { jobId =>
-        get {
-          requestQueryMaster {
-            RestJobInfoRequest(jobId)
-          }
-        } ~
-        delete {
-          requestQueryMaster {
-            RestKillJobRequest(jobId)
-          }
+      // GET /v1/jobs/<jobId> return job result
+      (get & path(Segment)) { jobId =>
+        requestQueryMaster {
+          RestJobInfoRequest(jobId)
         }
+      } ~
+      // GET /v1/jobs/<jobId>/detail return job detailed information
+      (get & path(Segment / "detail")) { jobId =>
+        requestQueryMaster {
+          RestJobInfoRequest(jobId)
+        }
+      } ~
+      // DELETE /v1/jobs/<jobId> delete the job
+      (delete & path(Segment)) { jobId =>
+        requestQueryMaster {
+          RestKillJobRequest(jobId)
+        }
+      }
+  }
+
+  // All Routes that related to v1
+  val v1Routes: Route = pathPrefix("v1") {
+    (get & path("tableSchema")) {
+      complete(200, "The Schema below:")
+    }
+  }
+
+  val otherRoutes: Route = path("status") {
+    get {
+      requestQueryMaster {
+        RestQueryMasterStatusRequest
       }
     }
   }

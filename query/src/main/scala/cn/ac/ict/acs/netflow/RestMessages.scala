@@ -59,6 +59,18 @@ object RestMessages {
       driverState: Option[String]
     )
 
+  case class RestJobStatusRequest(jobId: String) extends RestMessage
+
+  case class RestJobStatusResponse(
+      jobId: String,
+      state: String,
+      submitTime: String,
+      startTime: Option[String],
+      endTime: Option[String],
+      result: Option[Any],
+      message: Option[String]
+    )
+
   /**
    * GET /netflow/v1/job/<jobId>
    *

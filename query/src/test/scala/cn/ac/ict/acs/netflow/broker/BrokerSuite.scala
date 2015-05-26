@@ -34,13 +34,13 @@ class BrokerSuite(_system: ActorSystem)
   }
 
   test("Register success") {
-    bareBroker.registered should be (false)
-    bareBroker.connected should be (false)
-    bareBroker.master should be (null)
+    assert(bareBroker.registered == false)
+    assert(bareBroker.connected == false)
+    assert(bareBroker.master == null)
     broker ! RegisteredBroker("netflow-query://fake:7977", "http://fake:19991")
-    bareBroker.registered should be (true)
-    bareBroker.connected should be (true)
-    bareBroker.master should not be (null)
+    assert(bareBroker.registered != false)
+    assert(bareBroker.connected != false)
+    assert(bareBroker.master != null)
   }
 
   test("Send heartbeat") {
