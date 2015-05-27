@@ -24,8 +24,9 @@ import scala.concurrent.Await
 
 import akka.actor._
 import akka.pattern.ask
-import akka.serialization.SerializationExtension
 import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
+import akka.serialization.SerializationExtension
+import akka.util.Timeout
 
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
@@ -51,8 +52,11 @@ class QueryMaster(
   import context.dispatcher
 
   val createTimeFormat = DateTimeFormat.forPattern("yyyyMMddHHmmss")
+  val showFormat = DateTimeFormat.forPattern("yyyy-MM-dd,HH:mm:ss")
   val BROKER_TIMEOUT = conf.getLong("netflow.broker.timeout", 60) * 1000
   val RETAINED_QUERY = conf.getInt("netflow.deploy.retainedQuerys", 200)
+
+  implicit val askTimeOut = Timeout(AkkaUtils.askTimeout(conf))
 
   // TODO find right place to set spark configurations used by netflow
   val sparkMasterUrl = conf.get("netflow.spark.master", "spark://Yijie-MBP.local:7077")
@@ -275,11 +279,11 @@ class QueryMaster(
     case BrokerStateResponse(brokerId) => {
       idToBroker.get(brokerId) match {
         case Some(broker) =>
-          logInfo("broker has been re-registered: " + brokerId)
+          logInfo(s"broker has been re-registered: $brokerId")
           broker.state = BrokerState.ALIVE
 
         case None =>
-          logWarning(s"Scheduler state from unknown broker: ${brokerId}")
+          logWarning(s"Scheduler state from unknown broker: $brokerId")
       }
 
       if (canCompleteRecovery) {
@@ -428,19 +432,52 @@ class QueryMaster(
       } else {
         logInfo(s"Request detailed information of job: $jobId")
         idToJobs.get(jobId) match {
-          case Some(j) =>
-            if (j._state == JobState.RUNNING) {
-              if (j._submissionId.isDefined) {
-                requestJobStatusOnSpark(j)
-                sender ! j.toRestJobInfoResponse
-              } else { // this should never happen
-                logError("Running job without submissionId")
-                assert(false)
-              }
-            } else {
-              sender ! j.toRestJobInfoResponse
+          case Some(j) => {
+            if (j._submissionId.isDefined) {
+              requestJobStatusOnSpark(j)
+            }
+            sender ! j.toRestJobInfoResponse
+          }
+
+          case None =>
+            sender ! RestFailureResponse(s"Job $jobId not exist.")
+        }
+      }
+    }
+
+    case RestJobStatusRequest(jobId) => {
+      if (state != QueryMasterRecoveryState.ALIVE) {
+        val msg = s"Can only accept job registration in ALIVE state. Current state: $state."
+        sender ! RestFailureResponse(msg)
+      } else {
+        logInfo(s"Request status of Job: $jobId")
+        idToJobs.get(jobId) match {
+          case Some(j) => {
+            // Update job status if it's running on Spark
+            if (j._submissionId.isDefined) {
+              requestJobStatusOnSpark(j)
             }
 
+            // Try to fetch result from ResultTracker
+            if (j._state == JobState.FINISHED && j.jobType == JobType.ADHOC) {
+              val receiver = sender
+              for (result <- (resultTracker ? GetJobResult(jobId))){
+                val cachedValue = result match {
+                  case JobResult(_, v) => Some(v)
+                  case JobNotFound => None
+                }
+                receiver ! RestJobStatusResponse(jobId, j._state.toString,
+                  j.submitTime.toString(showFormat), j._startTime.map(_.toString(showFormat)),
+                  j._endTime.map(_.toString(showFormat)), cachedValue, j._message)
+              }
+
+            } else {
+             sender !
+               RestJobStatusResponse(jobId, j._state.toString,
+                 j.submitTime.toString(showFormat), j._startTime.map(_.toString(showFormat)),
+                 j._endTime.map(_.toString(showFormat)), None, j._message)
+            }
+          }
           case None =>
             sender ! RestFailureResponse(s"Job $jobId not exist.")
         }

@@ -294,7 +294,7 @@ trait RestService extends HttpService with Json4sJacksonSupport {
       // GET /v1/jobs/<jobId> return job result
       (get & path(Segment)) { jobId =>
         requestQueryMaster {
-          RestJobInfoRequest(jobId)
+          RestJobStatusRequest(jobId)
         }
       } ~
       // GET /v1/jobs/<jobId>/detail return job detailed information

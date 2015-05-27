@@ -26,7 +26,7 @@ import cn.ac.ict.acs.netflow.util.ActorLogReceive
 class JobResultTracker(cacheSize: Int) extends Actor with ActorLogReceive with Logging {
   import JobMessages._
 
-  private val cache = new LRUCache[String, Any](cacheSize)
+  private val cache = new LRUCache[String, ResultDetail](cacheSize)
 
   def receiveWithLogging = {
     case JobResult(jobId, result) => {

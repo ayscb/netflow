@@ -18,11 +18,8 @@
  */
 package cn.ac.ict.acs.netflow
 
+import cn.ac.ict.acs.netflow.JobMessages.ResultDetail
 import cn.ac.ict.acs.netflow.broker.ValidJobDescription
-import cn.ac.ict.acs.netflow.master.{JobType, JobState}
-import org.joda.time.DateTime
-
-import scala.concurrent.duration.FiniteDuration
 
 sealed trait RestMessage
 
@@ -67,14 +64,13 @@ object RestMessages {
       submitTime: String,
       startTime: Option[String],
       endTime: Option[String],
-      result: Option[Any],
+      result: Option[ResultDetail],
       message: Option[String]
-    )
+    ) extends RestMessage
 
   /**
    * GET /netflow/v1/job/<jobId>
    *
-   * @param jobId
    */
   case class RestJobInfoRequest(jobId: String) extends RestMessage
 
@@ -114,7 +110,6 @@ object RestMessages {
   /**
    * DELETE /netflow/v1/jobs/<jobId>
    *
-   * @param jobId
    */
   case class RestKillJobRequest(jobId: String) extends RestMessage
 

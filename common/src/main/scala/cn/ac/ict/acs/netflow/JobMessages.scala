@@ -40,6 +40,8 @@ object JobMessages {
 
   case object JobEndACK extends JobMessages
 
-  case class JobResult(jobId: String, result: Any) extends JobMessages
+  case class JobResult(jobId: String, result: ResultDetail) extends JobMessages
   case class GetJobResult(jobId: String) extends JobMessages
+
+  case class ResultDetail(schema: String, result: Array[String], totalLines: Long)
 }

@@ -25,7 +25,6 @@ import akka.actor._
 import org.apache.spark.{SparkContext, SparkConf}
 import org.apache.spark.sql.SQLContext
 
-import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.util._
 
 class JobActor(
@@ -97,7 +96,10 @@ class JobActor(
       val result = a.toDF()
 
       if (resultTracker != null) {
-        resultTracker ! JobResult(jobId, result.head(10))
+        val schema = result.toString
+        val sample = result.head(10).map(_.toString)
+        val ouputCount = result.count()
+        resultTracker ! JobResult(jobId, ResultDetail(schema, sample, ouputCount))
       }
       result.write.json(outputPath + "/" + jobId)
 
