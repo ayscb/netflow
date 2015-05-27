@@ -8,7 +8,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,22 +16,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.deploy.qmaster
+package cn.ac.ict.acs.netflow.load2.deploy.loadDeploy
 
-import QueryState.QueryState
-import cn.ac.ict.acs.netflow.deploy.Command
-import org.joda.time.DateTime
-
-case class QueryInfo(
-    jobId: String,
-    id: String,
-    startTime: Long,
-    cmd: Command,
-    submitDate: DateTime) {
-
-  @transient var state: QueryState = QueryState.SUBMITTED
-  /* If we fail when launching the driver, the exception is stored here. */
-  @transient var exception: Option[Exception] = None
-  /* Most recent worker assigned to this driver */
+/**
+ * Created by ayscb on 2015/5/21.
+ */
+class LoadMasterSuite {
 
 }

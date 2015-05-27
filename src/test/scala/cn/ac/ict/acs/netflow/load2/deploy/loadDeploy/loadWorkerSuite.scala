@@ -8,7 +8,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,27 +16,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.deploy.qmaster
+package cn.ac.ict.acs.netflow.load2.deploy.loadDeploy
 
-sealed trait QueryMasterMessages extends Serializable
+import cn.ac.ict.acs.netflow.NetFlowConf
+import cn.ac.ict.acs.netflow.load2.deploy.LoadDeploy.LoadWorker
+import org.scalatest.FunSuite
 
-/** Contains messages seen only by the Master and its associated entities. */
-object QueryMasterMessages {
-
-  // LeaderElectionAgent to Master
-
-  case object AppointedAsLeader
-
-  case object RevokedLeadership
-
-  // Actor System to Master
-
-  case object CheckForBrokerTimeOut
-
-  case object CompleteRecovery
-
-  case object BoundPortsRequest extends QueryMasterMessages
-
-  case class BoundPortsResponse(actorPort: Int, webUIPort: Int)
-    extends QueryMasterMessages
+/**
+ * Created by ayscb on 2015/5/21.
+ */
+class loadWorkerSuite extends FunSuite {
+  val conf = new NetFlowConf()
+  test("toAkkaUrl"){
+    LoadWorker
+  }
 }
