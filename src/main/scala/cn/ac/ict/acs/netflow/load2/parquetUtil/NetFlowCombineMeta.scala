@@ -55,7 +55,7 @@ object NetFlowCombineMeta extends Logging{
       catch  {
         case e: Exception =>
           log.warn(s"{ NetFlow : Could not write summary file for " + outputPath + " , Message: " + e.getMessage + " ]")
-          val metadataPath = new Path(outputPath, META_FILE);
+          val metadataPath = new Path(outputPath, META_FILE)
           if (fileSystem.exists(outputPath)) {
             fileSystem.delete(metadataPath, true)
           }

@@ -19,7 +19,6 @@
 package cn.ac.ict.acs.netflow.load2.deploy.loadDeploy
 
 import cn.ac.ict.acs.netflow.NetFlowConf
-import cn.ac.ict.acs.netflow.load2.deploy.LoadDeploy.LoadWorker
 import org.scalatest.FunSuite
 
 /**

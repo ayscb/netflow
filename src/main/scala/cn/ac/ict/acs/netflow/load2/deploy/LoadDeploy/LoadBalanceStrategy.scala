@@ -1,4 +1,4 @@
-package cn.ac.ict.acs.netflow.load2.deploy.LoadDeploy
+package cn.ac.ict.acs.netflow.load2.deploy.loadDeploy
 
 /**
  * balance the load worker

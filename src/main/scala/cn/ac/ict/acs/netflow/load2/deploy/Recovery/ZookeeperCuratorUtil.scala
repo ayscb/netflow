@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.load2.deploy.Recovery
+package cn.ac.ict.acs.netflow.load2.deploy.recovery
 
 import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
 import cn.ac.ict.acs.netflow.load2.NetFlowArgument
@@ -27,7 +27,7 @@ import org.apache.zookeeper.KeeperException
 /**
  * Created by ayscb on 2015/4/29.
  */
-private[Recovery] object ZookeeperCuratorUtil extends Logging{
+private[recovery] object ZookeeperCuratorUtil extends Logging{
 
   private val ZK_CONNECTION_TIMEOUT_MILLIS = 15000
   private val ZK_SESSION_TIMEOUT_MILLIS = 60000

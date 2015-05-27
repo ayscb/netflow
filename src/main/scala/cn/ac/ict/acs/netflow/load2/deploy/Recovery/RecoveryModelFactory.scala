@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.load2.deploy.Recovery
+package cn.ac.ict.acs.netflow.load2.deploy.recovery
 
 import akka.serialization.Serialization
 import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}

@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.load2.deploy.LoadDeploy
+package cn.ac.ict.acs.netflow.load2.deploy.loadDeploy
 
 import java.util
 import java.util.UUID
@@ -24,7 +24,7 @@ import akka.actor._
 import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
 import cn.ac.ict.acs.netflow.load2.deploy.DeployMessages._
 import cn.ac.ict.acs.netflow.load2.deploy.LoadMasterMessage.CombineParquet
-import cn.ac.ict.acs.netflow.load2.deploy.LoadWorkerMessage.BufferOverFlow
+import cn.ac.ict.acs.netflow.load2.deploy.LoadWorkerMessage.{BuffersWarn, BufferOverFlow}
 import cn.ac.ict.acs.netflow.load2.deploy.WorkerMessage.SendHeartbeat
 import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
 import cn.ac.ict.acs.netflow.util.{SignalLogger, AkkaUtils, Utils, ActorLogReceive}
@@ -45,10 +45,10 @@ class LoadWorker(
     masterAkkaUrls: Array[String],
     actorSystemName: String,
     actorName: String,
-    workDirPath: String = null,
   val conf: NetFlowConf)
-  extends Actor with ActorLogReceive
-  with UDPReceiverService with ResolveNetflowService   with Logging {
+    extends Actor with ActorLogReceive
+    with WorkerService with WriteParquetService with CombineService
+    with Logging {
 
 
     import context.dispatcher
@@ -127,20 +127,14 @@ class LoadWorker(
       logInfo(s"Running NetFlow version ${cn.ac.ict.acs.netflow.NETFLOW_VERSION}")
       context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
 
-      // mix in
       initResolvingNetFlowThreads(defaultWriterNum)
-      startUdpRunner()
-
+      startWorkerService()
       registerWithMaster()
     }
 
     override def postStop(): Unit = {
       registrationRetryTimer.foreach(_.cancel())
-
       logInfo(s"udpActor and ResolvingActor stop working !")
-//      udpActor ! UDPReceiveStop
-//      ResolvingActor ! CloseAllResolvingThread
-
     }
 
     override def receiveWithLogging = {
@@ -176,13 +170,13 @@ class LoadWorker(
         masterDisconnected()
 
       case CombineParquet =>
-
-
+        combineService.start()
     }
 
     private def changeMaster(url: String, webUrl: String): Unit = {
       activeMasterUrl = url
       activeMasterWebUiUrl = webUrl
+
       master = context.actorSelection(
         LoadMaster.toAkkaUrl(activeMasterUrl, AkkaUtils.protocol(context.system)))
       masterAddress = LoadMaster.toAkkaAddress(activeMasterUrl, AkkaUtils.protocol(context.system))
@@ -214,7 +208,7 @@ class LoadWorker(
       for (masterAkkaUrl <- masterAkkaUrls) {
         logInfo("Connecting to QueryMaster " + masterAkkaUrl + "...")
         val actor = context.actorSelection(masterAkkaUrl)
-        actor ! RegisterWorker(workerId, host, port, cores, memory, webUiPort,getActualUDPPort)
+        actor ! RegisterWorker(workerId, host, port, cores, memory, webUiPort,getWorkerServicePort)
       }
     }
 
@@ -253,7 +247,7 @@ class LoadWorker(
            */
           if (master != null) {
             master ! RegisterWorker(
-              workerId, host, port, cores, memory, webUiPort, getActualUDPPort)
+              workerId, host, port, cores, memory, webUiPort, getWorkerServicePort)
           } else {
             // We are retrying the initial registration
             tryRegisterAllMasters()
@@ -305,7 +299,7 @@ class LoadWorker(
             adjustResolvingNetFlowThreads( currentThreadNum + 1 )
           }else{
             if( master != null )
-              master ! BufferListWarn
+              master ! BuffersWarn(host)
             else
               adjustResolvingNetFlowThreads( currentThreadNum + 1 )
           }
@@ -322,7 +316,7 @@ class LoadWorker(
         log.debug( "current array order is "+ array.mkString("<"))
 
         var sum = 0.0
-        if( array.size > 4){
+        if( array.length > 4){
           array(0) = 0              // min value
           array(arrayNum - 1) = 0   // maxValue
         }

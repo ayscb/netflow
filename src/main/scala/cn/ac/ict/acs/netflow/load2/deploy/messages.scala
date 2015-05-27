@@ -18,9 +18,7 @@
  */
 package cn.ac.ict.acs.netflow.load2.deploy
 
-import cn.ac.ict.acs.netflow.QueryDescription
 import cn.ac.ict.acs.netflow.util.Utils
-import org.apache.spark.deploy.master.{WorkerInfo, ApplicationInfo}
 
 //******************** Deploy Message *********************//
 sealed trait DeployMessage extends Serializable
@@ -57,7 +55,6 @@ object DeployMessages {
   case class MasterChanged(masterUrl: String, masterWebUrl: String)
 
 }
-
 
 //********************* Master Message ********************//
 sealed trait MasterMessage extends Serializable
@@ -98,6 +95,9 @@ object LoadMasterMessage extends MasterMessage {
   //Master to Master ( schedule )
   case object NeedToCombineParquet
 
+  //Master to worker to get buffer info
+  case object BufferInfo
+
   // master to worker ( only when the collector's number is 1 who is connected with the worker we want to adjust )
   case object AdjustThread
 }
@@ -110,32 +110,18 @@ private[deploy] object WorkerMessage{
   case object SendHeartbeat
 }
 
-object QueryWorkerMessage extends WorkerMessage {
-
-  case class RegisterQuery(queryId: String)
-  case object RegisterQueryFailed
-  case class LaunchQuery(
-                          masterUrl: String,
-                          queryId: String,
-                          queryDesc: QueryDescription)
-  case class KillQuery(queryId: String)
-}
 
 object LoadWorkerMessage extends WorkerMessage {
   case class CacheInfo(workId: String, used: Int, remain: Int)
 
-  // worker to ResolvingActor
-  case class LaunchResolvingThread ( threadNum : Int )
-  case class AdjustResolvingThread ( threadNum : Int )
-  case object CloseAllResolvingThread
-
-  // worker to UDPActor
-  case object UDPReceiveStart
-  case object UDPReceiveStop
 
   // worker(LoadBalanceStrategy) to master
   case class BuffersWarn ( workerHost: String )
   case class BufferOverFlow ( workerHost:String )
+  case class BufferReport ( workerHost:String ,rate: Int)
+
+  //worker to worker
+  object BufferBeat
 
   //worker to master
   case object CombineFinished

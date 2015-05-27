@@ -16,14 +16,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.load2.deploy.Recovery
+package cn.ac.ict.acs.netflow.load2.deploy.recovery
 
 import java.io.{DataInputStream, File, FileInputStream, FileOutputStream}
 
 import akka.serialization.Serialization
 import cn.ac.ict.acs.netflow.NetFlowConf
 import cn.ac.ict.acs.netflow.load2.NetFlowArgument
-import cn.ac.ict.acs.netflow.load2.deploy.LoadDeploy.LoadWorkerInfo
+import cn.ac.ict.acs.netflow.load2.deploy.loadDeploy.LoadWorkerInfo
 import org.apache.curator.framework.CuratorFramework
 import org.apache.spark.Logging
 import org.apache.zookeeper.CreateMode
@@ -71,14 +71,14 @@ trait PersistenceEngine {
   def close() {}
 }
 
-private[Recovery] class BlackHolePersistenceEngine extends PersistenceEngine {
+private[recovery] class BlackHolePersistenceEngine extends PersistenceEngine {
 
   override def persist(name: String, obj: Object): Unit = {}
   override def unpersist(name: String): Unit = {}
   override def read[T: ClassTag](name: String): Seq[T] = Nil
 }
 
-private[Recovery] class FileSystemPersistenceEngine(
+private[recovery] class FileSystemPersistenceEngine(
             val dir: String,
             val serialization: Serialization)
     extends PersistenceEngine with Logging {
@@ -134,7 +134,7 @@ private[Recovery] class FileSystemPersistenceEngine(
 
 }
 
-private[Recovery] class ZooKeeperPersistenceEngine(
+private[recovery] class ZooKeeperPersistenceEngine(
        conf: NetFlowConf,
        val serialization: Serialization)
     extends PersistenceEngine with Logging {

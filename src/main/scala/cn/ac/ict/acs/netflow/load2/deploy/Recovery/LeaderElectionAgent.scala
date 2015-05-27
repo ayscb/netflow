@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package cn.ac.ict.acs.netflow.load2.deploy.Recovery
+package cn.ac.ict.acs.netflow.load2.deploy.recovery
 
 import cn.ac.ict.acs.netflow.NetFlowConf
 import org.apache.curator.framework.CuratorFramework
@@ -37,7 +37,7 @@ trait LeaderElectable {
  * Single-node implementation of LeaderElectionAgent
   * we're initially and always the leader.
   * */
-private[Recovery] class MonarchyLeaderAgent(val masterActor: LeaderElectable)
+private[recovery] class MonarchyLeaderAgent(val masterActor: LeaderElectable)
   extends LeaderElectionAgent {
   masterActor.appointLeader()
 }
@@ -47,7 +47,7 @@ private[Recovery] class MonarchyLeaderAgent(val masterActor: LeaderElectable)
  * @param masterActor
  * @param conf
  */
-private[Recovery] class ZooKeeperLeaderElectionAgent(
+private[recovery] class ZooKeeperLeaderElectionAgent(
                                val masterActor: LeaderElectable,
                                conf: NetFlowConf)
   extends LeaderLatchListener with LeaderElectionAgent with Logging  {

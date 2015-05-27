@@ -18,9 +18,25 @@
  */
 package cn.ac.ict.acs.netflow.load2.deploy.loadDeploy
 
+import akka.actor.Address
+import cn.ac.ict.acs.netflow.NetFlowConf
+import org.scalatest.FunSuite
+
 /**
  * Created by ayscb on 2015/5/21.
  */
-class LoadMasterSuite {
+class LoadMasterSuite extends FunSuite {
+  val conf = new NetFlowConf()
+
+  test("toAkkaUrl") {
+    val akkaUrl = LoadMaster.toAkkaUrl("netflow://1.2.3.4:1234", "akka.tcp")
+    print(akkaUrl)
+    assert("akka.tcp://netflowLoadMaster@1.2.3.4:1234/user/LoadMaster" === akkaUrl)
+  }
+
+  test("toAkkaAddress") {
+    val address = LoadMaster.toAkkaAddress("netflow://1.2.3.4:1234","akka.tcp")
+    assert(Address("akka.tcp", "netflowLoadMaster", "1.2.3.4", 1234) === address)
+  }
 
 }

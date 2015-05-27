@@ -11,7 +11,7 @@ object TCP extends Logging {
   val collectPort = 10012
 
   val collectService : Thread = new Thread ( " collectService ") {
-    logInfo(s"[ netflow ] The collect Service is ready to start ")
+    logInfo(s"[ netflow ] The collect Service is ready to start. ")
     private val selector = Selector.open()
 
     override def run(): Unit = {
