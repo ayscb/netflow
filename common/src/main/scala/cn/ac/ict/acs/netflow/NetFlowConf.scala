@@ -24,30 +24,20 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
 
-import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
+import org.joda.time.format.{DateTimeFormatter, DateTimeFormat}
 
 import cn.ac.ict.acs.netflow.util.Utils
 
 object NetFlowConf {
   val DFS_NAME = "netflow.fs.default.name"
   val TIME_FORMAT = "netflow.time.format"
+  val DOC_TIME_INTERVAL = "netflow.document.time.interval"
 
   val KB = 1024
   val MB = 1024 * KB
 }
 
-object LoadConf {
-  val LOAD_INTERVAL = "netflow.load.interval"
-  val LOAD_DATARATE = "netflow.load.dataRate"
-  val LOAD_STARTTIME = "netflow.load.startTime"
-  val LOAD_ENDTIME = "netflow.load.endTime"
-  val LOAD_PATH = "netflow.load.path"
-}
-
-
 class NetFlowConf(loadDefaults: Boolean) extends Serializable {
-  import LoadConf._
   import NetFlowConf._
 
   def this() = this(true)
@@ -69,22 +59,19 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
 
   def timeFormat = DateTimeFormat.forPattern(timeFormatStr)
 
+  def doctTimeIntervalFormat: DateTimeFormatter = {
+    // 10 min as default
+    val value = getLong(DOC_TIME_INTERVAL, 600)
+    val strFormat : String = value match {
+      case x if x < 60    => "/yyyy/MM/dd/HH/mm/ss" // second level
+      case x if x < 3600  =>  "/yyyy/MM/dd/HH/mm" // minute level
+      case x if x < 86400 =>  "/yyyy/MM/dd/" // hour level
+      case _              =>  "/yyyy/MM/dd/HH/"
+    }
+    DateTimeFormat.forPattern(strFormat.toString)
+  }
 
-
-  /** ************************ Load Params/Hints ******************* */
-
-  def loadInterval = getInt(LOAD_INTERVAL, 4)
-
-  def loadRate = getLong(LOAD_DATARATE, 1L) * MB
-
-  def loadStartInSec = DateTime.parse(get(LOAD_STARTTIME), timeFormat).getMillis / 1000
-
-  def loadEndInSec = DateTime.parse(get(LOAD_ENDTIME), timeFormat).getMillis / 1000
-
-  def loadPath = get(LOAD_PATH)
-
-
-
+  def doctTimeIntervalValue: Int = getInt(DOC_TIME_INTERVAL, 600)
 
   /** ************************ Base Utils/Implementations ******************* */
 
@@ -156,6 +143,11 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
   /** Get a parameter as a long, falling back to a default if not set */
   def getLong(key: String, defaultValue: Long): Long = {
     getOption(key).map(_.toLong).getOrElse(defaultValue)
+  }
+
+  /** Get a parameter as a float, falling back to a default if not set */
+  def getFloat(key :String,  defaultValue: Float) : Float = {
+    getOption(key).map(_.toFloat).getOrElse(defaultValue)
   }
 
   /** Get a parameter as a double, falling back to a default if not set */
