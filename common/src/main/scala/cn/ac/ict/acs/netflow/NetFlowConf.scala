@@ -24,8 +24,6 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
 
-import org.joda.time.format.{DateTimeFormatter, DateTimeFormat}
-
 import cn.ac.ict.acs.netflow.util.Utils
 
 object NetFlowConf {
@@ -38,7 +36,6 @@ object NetFlowConf {
 }
 
 class NetFlowConf(loadDefaults: Boolean) extends Serializable {
-  import NetFlowConf._
 
   def this() = this(true)
 
@@ -50,28 +47,6 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
       set(key, value)
     }
   }
-
-    /** ************************ NetFLow Params/Hints ******************* */
-
-  def dfsName = get(DFS_NAME, "hdfs://localhost:9000")
-
-  def timeFormatStr = get(TIME_FORMAT, "yyyy-MM-dd:HH:mm")
-
-  def timeFormat = DateTimeFormat.forPattern(timeFormatStr)
-
-  def doctTimeIntervalFormat: DateTimeFormatter = {
-    // 10 min as default
-    val value = getLong(DOC_TIME_INTERVAL, 600)
-    val strFormat : String = value match {
-      case x if x < 60    => "/yyyy/MM/dd/HH/mm/ss" // second level
-      case x if x < 3600  =>  "/yyyy/MM/dd/HH/mm" // minute level
-      case x if x < 86400 =>  "/yyyy/MM/dd/" // hour level
-      case _              =>  "/yyyy/MM/dd/HH/"
-    }
-    DateTimeFormat.forPattern(strFormat.toString)
-  }
-
-  def doctTimeIntervalValue: Int = getInt(DOC_TIME_INTERVAL, 600)
 
   /** ************************ Base Utils/Implementations ******************* */
 

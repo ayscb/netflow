@@ -16,15 +16,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow
+package cn.ac.ict.acs.netflow.ha
 
-import scala.reflect.ClassTag
 import scala.collection.JavaConversions._
+import scala.reflect.ClassTag
 
 import akka.serialization.Serialization
 
 import org.apache.curator.framework.CuratorFramework
 import org.apache.zookeeper.CreateMode
+
+import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
 
 class ZooKeeperPersistenceEngine(conf: NetFlowConf, val serialization: Serialization)
   extends PersistenceEngine with Logging {

@@ -22,19 +22,16 @@ import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.{ServerSocketChannel, SelectionKey, Selector, SocketChannel}
 import java.util
-import java.util.concurrent.{Executors, ThreadPoolExecutor, ThreadFactory, LinkedBlockingDeque}
-
-import org.apache.hadoop.conf.Configuration
+import java.util.concurrent.LinkedBlockingDeque
 
 import scala.collection.mutable
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder
-
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{Path, FileSystem}
 
 import cn.ac.ict.acs.netflow.load.LoadMessages.CombineFinished
-import cn.ac.ict.acs.netflow.load.util.{TimeUtil, AnalysisFlowData, ParquetState, NetFlowCombineMeta}
-import cn.ac.ict.acs.netflow.util.Utils
+import cn.ac.ict.acs.netflow.load.util.{AnalysisFlowData, ParquetState, NetFlowCombineMeta}
+import cn.ac.ict.acs.netflow.util.{TimeUtils, ThreadUtils, Utils}
 
 trait WorkerService {
   self: LoadWorker =>
@@ -125,15 +122,15 @@ trait CombineService {
   val combineService = new Thread("Combine Thread ") {
 
     override def run(): Unit = {
-      var second = TimeUtil.getPreviousBaseTime(conf, System.currentTimeMillis() / 1000)
+      var second = TimeUtils.getPreviousBaseTime(conf, System.currentTimeMillis() / 1000)
       val retryMaxNum = 2
       val fs = FileSystem.get(new Configuration())
       for (i <- 0 until retryMaxNum) {
-        val pathStr = TimeUtil.getTimeBasePathBySeconds(conf, second)
+        val pathStr = TimeUtils.getTimeBasePathBySeconds(conf, second)
 
         NetFlowCombineMeta.combineFiles(fs, new Path(pathStr), conf) match {
           case ParquetState.DIC_NOT_EXIST =>
-            second = TimeUtil.getPreviousBaseTime(conf, second)
+            second = TimeUtils.getPreviousBaseTime(conf, second)
 
           case ParquetState.NO_DIC =>
             logError("[ Parquet ] The Path %s should be a dictionary.".format(pathStr))
@@ -141,7 +138,7 @@ trait CombineService {
             return
 
           case ParquetState.DIC_EMPTY =>
-            second = TimeUtil.getPreviousBaseTime(conf, second)
+            second = TimeUtils.getPreviousBaseTime(conf, second)
 
           case ParquetState.NO_PARQUET =>
             logError("[ Parquet ] The Path %s should be a parquet dictionary.".format(pathStr))
@@ -169,10 +166,8 @@ trait CombineService {
 trait WriteParquetService {
   self: LoadWorker =>
 
-  import LoadWorkerServices._
-
   // get ResolvingNetflow threads
-  private val writerThreadPool = newDaemonCachedThreadPool("ResolvingNetflow")
+  private val writerThreadPool = ThreadUtils.newDaemonCachedThreadPool("ResolvingNetflow")
   private val writerThreadsQueue = new scala.collection.mutable.Queue[Thread]
 
   private val ratesQueue = new LinkedBlockingDeque[Double]()
@@ -256,35 +251,5 @@ trait WriteParquetService {
     ratesQueue.clear()
     readRateFlag = false
     list
-  }
-}
-
-object LoadWorkerServices {
-  private val daemonThreadFactoryBuilder: ThreadFactoryBuilder =
-    new ThreadFactoryBuilder().setDaemon(true)
-
-  /**
-   * Create a thread factory that names threads with a prefix and also sets the threads to daemon.
-   */
-  def namedThreadFactory(prefix: String): ThreadFactory = {
-    daemonThreadFactoryBuilder.setNameFormat(prefix + "-%d").build()
-  }
-
-  /**
-   * Wrapper over newCachedThreadPool. Thread names are formatted as prefix-ID, where ID is a
-   * unique, sequentially assigned integer.
-   */
-  def newDaemonCachedThreadPool(prefix: String): ThreadPoolExecutor = {
-    val threadFactory = namedThreadFactory(prefix)
-    Executors.newCachedThreadPool(threadFactory).asInstanceOf[ThreadPoolExecutor]
-  }
-
-  /**
-   * Wrapper over newFixedThreadPool. Thread names are formatted as prefix-ID, where ID is a
-   * unique, sequentially assigned integer.
-   */
-  def newDaemonFixedThreadPool(nThreads: Int, prefix: String): ThreadPoolExecutor = {
-    val threadFactory = namedThreadFactory(prefix)
-    Executors.newFixedThreadPool(nThreads, threadFactory).asInstanceOf[ThreadPoolExecutor]
   }
 }

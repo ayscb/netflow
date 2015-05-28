@@ -16,25 +16,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow
-
-import akka.serialization.Serialization
+package cn.ac.ict.acs.netflow.ha
 
 /**
- * Implementation of this class can be plugged in as recovery mode alternative for NetFlow
+ * A LeaderElectionAgent tracks current master and is a common interface for all election Agents.
  */
-abstract class RecoveryModeFactory(conf: NetFlowConf, serializer: Serialization) {
+trait LeaderElectionAgent {
+  val masterActor: LeaderElectable
+  def stop() {} // to avoid noops in implementations.
+}
 
-  /**
-   * PersistenceEngine defines how the persistent data(Information about worker, query etc..)
-   * is handled for recovery.
-   *
-   */
-  def createPersistenceEngine(): PersistenceEngine
+trait LeaderElectable {
+  def appointLeader()
+  def revokeLeadership()
+}
 
-  /**
-   * Create an instance of LeaderAgent that decides who gets elected as master.
-   */
-  def createLeaderElectionAgent(master: LeaderElectable): LeaderElectionAgent
-
+/**
+ * Single-node implementation of LeaderElectionAgent
+ * we're initially and always the leader.
+ */
+private[netflow] class MonarchyLeaderAgent(val masterActor: LeaderElectable)
+  extends LeaderElectionAgent {
+  masterActor.appointLeader()
 }

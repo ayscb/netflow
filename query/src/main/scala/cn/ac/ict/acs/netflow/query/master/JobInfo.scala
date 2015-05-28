@@ -21,11 +21,10 @@ package cn.ac.ict.acs.netflow.query.master
 import scala.concurrent.duration.FiniteDuration
 
 import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
 
 import cn.ac.ict.acs.netflow.Query
 import cn.ac.ict.acs.netflow.query.RestMessages.RestJobInfoResponse
-import cn.ac.ict.acs.netflow.util.Utils
+import cn.ac.ict.acs.netflow.util.{Utils, TimeUtils}
 
 object JobType extends Enumeration {
   type JobType = Value
@@ -52,7 +51,7 @@ class JobInfo(
 
   def description = desc.getOrElse(mainClass)
 
-  val fmt = DateTimeFormat.forPattern("yyyy-MM-dd,HH:mm:ss")
+  val fmt = TimeUtils.showFormat
 
   @transient var _state: JobState = RUNNABLE
   @transient var _submissionId: Option[String] = None

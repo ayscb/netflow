@@ -31,7 +31,6 @@ import akka.util.Timeout
 
 import org.json4s.DefaultFormats
 import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
 
 import spray.can.Http
 import spray.http.MediaTypes._
@@ -68,7 +67,7 @@ trait BrokerLike {
   Utils.checkHost(host, "Expected hostname")
   assert (port > 0)
 
-  val createTimeFormat = DateTimeFormat.forPattern("yyyyMMddHHmmss")
+  val createTimeFormat = TimeUtils.createFormat
 
   // Send a heartbeat every (heartbeat timeout) / 4 milliseconds
   val HEARTBEAT_MILLIS = conf.getLong("netflow.broker.timeout", 60) * 1000 / 4

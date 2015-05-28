@@ -37,6 +37,7 @@ import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.load.LoadMessages
 import cn.ac.ict.acs.netflow.load.master.NetUtil.Mode.{Mode, add, delete}
 import cn.ac.ict.acs.netflow.util.{ActorLogReceive, AkkaUtils, SignalLogger, Utils}
+import cn.ac.ict.acs.netflow.ha.{LeaderElectionAgent, MonarchyLeaderAgent, LeaderElectable}
 
 class LoadMaster(
     masterHost: String,
@@ -51,8 +52,6 @@ class LoadMaster(
   import MasterMessages._
 
   import context.dispatcher
-
-  val createTimeFormat = DateTimeFormat.forPattern("yyyyMMddHHmmss")
 
   // the interval for checking workes and receivers
   val WORKER_TIMEOUT = conf.getLong("netflow.LoadWorker.timeout", 60) * 1000

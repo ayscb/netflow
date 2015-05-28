@@ -28,12 +28,11 @@ import akka.actor._
 import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
 
 import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
 
 import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.load.LoadMessages
 import cn.ac.ict.acs.netflow.load.master.LoadMaster
-import cn.ac.ict.acs.netflow.util.{SignalLogger, AkkaUtils, ActorLogReceive, Utils}
+import cn.ac.ict.acs.netflow.util._
 
 class LoadWorker(
     host: String,
@@ -56,7 +55,7 @@ class LoadWorker(
   Utils.checkHost(host, "Expected hostname")
   assert(port > 0)
 
-  val createTimeFormat = DateTimeFormat.forPattern("yyyyMMddHHmmss")
+  val createTimeFormat = TimeUtils.createFormat
 
   // Send a heartbeat every (heartbeat timeout) / 4 milliseconds
   val HEARTBEAT_MILLIS = conf.getLong("netflow.LoadWorker.timeout", 60) * 1000 / 4

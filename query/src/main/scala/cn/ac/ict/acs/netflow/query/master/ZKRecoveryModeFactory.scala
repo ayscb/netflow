@@ -20,6 +20,7 @@ package cn.ac.ict.acs.netflow.query.master
 
 import akka.serialization.Serialization
 import cn.ac.ict.acs.netflow._
+import cn.ac.ict.acs.netflow.ha._
 
 class ZKRecoveryModeFactory(conf: NetFlowConf, serializer: Serialization)
   extends RecoveryModeFactory(conf, serializer) {

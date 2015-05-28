@@ -16,10 +16,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow
+package cn.ac.ict.acs.netflow.ha
 
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.recipes.leader.{LeaderLatch, LeaderLatchListener}
+
+import cn.ac.ict.acs.netflow._
 
 class ZooKeeperLeaderElectionAgent (val masterActor: LeaderElectable,
   conf: NetFlowConf) extends LeaderLatchListener with LeaderElectionAgent with Logging {

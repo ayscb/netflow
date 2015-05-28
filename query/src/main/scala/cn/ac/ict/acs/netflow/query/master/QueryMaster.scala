@@ -29,7 +29,6 @@ import akka.serialization.SerializationExtension
 import akka.util.Timeout
 
 import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
 
 import org.apache.spark.deploy.rest._
 
@@ -37,6 +36,7 @@ import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.util._
 import cn.ac.ict.acs.netflow.query.RestMessages
 import cn.ac.ict.acs.netflow.query.broker.ValidJobDescription
+import cn.ac.ict.acs.netflow.ha.{MonarchyLeaderAgent, LeaderElectable, LeaderElectionAgent}
 
 class QueryMaster(
     host: String,
@@ -53,8 +53,8 @@ class QueryMaster(
 
   import context.dispatcher
 
-  val createTimeFormat = DateTimeFormat.forPattern("yyyyMMddHHmmss")
-  val showFormat = DateTimeFormat.forPattern("yyyy-MM-dd,HH:mm:ss")
+  val createTimeFormat = TimeUtils.createFormat
+  val showFormat = TimeUtils.showFormat
   val BROKER_TIMEOUT = conf.getLong("netflow.broker.timeout", 60) * 1000
   val RETAINED_QUERY = conf.getInt("netflow.deploy.retainedQuerys", 200)
 

@@ -29,10 +29,11 @@ import parquet.hadoop.metadata.CompressionCodecName
 
 import cn.ac.ict.acs.netflow.load.LoadConf
 import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
+import cn.ac.ict.acs.netflow.util.TimeUtils
 
 /**
  * get the parquet writer from some configure
- * Created by ayscb on 2015/4/18.
+ *
  */
 object NetFlowWriterUtil {
 
@@ -122,7 +123,7 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
   }
 
   private def initParquetWriter(time: Long): Unit = {
-    val basePathTime = TimeUtil.getTimeBasePathBySeconds(netflowConf, time)
+    val basePathTime = TimeUtils.getTimeBasePathBySeconds(netflowConf, time)
     workPath = new Path(
       new Path(basePathTime, LoadConf.TEMP_DICTIONARY),
       getworkFileStr)
@@ -133,14 +134,14 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
 
   def UpdateCurrentWriter(currentTime: Long, memoryManageEnable: Boolean = false): Unit = {
     if (currentTime > nextTime) {
-      nextTime = TimeUtil.getNextBaseTime(netflowConf, currentTime)
+      nextTime = TimeUtils.getNextBaseTime(netflowConf, currentTime)
 
       if (writer != null) {
         closeParquetWriter()
         initParquetWriter(nextTime)
         log.info(s" [ Netflow : next time : $nextTime ] ")
       } else {
-        val currBaseTime = TimeUtil.getCurrentBastTime(netflowConf, currentTime)
+        val currBaseTime = TimeUtils.getCurrentBastTime(netflowConf, currentTime)
         initParquetWriter(currBaseTime)
         log.info(s" [ Netflow : next time : $currBaseTime ] ")
       }

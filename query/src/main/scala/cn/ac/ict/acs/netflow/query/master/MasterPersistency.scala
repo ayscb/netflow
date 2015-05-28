@@ -18,7 +18,7 @@
  */
 package cn.ac.ict.acs.netflow.query.master
 
-import cn.ac.ict.acs.netflow.PersistenceEngine
+import cn.ac.ict.acs.netflow.ha.PersistenceEngine
 
 trait MasterPersistenceEngine extends PersistenceEngine {
 
