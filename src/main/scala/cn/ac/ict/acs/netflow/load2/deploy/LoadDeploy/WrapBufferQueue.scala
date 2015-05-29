@@ -19,7 +19,7 @@
 package cn.ac.ict.acs.netflow.load2.deploy.loadDeploy
 
 import java.nio.ByteBuffer
-import java.util.concurrent.LinkedBlockingDeque
+import java.util.concurrent.{LinkedBlockingQueue, SynchronousQueue, ConcurrentLinkedQueue, LinkedBlockingDeque}
 
 
 /**
@@ -35,11 +35,12 @@ class WrapBufferQueue(
   require (0 < warnThreshold && warnThreshold < 100 ,
     message = " The Queue warnThreshold should be in (0,100) ")
 
-  private val bufferQueue = new LinkedBlockingDeque[ByteBuffer](maxQueueNum)
+  private val bufferQueue = new LinkedBlockingQueue[ByteBuffer](maxQueueNum)
+ // private val bufferQueue = new SynchronousQueue[ByteBuffer]()
   private var warnThresholdNum = maxQueueNum * warnThreshold / 100
 
   // get the element from queue , block when the queue is empty
-  def take = { bufferQueue.take() }
+  def take = {  bufferQueue.take() }
 
   // put the element to queue, block when the queue is full
   def put(byteBuffer : ByteBuffer) = synchronized {
@@ -56,14 +57,20 @@ class WrapBufferQueue(
     bufferQueue.offer(byteBuffer)
   }
 
-  def getcurrentBufferRate() : Double = {
-    bufferQueue.remainingCapacity() / maxQueueNum
+  def getcurrentBufferRate() : Int = {
+    // 10 * ( maxQueueNum - bufferQueue.remainingCapacity()) / maxQueueNum
+    10 * bufferQueue.size() / maxQueueNum
   }
   private def checkThreshold() = {
-    if( bufferQueue.remainingCapacity() < warnThresholdNum )    // warn
+    if( bufferQueue.size() < warnThresholdNum )    // warn
       loadBalanceStrategyFunc
     else if ( bufferQueue.remainingCapacity() < 10 )            // will block.....
       sendOverflowMessage
+//    if( bufferQueue.size() > warnThresholdNum){
+//      loadBalanceStrategyFunc
+//    }else if( bufferQueue.size() > maxQueueNum - 10 ){
+//      sendOverflowMessage
+//    }
   }
 
   def setWarnThreshold( newWarnThreshold : Int ) = {

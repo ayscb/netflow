@@ -26,7 +26,7 @@ import cn.ac.ict.acs.netflow.load2.netFlow.Template
  * Created by ayscb on 2015/4/22.
  */
 
-case class NetflowGroup (  template: Template, Header : Array[AnyVal], data :ByteBuffer){
+case class NetflowGroup (template: Template, Header : Array[Any], data :ByteBuffer){
   var flowCount = 0       // netflow's statistic. For count the netflow numbers to judge when a record is over
   def getflowCount = flowCount
 }

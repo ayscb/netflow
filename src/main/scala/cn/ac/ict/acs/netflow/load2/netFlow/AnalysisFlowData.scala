@@ -166,7 +166,7 @@ class AnalysisFlowData(val netflowConf : NetFlowConf){
         }
       case None =>
     }
-    writetest.write( String.valueOf ( (System.nanoTime() - startT)/1000 )+ System.getProperty("line.separator"))
+  //  writetest.write( String.valueOf ( (System.nanoTime() - startT)/1000 )+ System.getProperty("line.separator"))
    //  writetest.write( " analysis netFlow cost time :  " + String.valueOf ( (System.nanoTime() - startT)/1000 )+ System.getProperty("line.separator"))
   }
 

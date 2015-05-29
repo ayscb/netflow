@@ -18,13 +18,14 @@
  */
 package cn.ac.ict.acs.netflow.load2.deploy.loadDeploy
 
+import java.net.InetAddress
 import java.util
 import java.util.UUID
 import akka.actor._
 import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
 import cn.ac.ict.acs.netflow.load2.deploy.DeployMessages._
-import cn.ac.ict.acs.netflow.load2.deploy.LoadMasterMessage.CombineParquet
-import cn.ac.ict.acs.netflow.load2.deploy.LoadWorkerMessage.{BuffersWarn, BufferOverFlow}
+import cn.ac.ict.acs.netflow.load2.deploy.LoadMasterMessage.{BufferInfo, CombineParquet}
+import cn.ac.ict.acs.netflow.load2.deploy.LoadWorkerMessage.{BufferReport, BufferBeat, BuffersWarn, BufferOverFlow}
 import cn.ac.ict.acs.netflow.load2.deploy.WorkerMessage.SendHeartbeat
 import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
 import cn.ac.ict.acs.netflow.util.{SignalLogger, AkkaUtils, Utils, ActorLogReceive}
@@ -45,11 +46,10 @@ class LoadWorker(
     masterAkkaUrls: Array[String],
     actorSystemName: String,
     actorName: String,
-  val conf: NetFlowConf)
+    val conf: NetFlowConf)
     extends Actor with ActorLogReceive
     with WorkerService with WriteParquetService with CombineService
     with Logging {
-
 
     import context.dispatcher
 
@@ -86,6 +86,8 @@ class LoadWorker(
     var activeMasterUrl: String = ""
     var activeMasterWebUiUrl : String = ""
 
+    val workerIP = InetAddress.getLocalHost.getHostAddress
+
     val akkaUrl = AkkaUtils.address(
       AkkaUtils.protocol(context.system),
       actorSystemName,
@@ -105,7 +107,7 @@ class LoadWorker(
 
     // load data
     val defaultWriterNum = conf.getInt("netflow.writer.default.number",2)
-    val maxQueueNum = conf.getInt("netflow.queue.maxPackageNum", 10000)
+    val maxQueueNum = conf.getInt("netflow.queue.maxPackageNum", 500)
     val warnThreshold = {
       val threshold = conf.getInt("netflow.queue.defalutWarnThreshold", 70)
       if (0 < threshold && threshold < 100) threshold else 70
@@ -122,36 +124,38 @@ class LoadWorker(
 
     override def preStart(): Unit = {
       assert(!registered)
-      logInfo("Starting NetFlow QueryWorker %s:%d with %d cores, %s RAM".format(
+      logInfo("[Netflow] Starting NetFlow loadWorker %s:%d with %d cores, %s RAM".format(
         host, port, cores, Utils.megabytesToString(memory)))
-      logInfo(s"Running NetFlow version ${cn.ac.ict.acs.netflow.NETFLOW_VERSION}")
+      logInfo(s"[Netflow] Running NetFlow version ${cn.ac.ict.acs.netflow.NETFLOW_VERSION}")
       context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
 
-      initResolvingNetFlowThreads(defaultWriterNum)
+      logInfo(s"[Netflow] Init write parquet pool, and will start $defaultWriterNum threads")
+      initParquetWriterPool(defaultWriterNum)
       startWorkerService()
+
       registerWithMaster()
     }
 
     override def postStop(): Unit = {
       registrationRetryTimer.foreach(_.cancel())
-      logInfo(s"udpActor and ResolvingActor stop working !")
     }
 
     override def receiveWithLogging = {
       case RegisteredWorker(masterUrl, masterWebUrl) =>
-        logInfo("Successfully registered with Query Master " + masterUrl)
+        logInfo("[Netflow] Successfully registered with load Master " + masterUrl)
         registered = true
         changeMaster(masterUrl, masterWebUrl)
         context.system.scheduler.schedule(0.millis, HEARTBEAT_MILLIS.millis, self, SendHeartbeat)
+        context.system.scheduler.schedule(0.millis,HEARTBEAT_MILLIS.millis, self, BufferBeat)
 
       case RegisterWorkerFailed(message) =>
         if (!registered) {
-          logError("Worker registration failed: " + message)
+          logError("[Netflow] Worker registration failed: " + message)
           System.exit(1)
         }
 
       case ReconnectWorker(masterUrl) =>
-        logInfo(s"Master with url $masterUrl requested this worker to reconnect.")
+        logInfo(s"[Netflow] Master with url $masterUrl requested this worker to reconnect.")
         registerWithMaster()
 
       case ReregisterWithMaster =>
@@ -159,18 +163,24 @@ class LoadWorker(
 
       case MasterChanged(masterUrl, masterWebUrl) =>
         // Get this message because of master recovery
-        logInfo("Master has changed, new master is at " + masterUrl)
+        logInfo("[Netflow] Master has changed, new master is at " + masterUrl)
         changeMaster(masterUrl, masterWebUrl)
 
       case SendHeartbeat =>
         if (connected) { master ! Heartbeat(workerId) }
 
       case x: DisassociatedEvent if x.remoteAddress == masterAddress =>
-        logInfo(s"$x Disassociated !")
+        logInfo(s"[Netflow] $x Disassociated !")
         masterDisconnected()
 
       case CombineParquet =>
-        combineService.start()
+       // combineService.start()
+
+      case BufferBeat =>
+        if (connected) master ! BufferReport(workerIP, bufferList.getcurrentBufferRate())
+
+      case BufferInfo =>
+         master ! BufferReport(workerIP, bufferList.getcurrentBufferRate())
     }
 
     private def changeMaster(url: String, webUrl: String): Unit = {
@@ -199,16 +209,16 @@ class LoadWorker(
               INITIAL_REGISTRATION_RETRY_INTERVAL, self, ReregisterWithMaster)
           }
         case Some(_) =>
-          logInfo("Not spawning another attempt to register with the master, since there is an" +
+          logInfo("[Netflow] Not spawning another attempt to register with the master, since there is an" +
             " attempt scheduled already.")
       }
     }
 
     private def tryRegisterAllMasters() {
       for (masterAkkaUrl <- masterAkkaUrls) {
-        logInfo("Connecting to QueryMaster " + masterAkkaUrl + "...")
+        logInfo("[Netflow] Connecting to Load Master " + masterAkkaUrl + "...")
         val actor = context.actorSelection(masterAkkaUrl)
-        actor ! RegisterWorker(workerId, host, port, cores, memory, webUiPort,getWorkerServicePort)
+        actor ! RegisterWorker(workerId, host, port, cores, memory, webUiPort, getWorkerServicePort)
       }
     }
 
@@ -279,12 +289,13 @@ class LoadWorker(
     }
 
     // implement the load balance strategy
-    private object DefaultLoadBalanceStrategy extends LoadBalanceStrategy with Logging{
+     object DefaultLoadBalanceStrategy extends LoadBalanceStrategy with Logging{
 
       private var lastRate = 0.0
       private var lastThreadNum = 0
 
       override def loadBalanceWorker(): Unit = {
+        logInfo("loadBalanceWorker")
         val currentThreadNum = getCurrentThreadsNum
         val currentThreadsAverageRate =
           calculateAverageRate( getCurrentThreadsRate )
@@ -327,15 +338,17 @@ class LoadWorker(
 }
 
   object LoadWorker extends Logging {
-    val systemName = "netflowLoadWorker"
+    val systemName = "NetflowLoadWorker"
     val actorName = "LoadWorker"
 
     def main(argStrings: Array[String]) {
       SignalLogger.register(log)
-      val conf = new NetFlowConf
-      val args = new LoadWorkerArguments(argStrings, conf)
+      val conf = new NetFlowConf(false)
+      val arg = new Array[String](10)
+      arg(0) = "netflow-load://aysdp:9099"
+      val args = new LoadWorkerArguments(arg, conf)
       val (actorSystem, _) = startSystemAndActor(args.host, args.port, args.webUiPort,
-        args.cores, args.memory, args.masters, args.workDir, conf = conf)
+        args.cores, args.memory, args.masters, conf = conf)
       actorSystem.awaitTermination()
     }
 
@@ -346,7 +359,6 @@ class LoadWorker(
                              cores: Int,
                              memory: Int,
                              masterUrls: Array[String],
-                             workDir: String,
                              workerNumber: Option[Int] = None,
                              conf: NetFlowConf = new NetFlowConf): (ActorSystem, Int) = {
 
@@ -355,7 +367,7 @@ class LoadWorker(
       val masterAkkaUrls = masterUrls.map(
         LoadMaster.toAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
       actorSystem.actorOf(Props(classOf[LoadWorker], host, boundPort, webUiPort, cores,
-        memory, masterAkkaUrls, sysName, actorName, workDir, conf), name = actorName)
+        memory, masterAkkaUrls, sysName, actorName, conf), name = actorName)
       (actorSystem, boundPort)
     }
   }

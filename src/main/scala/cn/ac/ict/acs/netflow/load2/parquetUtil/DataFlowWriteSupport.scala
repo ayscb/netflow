@@ -173,7 +173,7 @@ class DataFlowMultiWriteSupport extends DataFlowWriteSupport {
 
     var clmId = 0
     while( wholeFields.get(clmId).isPrimitive ){
-      if( record.Header(clmId) != None ){
+      if( record.Header(clmId) != null ){
         val curField = wholeFields.get(clmId).asPrimitiveType()
         write.startField(curField.getName , clmId )
         writeHeaderValue(curField,record.Header(clmId))

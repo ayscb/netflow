@@ -44,13 +44,11 @@ object NetFlowWriterUtil {
   private val fileIdx = new AtomicInteger()
   //************************** other method ********************************************
 
-  def main(args: Array[String]) {
-    val netflow = new NetFlowWriterUtil(new NetFlowConf())
-  }
 }
 
 class NetFlowWriterUtil( val netflowConf : NetFlowConf ) extends Logging {
 
+  val s = 0
   lazy val compress =
     CompressionCodecName.fromConf(
       netflowConf.get(
@@ -131,8 +129,9 @@ class NetFlowWriterUtil( val netflowConf : NetFlowConf ) extends Logging {
 
   def closeParquetWriter(): Unit ={
     writer.close()
-    if( NetFlowWriterUtil.memoryManager != null )
+    if( NetFlowWriterUtil.memoryManager != null ){
       NetFlowWriterUtil.memoryManager.removeWriter(writer)
+    }
     writer = null
 
     // workPath 2015/1/1/1/00/_temp/host-01.parquet => 2015/1/1/1/00/host-01.parquet

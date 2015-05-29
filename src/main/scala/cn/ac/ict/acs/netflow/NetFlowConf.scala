@@ -20,8 +20,8 @@ package cn.ac.ict.acs.netflow
 
 import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
-import org.apache.hadoop.conf.Configuration
 import cn.ac.ict.acs.netflow.util.Utils
+import org.apache.hadoop.conf.Configuration
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormatter, DateTimeFormat}
 import scala.collection.JavaConverters._
@@ -63,7 +63,8 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
     }
   }
 
-  def dfsName = get(DFS_NAME, "hdfs://localhost:9000")
+ // def dfsName = get(DFS_NAME, "hdfs://localhost:9000")
+ def dfsName = get(DFS_NAME, "hdfs://192.168.80.110:9000")
 
   def timeFormat: DateTimeFormatter = {
     val timeFormatStr = get(TIME_FORMAT, "yyyy-MM-dd:HH:mm")
@@ -87,7 +88,7 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
   def getBaseRoot = get(NETFLOW_BASE_ROOT,"netflow")
 
   val HadoopConf = {
-    val _conf = new Configuration()
+    val _conf = new  Configuration()
     if( _conf.get("fs.defaultFS").startsWith("file")){
       _conf.set("fs.defaultFS",dfsName)
     }
