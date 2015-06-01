@@ -1,5 +1,6 @@
 # netflow
 
+[![Build Status](https://travis-ci.org/yijieshen/netflow.svg?branch=master)](https://travis-ci.org/yijieshen/netflow)
 
 ### How To Contribute
 * Please make sure to add the license headers to all new files. You can do this automatically by using the `mvn license:format` command.

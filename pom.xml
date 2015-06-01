@@ -61,6 +61,16 @@
         <enabled>false</enabled>
       </snapshots>
     </repository>
+    <repository>
+      <id>bintray</id>
+      <url>http://dl.bintray.com/yijieshen/maven</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
   </repositories>
 
   <pluginRepositories>
