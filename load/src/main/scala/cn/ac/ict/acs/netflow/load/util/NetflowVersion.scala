@@ -73,12 +73,12 @@ class V9Analysis extends NetFlowAnalysis {
     val flowSet = data.getShort(data.position())
     flowSet match {
       case 1 => updateOptionTemplate(data)
-      case x if x >= 0 => updataNormalTemplate(data)
+      case x if x >= 0 => updateNormalTemplate(data)
       case _ =>
     }
   }
 
-  private def updataNormalTemplate(data: ByteBuffer): Unit = {
+  private def updateNormalTemplate(data: ByteBuffer): Unit = {
     val startPos = data.position() // add the flowSetID ( 2Byte )
     data.getShort // skip the flowset id
     val flowLen = BytesUtil.toUShort(data)

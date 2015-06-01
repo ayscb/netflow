@@ -36,7 +36,7 @@ import org.joda.time.format.DateTimeFormat
 import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.load.LoadMessages
 import cn.ac.ict.acs.netflow.load.master.NetUtil.Mode.{Mode, add, delete}
-import cn.ac.ict.acs.netflow.util.{ActorLogReceive, AkkaUtils, SignalLogger, Utils}
+import cn.ac.ict.acs.netflow.util._
 import cn.ac.ict.acs.netflow.ha.{LeaderElectionAgent, MonarchyLeaderAgent, LeaderElectable}
 
 class LoadMaster(
@@ -117,7 +117,7 @@ class LoadMaster(
     startThread()
 
     // start the combine scheduler
-    val interval = conf.getInt("netflow.document.time.interval", 600)
+    val interval = TimeUtils.loadDirIntervalSec(conf)
     context.system.scheduler.schedule(0.millis, interval.seconds, self, NeedToCombineParquet)
   }
 

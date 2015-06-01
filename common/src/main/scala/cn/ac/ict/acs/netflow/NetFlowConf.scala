@@ -27,12 +27,7 @@ import scala.collection.JavaConversions._
 import cn.ac.ict.acs.netflow.util.Utils
 
 object NetFlowConf {
-  val DFS_NAME = "netflow.fs.default.name"
-  val TIME_FORMAT = "netflow.time.format"
-  val DOC_TIME_INTERVAL = "netflow.document.time.interval"
 
-  val KB = 1024
-  val MB = 1024 * KB
 }
 
 class NetFlowConf(loadDefaults: Boolean) extends Serializable {
@@ -47,9 +42,6 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
       set(key, value)
     }
   }
-
-  /** ************************ Base Utils/Implementations ******************* */
-
 
   def load(path: String): NetFlowConf = {
     setAll(Utils.getPropertiesFromFile(path))

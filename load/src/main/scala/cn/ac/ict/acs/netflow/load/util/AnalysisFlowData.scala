@@ -18,7 +18,7 @@
  */
 package cn.ac.ict.acs.netflow.load.util
 
-import java.io.{ DataInputStream, FileWriter }
+import java.io.{DataInputStream, FileWriter}
 import java.nio.ByteBuffer
 import java.util
 
@@ -26,15 +26,18 @@ import cn.ac.ict.acs.netflow.NetFlowConf
 
 /**
  * analysis the data from the bytes array
- * Created by ayscb on 2015/4/13.
  */
 object AnalysisFlowData {
 
   // 5C F9 DD 1E 35 76 Start mac
   private val beginFlag: Array[Byte] = Array[Byte](92, -7, -35, 30, 53, 118)
+  // share for all threads
+  private val netflowVersions =
+    new scala.collection.parallel.mutable.ParHashMap[Int, NetFlowAnalysis]
 
-  def findNextRecord(data: DataInputStream,
-    ResuseArray: Array[Byte],
+  def findNextRecord(
+    data: DataInputStream,
+    reuseArray: Array[Byte],
     netflowBuffer: ByteBuffer): Int = {
     val macLength = 64 // min mac length
     var find = false
@@ -44,9 +47,9 @@ object AnalysisFlowData {
         data.close()
         return 0 // the data pack is over
       }
-      ResuseArray(0) = 92
-      data.read(ResuseArray, 1, 5)
-      if (util.Arrays.equals(beginFlag, ResuseArray)) find = true
+      reuseArray(0) = 92
+      data.read(reuseArray, 1, 5)
+      if (util.Arrays.equals(beginFlag, reuseArray)) find = true
     }
 
     // find the record
@@ -89,6 +92,8 @@ object AnalysisFlowData {
     }
   }
 
+  // *********************************************************************
+
   private def upPackUDP(data: ByteBuffer): Unit = {
     // udp format
     // ---------------------------------------
@@ -102,13 +107,7 @@ object AnalysisFlowData {
     data.position(8) // skip all the udp
   }
 
-  // *********************************************************************
-
-  // share for all threads
-  private val netflowVersions =
-    new scala.collection.parallel.mutable.ParHashMap[Int, NetFlowAnalysis]
-
-  private def vaildData(data: ByteBuffer): Option[NetFlowAnalysis] = synchronized {
+  private def validData(data: ByteBuffer): Option[NetFlowAnalysis] = synchronized {
     val version = data.getShort
 
     if (netflowVersions.contains(version)) {
@@ -135,7 +134,8 @@ class AnalysisFlowData(val netflowConf: NetFlowConf) {
 
   // for analysis the file  ( thread !!)
   private val reuse: Array[Byte] = new Array[Byte](6)
-  private val netflowDataBuffer = ByteBuffer.allocate(1500) // receive the udp package
+  private val netflowDataBuffer = ByteBuffer.allocate(1500)
+  // receive the udp package
   private val writeUtil = new NetFlowWriterUtil(netflowConf) // for write
 
   // for test
@@ -143,10 +143,19 @@ class AnalysisFlowData(val netflowConf: NetFlowConf) {
 
   def setTestwriter(write: FileWriter) = writetest = write
 
+  def analysisStream(data: DataInputStream): Unit = {
+    while (data.available() > 0 &&
+      AnalysisFlowData.findNextRecord(data, reuse, netflowDataBuffer) != 0) {
+
+      analysisnetflow(netflowDataBuffer)
+      data.skipBytes(4) //  skip 4 byte mac CRC, and jump into next while cycle
+    }
+  }
+
   def analysisnetflow(data: ByteBuffer): Unit = {
     val startT = System.nanoTime()
 
-    AnalysisFlowData.vaildData(data) match {
+    AnalysisFlowData.validData(data) match {
       case Some(analysis) =>
         // dell with the netflow
         val headerData = analysis.unPackHeader(data)
@@ -189,15 +198,6 @@ class AnalysisFlowData(val netflowConf: NetFlowConf) {
       System.getProperty("line.separator"))
     //  writetest.write( " analysis netFlow cost time :  " + String.valueOf
     // ( (System.nanoTime() - startT)/1000 )+ System.getProperty("line.separator"))
-  }
-
-  def analysisStream(data: DataInputStream): Unit = {
-    while (data.available() > 0 &&
-      AnalysisFlowData.findNextRecord(data, reuse, netflowDataBuffer) != 0) {
-
-      analysisnetflow(netflowDataBuffer)
-      data.skipBytes(4) //  skip 4 byte mac CRC, and jump into next while cycle
-    }
   }
 
   def closeWriter() = writeUtil.closeParquetWriter()

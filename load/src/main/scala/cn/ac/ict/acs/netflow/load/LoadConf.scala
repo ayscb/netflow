@@ -18,14 +18,12 @@
  */
 package cn.ac.ict.acs.netflow.load
 
-import parquet.hadoop.ParquetFileWriter
-
 object LoadConf {
 
   // ************************************************************************
   // for parquet file
-  val META_FILE = ParquetFileWriter.PARQUET_METADATA_FILE
-  val COMMON_META_FILE = ParquetFileWriter.PARQUET_COMMON_METADATA_FILE
+  val META_FILE = "_metadata"
+  val COMMON_META_FILE = "_common_metadata"
   val SUCCESS_FIME = "_SUCCESS"
   val TEMP_DICTIONARY = "_temporary"
 

@@ -85,7 +85,7 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
     netflowConf.getBoolean(LoadConf.ENABLE_DICTIONARY, ParquetWriter.DEFAULT_IS_DICTIONARY_ENABLED)
   lazy val dictionaryPageSize =
     netflowConf.getInt(LoadConf.DICTIONARY_PAGE_SIZE, ParquetWriter.DEFAULT_PAGE_SIZE)
-  lazy val vilidating =
+  lazy val validating =
     netflowConf.getBoolean(LoadConf.PAGE_SIZE, ParquetWriter.DEFAULT_IS_VALIDATING_ENABLED)
   lazy val writerVersion =
     WriterVersion.fromString(
@@ -103,13 +103,13 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
     log.info(s"[ NetFlow : Parquet page size(KB) : %d KB ] ".format(pageSize / 1024))
     log.info(s"[ NetFlow : Parquet dictionary page size :  $dictionaryPageSize ]")
     log.info(s"[ NetFlow : Dictionary is $enableDictionary ]")
-    log.info(s"[ NetFlow : Validation is $vilidating ]")
+    log.info(s"[ NetFlow : Validation is $validating ]")
     log.info(s"[ NetFlow : Writer version is $writerVersion ]")
 
     writer = new ParquetWriter[NetflowGroup](
       file, NetFlowWriterUtil.writeSupport, compress,
       blockSize, pageSize,
-      dictionaryPageSize, enableDictionary, vilidating, writerVersion, new Configuration())
+      dictionaryPageSize, enableDictionary, validating, writerVersion, new Configuration())
 
     if (MemoryManageEnable) {
       NetFlowWriterUtil.initMemoryManager(netflowConf)
