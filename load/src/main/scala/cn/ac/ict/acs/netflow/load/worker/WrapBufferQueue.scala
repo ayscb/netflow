@@ -19,7 +19,7 @@
 package cn.ac.ict.acs.netflow.load.worker
 
 import java.nio.ByteBuffer
-import java.util.concurrent.LinkedBlockingDeque
+import java.util.concurrent.{LinkedBlockingQueue, LinkedBlockingDeque}
 
 class WrapBufferQueue(
     maxQueueNum: Int,
@@ -57,11 +57,12 @@ class WrapBufferQueue(
     10*bufferQueue.size()/maxQueueNum
   }
   private def checkThreshold() = {
-    if(bufferQueue.size() < warnThresholdNum )    // warn
+    if(bufferQueue.size() < warnThresholdNum ){    // warn
       loadBalanceStrategyFunc
     } else if (bufferQueue.remainingCapacity() < 10) {
       // will block.....
       sendOverflowMessage
+    }
 //    if(bufferQueue.size() > warnThresholdNum){
 //      loadBalanceStrategyFunc
 //    }else if(bufferQueue.size() > maxQueueNum - 10){

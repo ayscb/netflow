@@ -33,6 +33,8 @@ object NetFlowShema {
   val NETFLOW_SCHEMA_PATH = " netflow.schema.path "
   val NETFLOW_SCHEMA = "netflow.schema"
 
+  /* nest base schema */
+  @deprecated
   lazy val nestSchema = new MessageType("netflow",
     new PrimitiveType(REQUIRED, INT64, "unixSeconds"),
     new GroupType(REPEATED, "data",
@@ -156,6 +158,7 @@ object NetFlowShema {
       new PrimitiveType(OPTIONAL, INT64, "rireplication_factor"),
       new PrimitiveType(OPTIONAL, BINARY, "DEPRECATED")))
 
+  /* single base schema */
   lazy val singleSchema = new MessageType("netflow",
     new PrimitiveType(REQUIRED, INT64, "unixSeconds"),
 
@@ -286,13 +289,12 @@ object NetFlowShema {
         case Some(netflowPath) =>
           val schemaStr = scala.io.Source.fromFile(netflowPath).mkString
           _schema = MessageTypeParser.parseMessageType(schemaStr)
-        case None => {
+        case None =>
           netFlowConf.getOption("NETFLOW_SCHEMA") match {
             case Some(netflowSchema) =>
               _schema = MessageTypeParser.parseMessageType(netflowSchema)
             case None => _schema = singleSchema
           }
-        }
       }
     }
     _schema

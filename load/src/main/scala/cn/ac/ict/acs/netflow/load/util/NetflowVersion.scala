@@ -102,7 +102,7 @@ class V9Analysis extends NetFlowAnalysis {
     data.getShort // skip the flowset id
     val flowLen = BytesUtil.toUShort(data)
 
-    // TODO: do we need to save the option template ? ( skip know)
+    // TODO: do we need to save the option template ? ( skip now )
     data.position(startPos + flowLen)
     return
 
@@ -132,7 +132,7 @@ class V9Analysis extends NetFlowAnalysis {
 }
 
 /**
- * analysis the V5 netflow data
+ * prise the V5 netflow data
  */
 class V5Analysis extends NetFlowAnalysis {
 

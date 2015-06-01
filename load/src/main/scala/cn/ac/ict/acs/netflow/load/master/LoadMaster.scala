@@ -21,24 +21,24 @@ package cn.ac.ict.acs.netflow.load.master
 import java.net.InetAddress
 import java.nio.channels.SocketChannel
 
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import scala.util.Random
-
 import akka.actor._
-import akka.pattern.ask
 import akka.remote.RemotingLifecycleEvent
 import akka.serialization.SerializationExtension
-
-import org.joda.time.format.DateTimeFormat
-
+import akka.pattern.ask
 import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.load.LoadMessages
-import cn.ac.ict.acs.netflow.load.master.NetUtil.Mode.{Mode, add, delete}
+import cn.ac.ict.acs.netflow.load.master.IPv4.MasterPersistenceEngine
+import cn.ac.ict.acs.netflow.load.master.NetUtil.Mode
+import cn.ac.ict.acs.netflow.load.master.NetUtil.Mode.Mode
 import cn.ac.ict.acs.netflow.util.{ActorLogReceive, AkkaUtils, SignalLogger, Utils}
 import cn.ac.ict.acs.netflow.ha.{LeaderElectionAgent, MonarchyLeaderAgent, LeaderElectable}
+
+import scala.collection._
+import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.Await
+import scala.util.Random
+
+import scala.concurrent.duration._
 
 class LoadMaster(
     masterHost: String,
@@ -62,7 +62,7 @@ class LoadMaster(
   val RECOVERY_MODE = conf.get("netflow.deploy.recoveryMode", "NONE")
 
   // This may contain dead workers and receivers
-  val workers = new mutable.HashSet[LoadWorkerInfo]
+  val workers = new scala.collection.mutable.HashSet[LoadWorkerInfo]
   // Current alive workers and receivers
   val idToWorker = new mutable.HashMap[String, LoadWorkerInfo]
   // Current alive workers and receivers
@@ -90,7 +90,7 @@ class LoadMaster(
   private val warnLimit = 70
   private val receiverConnectMaxLimit = 3 // should be < worker's number
   private var combineParquetFinished: Boolean = false
-  
+
   // when there is no worker registers in cluster ,
   // we put the whole request receiver into waitQueue
   val waitQueue = new mutable.HashMap[String,SocketChannel]()
@@ -334,8 +334,6 @@ class LoadMaster(
  // private val warnLimit = 70
 //  private val receiverConnectMaxLimit = 3   // should be < worker's number
 
-  // 这个方法在worker 失效的时候调用 ，
-  // 需要动态的修改 workerTotcpPort, workerToReceivers, receiverToworkers
   private def adjustCollectorByDeadworker(deadworker : String): Unit ={
     getAllWorkerBufferRate()
 
@@ -591,6 +589,7 @@ object LoadMaster extends Logging {
    * (2) The bound port
    * (3) The web UI bound port
    */
+
   def startSystemAndActor(
     host: String,
     port: Int,

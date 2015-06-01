@@ -20,14 +20,7 @@ package cn.ac.ict.acs.netflow
 
 import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
-<<<<<<< HEAD:src/main/scala/cn/ac/ict/acs/netflow/NetFlowConf.scala
-import cn.ac.ict.acs.netflow.util.Utils
-import org.apache.hadoop.conf.Configuration
-import org.joda.time.DateTime
-import org.joda.time.format.{DateTimeFormatter, DateTimeFormat}
-=======
 
->>>>>>> d33a7aa404c12ae45ca6d2d8cc6f715686bfb662:common/src/main/scala/cn/ac/ict/acs/netflow/NetFlowConf.scala
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
 
@@ -35,39 +28,19 @@ import cn.ac.ict.acs.netflow.util.Utils
 
 object NetFlowConf {
   val DFS_NAME = "netflow.fs.default.name"
-<<<<<<< HEAD:src/main/scala/cn/ac/ict/acs/netflow/NetFlowConf.scala
-  val DOC_TIME_INTERVAL = "netflow.document.time.interval"      // the document we will organize ,s( seconds )
-  val NETFLOW_BASE_ROOT = " netflow.base.root"
-
-  val TIME_FORMAT = "netflow.time.format"     // for test
-=======
   val TIME_FORMAT = "netflow.time.format"
   val DOC_TIME_INTERVAL = "netflow.document.time.interval"
->>>>>>> d33a7aa404c12ae45ca6d2d8cc6f715686bfb662:common/src/main/scala/cn/ac/ict/acs/netflow/NetFlowConf.scala
 
-  val TIME_PATH_FORMAT="netflow.time.path.format"
   val KB = 1024
   val MB = 1024 * KB
 }
 
-<<<<<<< HEAD:src/main/scala/cn/ac/ict/acs/netflow/NetFlowConf.scala
-// for test
-object LoadConf {
-  val LOAD_INTERVAL =   "netflow.load.interval"
-  val LOAD_DATARATE =   "netflow.load.dataRate"
-  val LOAD_STARTTIME =  "netflow.load.startTime"
-  val LOAD_ENDTIME =    "netflow.load.endTime"
-  val LOAD_PATH =       "netflow.load.path"
-}
-
-=======
->>>>>>> d33a7aa404c12ae45ca6d2d8cc6f715686bfb662:common/src/main/scala/cn/ac/ict/acs/netflow/NetFlowConf.scala
 class NetFlowConf(loadDefaults: Boolean) extends Serializable {
 
   def this() = this(true)
+
   @transient private val settings = new ConcurrentHashMap[String, String]()
 
-  /** ************************ NetFLow Params/Hints ******************* */
   if (loadDefaults) {
     // Load any netflow.* system properties that passed as -D<name>=<value> at start time
     for ((key, value) <- Utils.getSystemProperties if key.startsWith("netflow.")) {
@@ -75,57 +48,8 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
     }
   }
 
-<<<<<<< HEAD:src/main/scala/cn/ac/ict/acs/netflow/NetFlowConf.scala
- // def dfsName = get(DFS_NAME, "hdfs://localhost:9000")
- def dfsName = get(DFS_NAME, "hdfs://192.168.80.110:9000")
-
-  def timeFormat: DateTimeFormatter = {
-    val timeFormatStr = get(TIME_FORMAT, "yyyy-MM-dd:HH:mm")
-    DateTimeFormat.forPattern(timeFormatStr)
-  }
-
-  def doctTimeIntervalValue :Int = getInt(DOC_TIME_INTERVAL,600)
-
-  def doctTimeIntervalFormat:DateTimeFormatter = {
-    // 10 min as default
-    val value = getLong(DOC_TIME_INTERVAL, 600)
-    val strFormat : String = value match {
-      case x if x < 60    => "/yyyy/MM/dd/HH/mm/ss" // second level
-      case x if x < 3600  =>  "/yyyy/MM/dd/HH/mm" // minute level
-      case x if x < 86400 =>  "/yyyy/MM/dd/" // hour level
-      case _              =>  "/yyyy/MM/dd/HH/"
-    }
-    DateTimeFormat.forPattern(strFormat.toString)
-  }
-
-  def getBaseRoot = get(NETFLOW_BASE_ROOT,"netflow")
-
-  val HadoopConf = {
-    val _conf = new  Configuration()
-    if( _conf.get("fs.defaultFS").startsWith("file")){
-      _conf.set("fs.defaultFS",dfsName)
-    }
-    _conf
-  }
-
-  def hadoopConfigure = HadoopConf
-
-  /** ************************ Load Params/Hints ******************* */
-
-  def loadInterval = getInt(LOAD_INTERVAL, 4)
-
-  def loadRate = getLong(LOAD_DATARATE, 1L) * MB
-
-  def loadStartInSec = DateTime.parse(get(LOAD_STARTTIME), timeFormat).getMillis / 1000
-
-  def loadEndInSec = DateTime.parse(get(LOAD_ENDTIME), timeFormat).getMillis / 1000
-
-  def loadPath = getAbsolutePath(get(LOAD_PATH))    // we get the path which should begin with "\"
-
-
-=======
->>>>>>> d33a7aa404c12ae45ca6d2d8cc6f715686bfb662:common/src/main/scala/cn/ac/ict/acs/netflow/NetFlowConf.scala
   /** ************************ Base Utils/Implementations ******************* */
+
 
   def load(path: String): NetFlowConf = {
     setAll(Utils.getPropertiesFromFile(path))
@@ -202,11 +126,6 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
   }
 
   /** Get a parameter as a double, falling back to a default if not set */
-  def getFloat(key :String,  defaultValue: Float) : Float = {
-    getOption(key).map(_.toFloat).getOrElse(defaultValue)
-  }
-
-  /** Get a parameter as a double, falling back to a default if not set */
   def getDouble(key: String, defaultValue: Double): Double = {
     getOption(key).map(_.toDouble).getOrElse(defaultValue)
   }
@@ -219,17 +138,4 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
   /** Does the configuration contain a given parameter? */
   def contains(key: String): Boolean = settings.containsKey(key)
 
-
-  /** ******************************* some tools ***************************** **/
-  private def getAbsolutePath( path :String): String =
-    if ( path.startsWith("/") ) path else "/".concat(path)
-
-  //get the format level
-  private def getTimeStrFromInterval( timeStr : String) = {
-      timeStr.toLong match {
-      case x => if ( x< 60 )      "/yyyy/MM/dd/HH/mm/"        // second level
-      case x => if ( x < 3600 )   "/yyyy/MM/dd/HH/"           // minute level
-      case x => if ( x < 86400 )  "/yyyy/MM/dd/"              // hour level
-    }
-  }
 }

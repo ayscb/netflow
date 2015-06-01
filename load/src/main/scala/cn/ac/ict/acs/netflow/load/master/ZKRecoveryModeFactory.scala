@@ -22,6 +22,7 @@ import akka.serialization.Serialization
 
 import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.ha._
+import cn.ac.ict.acs.netflow.load.master.IPv4.MasterPersistenceEngine
 
 class ZKRecoveryModeFactory(conf: NetFlowConf, serializer: Serialization)
   extends RecoveryModeFactory(conf, serializer) {

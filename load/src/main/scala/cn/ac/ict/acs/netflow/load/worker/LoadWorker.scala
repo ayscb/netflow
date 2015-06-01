@@ -18,21 +18,20 @@
  */
 package cn.ac.ict.acs.netflow.load.worker
 
+import java.net.InetAddress
 import java.util
 import java.util.UUID
-
-import scala.util.Random
-import scala.concurrent.duration._
-
 import akka.actor._
 import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
-
 import org.joda.time.DateTime
-
 import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.load.LoadMessages
 import cn.ac.ict.acs.netflow.load.master.LoadMaster
 import cn.ac.ict.acs.netflow.util._
+
+import scala.concurrent.duration.FiniteDuration
+import scala.util.Random
+import scala.concurrent.duration._
 
 class LoadWorker(
     host: String,
@@ -113,6 +112,7 @@ class LoadWorker(
     new WrapBufferQueue(maxQueueNum, warnThreshold,
       DefaultLoadBalanceStrategy.loadBalanceWorker,
       () => master ! BufferOverFlow)
+  val workerIP = InetAddress.getLocalHost.getAddress.toString
 
   def coresFree: Int = cores - coresUsed
   def memoryFree: Int = memory - memoryUsed
@@ -345,7 +345,7 @@ object LoadWorker extends Logging {
       arg(0) = "netflow-load://aysdp:9099"
     val args = new LoadWorkerArguments(argStrings, conf)
     val (actorSystem, _) = startSystemAndActor(args.host, args.port, args.webUiPort,
-      args.cores, args.memory, args.masters, args.workDir, conf = conf)
+      args.cores, args.memory, args.masters, conf = conf)
     actorSystem.awaitTermination()
   }
 

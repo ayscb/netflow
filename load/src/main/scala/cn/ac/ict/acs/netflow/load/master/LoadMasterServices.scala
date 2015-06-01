@@ -21,7 +21,9 @@ package cn.ac.ict.acs.netflow.load.master
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.{ServerSocketChannel, SelectionKey, Selector, SocketChannel}
-import cn.ac.ict.acs.netflow.load2.deploy.loadDeploy.LoadMaster
+
+import cn.ac.ict.acs.netflow.load.master.NetUtil.Mode
+import cn.ac.ict.acs.netflow.util.Utils
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -133,7 +135,7 @@ trait MasterService {
               // get worker ips
               val data = assignWorker(remoteHost)
               if (data != None) {
-                  channel.write(netUtil.responseReceiver(Mode.add, data.get))
+                  channel.write(NetUtil.responseReceiver(Mode.add, data.get))
               }else{
                   // No available worker to assigned
                   waitQueue += (remoteHost -> channel )

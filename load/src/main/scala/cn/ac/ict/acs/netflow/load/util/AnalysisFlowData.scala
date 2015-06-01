@@ -146,13 +146,13 @@ class AnalysisFlowData(val netflowConf: NetFlowConf) {
   def analysisnetflow(data: ByteBuffer): Unit = {
     val startT = System.nanoTime()
 
-    AnalysisFlowData.vaildData(data) match {
-      case Some(analysis) =>
-        // dell with the netflow
-        val headerData = analysis.unPackHeader(data)
-        val totalFlowSet = analysis.getTotalFlowSet(headerData)
-        val UnixSeconds = analysis.getUnixSeconds(headerData)
-        var flowsetCount = 0
+        AnalysisFlowData.vaildData(data) match {
+          case Some(analysis) =>
+            // dell with the netflow
+            val headerData = analysis.unPackHeader(data)
+            val totalFlowSet = analysis.getTotalFlowSet(headerData)
+            val UnixSeconds = analysis.getUnixSeconds(headerData)
+            var flowsetCount = 0
 
         if (totalFlowSet == 0) {
           // this package is whole templates package

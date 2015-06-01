@@ -18,7 +18,6 @@
  */
 package cn.ac.ict.acs.netflow.load.master
 
-<<<<<<< HEAD:src/main/scala/cn/ac/ict/acs/netflow/util/package.scala
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
