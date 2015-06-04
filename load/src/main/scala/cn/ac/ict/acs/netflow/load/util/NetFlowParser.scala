@@ -31,8 +31,8 @@ case class NetflowHeader(fields: Any*)
 
 /**
  * Define the v9 template
- * @param tmpId
- * @param fieldsCount
+ * @param tmpId  consist of routIP + tmpId
+ * @param fieldsCount total fields number
  */
 class SingleTemplate(val tmpId: String, val fieldsCount: Int)
   extends Iterable[(Int, Int)] {
@@ -74,22 +74,25 @@ class SingleTemplate(val tmpId: String, val fieldsCount: Int)
   }
 }
 
-object NetFlowAnalysis {
+object NetFlowParser {
   // for all netflow version( V5, V7, V8 ,V9 ) shared
  // val templates = new mutable.HashMap[Int, Template]
   val templates = new ConcurrentHashMap[Int,SingleTemplate](1024)
 }
 
 
-abstract class NetFlowAnalysis {
+abstract class NetFlowParser{
 
+  /** parse the netflow head data **/
+  def unPackHeader(data: ByteBuffer): NetflowHeader
+
+  /** check whether nor not the template is a template flow set **/
   def isTemplateFlowSet(data: ByteBuffer): Boolean
-  def updateTemplate(data: ByteBuffer): Unit
 
   /**
    * check whether the template exist.
-   * Since v9 needs template to analysis the data , so we should get the template first
-   * for other version , the template has already existed when we new a object
+   * Since v9 needs template to analysis the data , so we should get the template first.
+   * For V5 , always return 0
    * @param data
    * @return
    *         not exist : -1
@@ -98,13 +101,15 @@ abstract class NetFlowAnalysis {
    */
   def isTemplateExist(data: ByteBuffer): Int
 
-  def unPackHeader(data: ByteBuffer): NetflowHeader
+  /** update the template **/
+  def updateTemplate(data: ByteBuffer): Unit
 
+  /** get the current template**/
   def getTemplate(tmpId: Int): Template
 
-  // get the unix seconds from the header
+  /** get the unix seconds from the netflow header **/
   def getUnixSeconds(header: NetflowHeader): Long
 
+  /** get the total flow set number from the netflow header **/
   def getTotalFlowSet(header: NetflowHeader): Int
-
 }

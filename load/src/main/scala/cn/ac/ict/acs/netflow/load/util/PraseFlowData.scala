@@ -21,6 +21,7 @@ package cn.ac.ict.acs.netflow.load.util
 import java.io.{ DataInputStream, FileWriter }
 import java.nio.ByteBuffer
 import java.util
+import java.util.concurrent.SynchronousQueue
 
 import cn.ac.ict.acs.netflow.NetFlowConf
 
@@ -105,23 +106,25 @@ object AnalysisFlowData {
   // *********************************************************************
 
   // share for all threads
-  private val netflowVersions =
-    new scala.collection.parallel.mutable.ParHashMap[Int, NetFlowAnalysis]
+  private val netflowParsers =
+    new scala.collection.mutable.HashMap[Int, NetFlowParser]()
 
-  private def vaildData(data: ByteBuffer): Option[NetFlowAnalysis] = synchronized {
-    val version = data.getShort
+  private def vaildData(data: ByteBuffer): Option[NetFlowParser] = synchronized {
 
-    if (netflowVersions.contains(version)) {
-      netflowVersions.get(version)
-    } else {
-      version match {
+    val netflowVersion = data.getShort
+
+    if (netflowParsers.contains(netflowVersion)){
+      val parser = netflowParsers.get(netflowVersion).get
+      Option(parser)
+    }else{
+      netflowVersion match {
         case 5 =>
-          val v5 = new V5Analysis()
-          netflowVersions += (5 -> v5)
+          val v5 = new V5Parser()
+          netflowParsers += (5 -> v5)
           Some(v5)
         case 9 =>
-          val v9 = new V9Analysis()
-          netflowVersions += (9 -> v9)
+          val v9 = new V9Parser()
+          netflowParsers += (9 -> v9)
           Some(v9)
         case _ => None
       }

@@ -34,10 +34,10 @@ import java.nio.ByteBuffer
  * |              ......                |
  * -----------------------------------
  *
- * analysis the V9 netflow data
+ * resolve the V9 netflow data
  */
 
-class V9Analysis extends NetFlowAnalysis {
+class V9Parser extends NetFlowParser {
 
   override def unPackHeader(data: ByteBuffer): NetflowHeader = {
     new NetflowHeader(
@@ -56,8 +56,16 @@ class V9Analysis extends NetFlowAnalysis {
   }
 
   override def isTemplateExist(data: ByteBuffer): Int = {
-    val flowSetID = data.getShort(data.position()) & 0xFFFF
-    if (!NetFlowAnalysis.templates.contains(flowSetID)) {
+
+    val curPos = data.position()
+    val flowSetID = data.getShort(curPos) & 0xFFFF
+
+    //TODO define the template ID ? netflow router ip + template ID
+    data.position(0)
+    val ips = new Array[Byte](16)
+    val srcIP = data.get(ips,0,16)
+    srcIP.hashCode()
+    if (!NetFlowAnalysis.templates.containsKey(flowSetID)) {
       // Since the template does not exist , we do not understand the data.
       // So we should skip this flow set.
       // TODO skip the data ? or save the data
@@ -132,9 +140,9 @@ class V9Analysis extends NetFlowAnalysis {
 }
 
 /**
- * prise the V5 netflow data
+ * resolve the V5 netflow data
  */
-class V5Analysis extends NetFlowAnalysis {
+class V5Parser extends NetFlowParser {
 
   override def getTemplate(tmpId: Int): Template = {
     NetFlowAnalysis.templates.getOrElse(0,
