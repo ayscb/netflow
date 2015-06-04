@@ -102,7 +102,7 @@ class LoadWorkerArguments(args: Array[String], conf: NetFlowConf) {
    */
   private def printUsageAndExit(exitCode: Int) {
     System.err.println(
-      "Usage: QueryWorker [options] <master>\n" +
+      "Usage: LoadWorker [options] <master>\n" +
         "\n" +
         "Master must be a URL of the form netflow-query://hostname:port\n" +
         "\n" +

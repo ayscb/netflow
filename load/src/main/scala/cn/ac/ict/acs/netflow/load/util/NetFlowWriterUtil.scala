@@ -35,11 +35,10 @@ import cn.ac.ict.acs.netflow.util.TimeUtils
  * get the parquet writer from some configure
  *
  */
-object NetFlowWriterUtil {
+object NetFlowWriterUtil{
 
   private var maxLoad: Float = 0.0f
   private var memoryManager: MemoryManager = _
-
   private def initMemoryManager(conf: NetFlowConf): Unit = synchronized {
     if (memoryManager == null) {
       val maxLoad =
@@ -56,71 +55,120 @@ object NetFlowWriterUtil {
   }
 
   private val host = InetAddress.getLocalHost.getHostName
+  private lazy val netFlowConf = new NetFlowConf(false)
+  private lazy val hadoopConf = {
+    val conf = new Configuration(false)
+    conf.set("fs.defaultFS","hdfs://localhost:8020")
+    conf
+  }
+
+  lazy val compress =
+    CompressionCodecName.fromConf(
+      netFlowConf.get(LoadConf.COMPRESSION,CompressionCodecName.UNCOMPRESSED.name()))
+  lazy val blockSize =
+    netFlowConf.getInt(LoadConf.BLOCK_SIZE, ParquetWriter.DEFAULT_BLOCK_SIZE)
+  lazy val pageSize =
+    netFlowConf.getInt(LoadConf.PAGE_SIZE, ParquetWriter.DEFAULT_PAGE_SIZE)
+  lazy val enableDictionary =
+    netFlowConf.getBoolean(LoadConf.ENABLE_DICTIONARY, ParquetWriter.DEFAULT_IS_DICTIONARY_ENABLED)
+  lazy val dictionaryPageSize =
+    netFlowConf.getInt(LoadConf.DICTIONARY_PAGE_SIZE, ParquetWriter.DEFAULT_PAGE_SIZE)
+  lazy val vilidating =
+    netFlowConf.getBoolean(LoadConf.PAGE_SIZE, ParquetWriter.DEFAULT_IS_VALIDATING_ENABLED)
+  lazy val writerVersion =
+    WriterVersion.fromString(
+      netFlowConf.get(LoadConf.WRITER_VERSION, WriterVersion.PARQUET_1_0.toString))
+  lazy val MemoryManageEnable =
+    netFlowConf.getBoolean(LoadConf.ENABLE_MEMORYMANAGER, defaultValue = false)
 
   // *************************************************************************************
   private lazy val writeSupport = new DataFlowSingleWriteSupport()
+  private val fileIdx = new AtomicInteger()
 
   def apply(netflowConf: NetFlowConf) = new NetFlowWriterUtil(netflowConf)
 
-  private val fileIdx = new AtomicInteger()
-  // ************************** other method ********************************************
-
-  def main(args: Array[String]) {
-    val netflow = new NetFlowWriterUtil(new NetFlowConf())
-  }
 }
 
 class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
 
-  lazy val compress =
-    CompressionCodecName.fromConf(
-      netflowConf.get(
-        LoadConf.COMPRESSION,
-        CompressionCodecName.UNCOMPRESSED.name()))
-  lazy val blockSize =
-    netflowConf.getInt(LoadConf.BLOCK_SIZE, ParquetWriter.DEFAULT_BLOCK_SIZE)
-  lazy val pageSize =
-    netflowConf.getInt(LoadConf.PAGE_SIZE, ParquetWriter.DEFAULT_PAGE_SIZE)
-  lazy val enableDictionary =
-    netflowConf.getBoolean(LoadConf.ENABLE_DICTIONARY, ParquetWriter.DEFAULT_IS_DICTIONARY_ENABLED)
-  lazy val dictionaryPageSize =
-    netflowConf.getInt(LoadConf.DICTIONARY_PAGE_SIZE, ParquetWriter.DEFAULT_PAGE_SIZE)
-  lazy val vilidating =
-    netflowConf.getBoolean(LoadConf.PAGE_SIZE, ParquetWriter.DEFAULT_IS_VALIDATING_ENABLED)
-  lazy val writerVersion =
-    WriterVersion.fromString(
-      netflowConf.get(LoadConf.WRITER_VERSION, WriterVersion.PARQUET_1_0.toString))
+//  lazy val compress =
+//    CompressionCodecName.fromConf(
+//      netflowConf.get(LoadConf.COMPRESSION,CompressionCodecName.UNCOMPRESSED.name()))
+//  lazy val blockSize =
+//    netflowConf.getInt(LoadConf.BLOCK_SIZE, ParquetWriter.DEFAULT_BLOCK_SIZE)
+//  lazy val pageSize =
+//    netflowConf.getInt(LoadConf.PAGE_SIZE, ParquetWriter.DEFAULT_PAGE_SIZE)
+//  lazy val enableDictionary =
+//    netflowConf.getBoolean(LoadConf.ENABLE_DICTIONARY, ParquetWriter.DEFAULT_IS_DICTIONARY_ENABLED)
+//  lazy val dictionaryPageSize =
+//    netflowConf.getInt(LoadConf.DICTIONARY_PAGE_SIZE, ParquetWriter.DEFAULT_PAGE_SIZE)
+//  lazy val vilidating =
+//    netflowConf.getBoolean(LoadConf.PAGE_SIZE, ParquetWriter.DEFAULT_IS_VALIDATING_ENABLED)
+//  lazy val writerVersion =
+//    WriterVersion.fromString(
+//      netflowConf.get(LoadConf.WRITER_VERSION, WriterVersion.PARQUET_1_0.toString))
+//
+//  lazy val MemoryManageEnable =
+//    netflowConf.getBoolean(LoadConf.ENABLE_MEMORYMANAGER, defaultValue = false)
 
-  lazy val MemoryManageEnable =
-    netflowConf.getBoolean(LoadConf.ENABLE_MEMORYMANAGER, defaultValue = false)
+//  private var writer: ParquetWriter[NetflowGroup] = null
+//  private var nextTime: Long = 0L
+//  private var workPath: Path = _
+//  private val hadoopConf = new Configuration()
+//
+//
+//  private def initParquetWriter(file: Path): Unit = {
+//    log.info(s"[NetFlow: Parquet block size(MB) : %d MB ] ".format(blockSize / 1024 / 1024))
+//    log.info(s"[NetFlow: Parquet page size(KB) : %d KB ] ".format(pageSize / 1024))
+//    log.info(s"[NetFlow: Parquet dictionary page size :  $dictionaryPageSize ]")
+//    log.info(s"[NetFlow: Dictionary is $enableDictionary ]")
+//    log.info(s"[NetFlow: Validation is $vilidating ]")
+//    log.info(s"[NetFlow: Writer version is $writerVersion ]")
+//
+//    writer = new ParquetWriter[NetflowGroup](
+//      file, NetFlowWriterUtil.writeSupport, compress,
+//      blockSize, pageSize,
+//      dictionaryPageSize, enableDictionary, vilidating, writerVersion, hadoopConf)
+//
+//    if (MemoryManageEnable) {
+//      NetFlowWriterUtil.initMemoryManager(netflowConf)
+//      if (NetFlowWriterUtil.memoryManager.getMemoryPoolRatio != NetFlowWriterUtil.maxLoad) {
+//        log.warn(("The configuration [ %s ] has been set. " +
+//          "It should not be reset by the new value: %f").
+//          format(LoadConf.MEMORY_POOL_RATIO, NetFlowWriterUtil.maxLoad))
+//      }
+//      NetFlowWriterUtil.memoryManager.addWriter(writer, blockSize)
+//    }
+//  }
 
-  private var writer: ParquetWriter[NetflowGroup] = null
-  private var nextTime: Long = 0L
-  private var workPath: Path = _
+    private var writer: ParquetWriter[NetflowGroup] = null
+    private var nextTime: Long = 0L
+    private var workPath: Path = _
 
-  private def initParquetWriter(file: Path): Unit = {
-    log.info(s"[ NetFlow : Parquet block size(MB) : %d MB ] ".format(blockSize / 1024 / 1024))
-    log.info(s"[ NetFlow : Parquet page size(KB) : %d KB ] ".format(pageSize / 1024))
-    log.info(s"[ NetFlow : Parquet dictionary page size :  $dictionaryPageSize ]")
-    log.info(s"[ NetFlow : Dictionary is $enableDictionary ]")
-    log.info(s"[ NetFlow : Validation is $vilidating ]")
-    log.info(s"[ NetFlow : Writer version is $writerVersion ]")
+    private def initParquetWriter(file: Path): Unit = {
+      log.info(s"[NetFlow: Parquet block size(MB) : %d MB ] ".format(NetFlowWriterUtil.blockSize / 1024 / 1024))
+      log.info(s"[NetFlow: Parquet page size(KB) : %d KB ] ".format(NetFlowWriterUtil.pageSize / 1024))
+      log.info(s"[NetFlow: Parquet dictionary page size :  ${NetFlowWriterUtil.dictionaryPageSize} ]")
+      log.info(s"[NetFlow: Dictionary is ${NetFlowWriterUtil.enableDictionary} ]")
+      log.info(s"[NetFlow: Validation is ${NetFlowWriterUtil.vilidating} ]")
+      log.info(s"[NetFlow: Writer version is ${NetFlowWriterUtil.writerVersion} ]")
 
-    writer = new ParquetWriter[NetflowGroup](
-      file, NetFlowWriterUtil.writeSupport, compress,
-      blockSize, pageSize,
-      dictionaryPageSize, enableDictionary, vilidating, writerVersion, new Configuration())
+      writer = new ParquetWriter[NetflowGroup](
+        file, NetFlowWriterUtil.writeSupport, NetFlowWriterUtil.compress,
+        NetFlowWriterUtil.blockSize, NetFlowWriterUtil.pageSize,
+        NetFlowWriterUtil.dictionaryPageSize, NetFlowWriterUtil.enableDictionary,
+        NetFlowWriterUtil.vilidating, NetFlowWriterUtil.writerVersion, NetFlowWriterUtil.hadoopConf)
 
-    if (MemoryManageEnable) {
-      NetFlowWriterUtil.initMemoryManager(netflowConf)
-      if (NetFlowWriterUtil.memoryManager.getMemoryPoolRatio != NetFlowWriterUtil.maxLoad) {
-        log.warn(("The configuration [ %s ] has been set. " +
-          "It should not be reset by the new value: %f").
-          format(LoadConf.MEMORY_POOL_RATIO, NetFlowWriterUtil.maxLoad))
+      if (NetFlowWriterUtil.MemoryManageEnable) {
+        NetFlowWriterUtil.initMemoryManager(netflowConf)
+        if (NetFlowWriterUtil.memoryManager.getMemoryPoolRatio != NetFlowWriterUtil.maxLoad) {
+          log.warn(("The configuration [ %s ] has been set. " +
+            "It should not be reset by the new value: %f").
+            format(LoadConf.MEMORY_POOL_RATIO, NetFlowWriterUtil.maxLoad))
+        }
+        NetFlowWriterUtil.memoryManager.addWriter(writer, NetFlowWriterUtil.blockSize)
       }
-      NetFlowWriterUtil.memoryManager.addWriter(writer, blockSize)
     }
-  }
 
   private def initParquetWriter(time: Long): Unit = {
     val basePathTime = TimeUtils.getTimeBasePathBySeconds(netflowConf, time)

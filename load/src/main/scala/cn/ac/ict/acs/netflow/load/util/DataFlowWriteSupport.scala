@@ -119,14 +119,29 @@ class DataFlowSingleWriteSupport extends DataFlowWriteSupport {
   override def analysisFlowSetData(record: NetflowGroup): Unit = {
 
     // except 'flowSetID' and 'length' field length
+    val startPos = record.data.position()
     val tempID = record.data.getShort
     val flowLen = BytesUtil.toUShort(record.data) - 4
+
+    if(flowLen <= 0){
+      //skip inaccurate package
+      logWarning(s"[Netflow] The package's length should be > 0, but now $flowLen")
+      return
+    }
 
     val fields: util.List[Type] = schema.getFields // get whole fielsd
     var bytesCount = 0
 
     // we analysis the package as multirow
     while (bytesCount != flowLen) {
+
+      if(bytesCount > flowLen ){
+        // skip inaccurate package
+        logWarning(s"[Netflow] The package's length should be $flowLen, but now $bytesCount")
+        record.data.position(startPos+flowLen)
+        return
+      }
+
       var clmIdx = 0
       write.startMessage()
 

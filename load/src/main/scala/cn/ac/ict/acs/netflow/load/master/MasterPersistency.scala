@@ -18,82 +18,9 @@
  */
 package cn.ac.ict.acs.netflow.load.master
 
-import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
-
-object TimeUtil {
-
-  /**
-   * get the file path as "2015/02/21/03/23"
-   * @param conf
-   * @param seconds
-   * @return
-   */
-  def getTimeBasePathBySeconds(conf: NetFlowConf, seconds :Long) : String = {
-    val str = conf.doctTimeIntervalFormat
-    new DateTime(seconds * 1000).toString(str)
-  }
-
-  /**
-   * get next interval time.
-   * Support the dictionary interval time is 10 min ,
-   * when the time is  1:12 , the method will return 1:00
-   * @param conf
-   * @param second
-   * @return
-   */
-  def getPreviousBaseTime( conf:NetFlowConf, second : Long ):Long ={
-    val value = conf.doctTimeIntervalValue.toLong
-    second / value * value - value
-  }
-
-  /**
-   * get current interval time .
-   * if the dictionary interval time is 10 min ,
-   * if the time is  1:12 , the method will return 1:10
-   * @param conf
-   * @param second
-   * @return
-   */
-  def getCurrentBastTime( conf:NetFlowConf, second : Long) : Long ={
-    val value = conf.doctTimeIntervalValue.toLong
-    second / value * value
-  }
-
-  /**
-   * get next interval time .
-   * if the dictionary interval time is 10 min ,
-   * if the time is  1:12 , the method will return 1:20
-   * @param conf
-   * @param second
-   * @return
-   */
-  def getNextBaseTime( conf:NetFlowConf, second : Long) : Long ={
-    val value = conf.doctTimeIntervalValue.toLong
-    second / value * value + value
-  }
-
-  def timeToSeconds(conf: NetFlowConf, t: String) =
-    DateTime.parse(t, conf.timeFormat).getMillis / 1000
-
-  def secnodsToTime(conf: NetFlowConf, seconds :Long )  =
-    new DateTime(seconds * 1000).toString(conf.timeFormat)
-
-}
-
-trait IP {
-  def str2Bytes(ip: String): Array[Byte]
-  def bytes2String(ip: Array[Byte]): String
-
-  final def toInt(b: Byte): Int = b & 0xFF
-}
-
-object IPv4 extends IP {
-=======
 import cn.ac.ict.acs.netflow.ha.PersistenceEngine
 
 trait MasterPersistenceEngine extends PersistenceEngine {
->>>>>>> d33a7aa404c12ae45ca6d2d8cc6f715686bfb662:load/src/main/scala/cn/ac/ict/acs/netflow/load/master/MasterPersistency.scala
 
   final def addWorker(worker: LoadWorkerInfo): Unit = {
     persist("worker_" + worker.id, worker)
@@ -110,5 +37,4 @@ trait MasterPersistenceEngine extends PersistenceEngine {
   final def readPersistedData(): Seq[LoadWorkerInfo] = {
     read[LoadWorkerInfo]("worker_")
   }
-
 }

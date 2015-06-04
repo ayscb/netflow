@@ -18,7 +18,8 @@
  */
 package cn.ac.ict.acs.netflow.query.broker
 
-import scala.concurrent.duration._
+import com.sun.xml.internal.ws.client.RequestContext
+
 
 import akka.actor._
 import akka.actor.SupervisorStrategy.Stop

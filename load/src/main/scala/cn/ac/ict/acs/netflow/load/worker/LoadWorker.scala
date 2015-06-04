@@ -23,11 +23,13 @@ import java.util
 import java.util.UUID
 import akka.actor._
 import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
+
 import org.joda.time.DateTime
 import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.load.LoadMessages
 import cn.ac.ict.acs.netflow.load.master.LoadMaster
 import cn.ac.ict.acs.netflow.util._
+
 
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Random
@@ -101,7 +103,7 @@ class LoadWorker(
   var registrationRetryTimer: Option[Cancellable] = None
 
   // load data
-  val defaultWriterNum = conf.getInt("netflow.writer.default.number", 2)
+  val defaultWriterNum = conf.getInt("netflow.writer.default.number", 4)
   val maxQueueNum = conf.getInt("netflow.queue.maxPackageNum", 10000)
   val warnThreshold = {
     val threshold = conf.getInt("netflow.queue.defalutWarnThreshold", 70)
@@ -112,7 +114,8 @@ class LoadWorker(
     new WrapBufferQueue(maxQueueNum, warnThreshold,
       DefaultLoadBalanceStrategy.loadBalanceWorker,
       () => master ! BufferOverFlow)
-  val workerIP = InetAddress.getLocalHost.getAddress.toString
+
+  val workerIP = InetAddress.getLocalHost.getHostAddress
 
   def coresFree: Int = cores - coresUsed
   def memoryFree: Int = memory - memoryUsed
@@ -341,9 +344,13 @@ object LoadWorker extends Logging {
   def main(argStrings: Array[String]) {
     SignalLogger.register(log)
     val conf = new NetFlowConf
-      val arg = new Array[String](10)
-      arg(0) = "netflow-load://aysdp:9099"
-    val args = new LoadWorkerArguments(argStrings, conf)
+  //  val args = new LoadWorkerArguments(argStrings, conf)
+
+    val arg = new Array[String](1)
+   // arg(0) = "netflow-load://aysdp:9099"
+    arg(0) = "aysdp-pc:9099"
+    val args = new LoadWorkerArguments(arg, conf)
+
     val (actorSystem, _) = startSystemAndActor(args.host, args.port, args.webUiPort,
       args.cores, args.memory, args.masters, conf = conf)
     actorSystem.awaitTermination()

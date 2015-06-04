@@ -18,6 +18,7 @@
  */
 package cn.ac.ict.acs.netflow.load.worker
 
+import java.io.FileWriter
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.{ServerSocketChannel, SelectionKey, Selector, SocketChannel}
@@ -53,12 +54,16 @@ trait WorkerService {
 
   private def doStartRunner(port: Int): (Thread, Int) = {
 
-    var actualPort = port
+    var actualPort :Int = port
 
     val thread =
       new Thread("Receiver-Worker-Service") {
         logInfo(s"[Netflow] The Service for Receiver is ready to start ")
         private val selector = Selector.open()
+        private val shortBuf = ByteBuffer.allocate(2) // short length
+
+        private val writer = new FileWriter("/home/ayscb/data_result/worker-service")
+        private var counts = 0
 
         override def run(): Unit = {
           // start service socket
@@ -73,7 +78,6 @@ trait WorkerService {
           }
 
           logInfo(s"[Netflow] The Service for Receiver is running on port $actualPort ")
-
           serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT)
 
           while (!Thread.interrupted()) {
@@ -81,12 +85,12 @@ trait WorkerService {
               val iter = selector.selectedKeys().iterator()
               while (iter.hasNext) {
                 val key = iter.next()
+                iter.remove()
                 if (key.isAcceptable){
                   acceptConnection(key)
-		}else if (key.isReadable){
+		            }else if (key.isReadable){
                   readConnection(key)
-		}
-                iter.remove()
+		            }
               }
             }
           }
@@ -110,34 +114,58 @@ trait WorkerService {
 
         private def readConnection(key: SelectionKey): Unit = {
           val channel = key.channel().asInstanceOf[SocketChannel]
-          val remoteHost =
+          val remoteHost: String =
             channel.getRemoteAddress.asInstanceOf[InetSocketAddress]
               .getAddress.getHostAddress
-          logInfo(s"[Netflow] The receiver $remoteHost is connect to master.")
 
-          val buff = ByteBuffer.allocate(1500)
-          val count = channel.read(buff)
-          if (count > 0) {
+          shortBuf.clear()
+          val scount = channel.read(shortBuf)
+          if(scount == 2){
+            val len = shortBuf.getShort(0)
+            writer.write(s"$counts --- $len ----\n")
+            counts += 1
+            writer.flush()
+            if(len<=0) return
+
+            val buff = ByteBuffer.allocate(len)
+            var count = channel.read(buff)
+            if(count == -1){ close(key,remoteHost); return }
+            while(count != len){
+              val curCount = channel.read(buff)
+              if(curCount == -1){
+                close(key,remoteHost); return
+              }else{
+                count += curCount
+              }
+            }
+
             buff.flip()
             bufferList.put(buff)
-          //  bufferList.offer(buff)
             buffcount += 1
-
-            channel.register(selector, SelectionKey.OP_READ)
-          }else if(count == -1){
-            // close socket
-            channel.shutdownInput()
-            key.cancel()
-            logInfo(s"[Netflow] The $remoteHost receiver is closed")
+          }else if(scount == -1 ){
+            close(key,remoteHost)
+          }else{
+            writer.flush()
+            writer.close()
+            logInfo(s"[Netflow] Error The $scount")
           }
+        }
+
+        def close(key: SelectionKey, ip :String ): Unit ={
+          val channel = key.channel().asInstanceOf[SocketChannel]
+          channel.shutdownInput()
+          key.cancel()
+          writer.flush()
+        //  writer.close()
+          logInfo(s"[Netflow] The $ip receiver is closed")
         }
       }
 
     thread.start()
-    while(actualPort == 0)
-      Thread.sleep(1000)
+    while(actualPort == 0) Thread.sleep(1000)
     (thread, actualPort)
   }
+
 }
 
 trait CombineService {
@@ -191,7 +219,7 @@ trait WriteParquetService {
   self: LoadWorker =>
 
   // get ResolvingNetflow threads
-  private val writerThreadPool = ThreadUtils.newDaemonCachedThreadPool("ResolvingNetflow")
+  private val writerThreadPool = ThreadUtils.newDaemonCachedThreadPool("parquetWriterPool")
   private val writerThreadsQueue = new scala.collection.mutable.Queue[Thread]
 
   private val ratesQueue = new LinkedBlockingDeque[Double]()
@@ -263,7 +291,7 @@ trait WriteParquetService {
   def stopAllResolvingNetFlowThreads() = {
     logInfo((" current threads number is %d, all " +
       "threads will be stopped").format(writerThreadsQueue.size))
-    for (i <- 0 until writerThreadsQueue.size)
+    for (i <- writerThreadsQueue.indices)
       writerThreadsQueue.dequeue().interrupt()
     writerThreadPool.shutdown()
   }

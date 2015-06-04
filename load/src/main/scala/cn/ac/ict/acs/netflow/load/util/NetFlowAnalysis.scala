@@ -19,20 +19,67 @@
 package cn.ac.ict.acs.netflow.load.util
 
 import java.nio.ByteBuffer
+import java.util.concurrent.ConcurrentHashMap
 
 import scala.collection.mutable
 
 /**
- * analyse the netflow data
+ * store the netflow header's data
  * Created by ayscb on 2015/4/17.
  */
-
 case class NetflowHeader(fields: Any*)
+
+/**
+ * Define the v9 template
+ * @param tmpId
+ * @param fieldsCount
+ */
+class SingleTemplate(val tmpId: String, val fieldsCount: Int)
+  extends Iterable[(Int, Int)] {
+
+  private var recordBytes = 0
+  private val keyList = new Array[Int](fieldsCount)
+  private val valueList = new Array[Int](fieldsCount)
+
+  /**
+   * update the template,
+   * @param data template data
+   */
+  def updateTemplate(data: ByteBuffer):Unit = {
+
+    for (i <- 0 until fieldsCount){
+      val key = NetFlowShema.mapKey2Clm(BytesUtil.toUShort(data))
+      if (key != -1) {
+        val valueLen = BytesUtil.toUShort(data)
+        keyList(i) = key
+        valueList(i) = valueLen
+        recordBytes += valueLen
+      }
+    }
+  }
+
+  override def iterator: Iterator[(Int, Int)] = new Iterator[(Int, Int)] {
+    private var currId = 0
+    override def hasNext: Boolean = currId < fieldsCount
+
+    override def next(): (Int, Int) = {
+      if (hasNext) {
+        val nxt = (keyList(currId), valueList(currId))
+        currId += 1
+        nxt
+      } else {
+        throw new NoSuchElementException("next on empty iterator")
+      }
+    }
+  }
+}
 
 object NetFlowAnalysis {
   // for all netflow version( V5, V7, V8 ,V9 ) shared
-  val templates = new mutable.HashMap[Int, Template]
+ // val templates = new mutable.HashMap[Int, Template]
+  val templates = new ConcurrentHashMap[Int,SingleTemplate](1024)
 }
+
 
 abstract class NetFlowAnalysis {
 

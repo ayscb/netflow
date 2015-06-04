@@ -46,7 +46,7 @@ abstract class Template(val tmpId: Int, val fieldsCount: Int)
     override def next(): (Int, Int) = {
       if (hasNext) {
         val nxt = (keyList(currId), valueList(currId))
-        currId += 1;
+        currId += 1
         nxt
       } else {
         throw new NoSuchElementException("next on empty iterator")

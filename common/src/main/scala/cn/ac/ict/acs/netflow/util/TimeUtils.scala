@@ -67,8 +67,6 @@ object TimeUtils {
 
   /**
    * get the file path as "2015/02/21/03/23"
-   * @param conf
-   * @param seconds since epoch
    * @return
    */
   def getTimeBasePathBySeconds(conf: NetFlowConf, seconds: Long): String = {
@@ -80,8 +78,6 @@ object TimeUtils {
    * get next interval time.
    * Suppose the dictionary interval time is 10 min ,
    * when the time is  1:12 , the method will return 1:00
-   * @param conf
-   * @param second
    * @return
    */
   def getPreviousBaseTime(conf: NetFlowConf, second: Long): Long = {
@@ -93,8 +89,6 @@ object TimeUtils {
    * get current interval time .
    * if the dictionary interval time is 10 min ,
    * if the time is  1:12 , the method will return 1:10
-   * @param conf
-   * @param second
    * @return
    */
   def getCurrentBastTime(conf: NetFlowConf, second: Long): Long = {
@@ -106,8 +100,6 @@ object TimeUtils {
    * get next interval time .
    * if the dictionary interval time is 10 min ,
    * if the time is  1:12 , the method will return 1:20
-   * @param conf
-   * @param second
    * @return
    */
   def getNextBaseTime(conf: NetFlowConf, second: Long): Long = {
@@ -155,7 +147,7 @@ object TimeUtils {
           } else {
             defaultUnit
           }
-          return defaultUnit.convert(num, unit)
+          defaultUnit.convert(num, unit)
         }
         case _ =>
           throw new NumberFormatException("Failed to parse time string: " + str)
