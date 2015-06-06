@@ -51,7 +51,9 @@ class WrapBufferQueue(
     bufferQueue.offer(byteBuffer)
   }
 
-  def getcurrentBufferRate(): Double = {
+  def size: Int = bufferQueue.size
+
+  def currentBufferRate(): Double = {
     bufferQueue.remainingCapacity() / maxQueueNum
   }
   private def checkThreshold() = {

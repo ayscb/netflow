@@ -30,6 +30,10 @@
       <groupId>joda-time</groupId>
       <artifactId>joda-time</artifactId>
     </dependency>
+    <dependency>
+      <groupId>io.dropwizard.metrics</groupId>
+      <artifactId>metrics-ganglia</artifactId>
+    </dependency>
   </dependencies>
 
   <build>

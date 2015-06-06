@@ -28,6 +28,7 @@
     <akka.version>2.3.4-spark</akka.version>
     <spray.version>1.3.2</spray.version>
     <json4s.version>3.2.10</json4s.version>
+    <metrics.version>3.1.0</metrics.version>
 
     <netflow.jar.basename>netflow-assembly-${project.version}.jar</netflow.jar.basename>
     <netflow.jar>${project.build.directory}/${netflow.jar.basename}</netflow.jar>
@@ -227,6 +228,13 @@
         <artifactId>jetty-util</artifactId>
         <version>${jetty.version}</version>
       </dependency>
+
+      <dependency>
+        <groupId>io.dropwizard.metrics</groupId>
+        <artifactId>metrics-ganglia</artifactId>
+        <version>${metrics.version}</version>
+      </dependency>
+
     </dependencies>
   </dependencyManagement>
 
