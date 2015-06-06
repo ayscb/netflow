@@ -29,6 +29,7 @@
     <spray.version>1.3.2</spray.version>
     <json4s.version>3.2.10</json4s.version>
     <metrics.version>3.1.0</metrics.version>
+    <scoverage.plugin.version>1.0.4</scoverage.plugin.version>
 
     <netflow.jar.basename>netflow-assembly-${project.version}.jar</netflow.jar.basename>
     <netflow.jar>${project.build.directory}/${netflow.jar.basename}</netflow.jar>
@@ -414,6 +415,34 @@
           </excludes>
         </configuration>
       </plugin>
+      
+      <plugin>
+        <groupId>org.scoverage</groupId>
+        <artifactId>scoverage-maven-plugin</artifactId>
+        <version>${scoverage.plugin.version}</version>
+        <configuration>
+          <highlighting>true</highlighting>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.5.8.201207111220</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>test</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
 
       <!-- Enable surefire and scalatest in all children, in one place: -->
       <plugin>
@@ -427,4 +456,27 @@
 
     </plugins>
   </build>
+  
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+        <version>2.7</version>
+        <reportSets>
+          <reportSet>
+            <reports>
+              <report>index</report>
+            </reports>
+          </reportSet>
+        </reportSets>
+      </plugin>
+      <plugin>
+        <groupId>org.scoverage</groupId>
+        <artifactId>scoverage-maven-plugin</artifactId>
+         <version>${scoverage.plugin.version}</version>
+      </plugin>
+    </plugins>
+  </reporting>
+  
 </project>
