@@ -46,6 +46,12 @@ class TimeUtilsSuite extends FunSuite with Matchers {
     assert(parseTimeString("10s", TimeUnit.MILLISECONDS) === 10000)
   }
 
+  test("Not a string") {
+    intercept[NumberFormatException] {
+      parseTimeString("badtime", TimeUnit.SECONDS)
+    }
+  }
+
   test("generate path") {
     val t1 = DateTime.parse("2015-10-11,12:32:11", showFormat)
     assertResult("/2015/10/11/12/32") {
