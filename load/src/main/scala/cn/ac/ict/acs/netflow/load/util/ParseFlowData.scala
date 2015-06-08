@@ -18,7 +18,7 @@
  */
 package cn.ac.ict.acs.netflow.load.util
 
-import java.io.{ DataInputStream, FileWriter }
+import java.io.{FileInputStream, DataInputStream, FileWriter}
 import java.nio.ByteBuffer
 import java.util
 import java.util.concurrent.SynchronousQueue
@@ -29,7 +29,7 @@ import cn.ac.ict.acs.netflow.NetFlowConf
  * analysis the data from the bytes array
  * Created by ayscb on 2015/4/13.
  */
-object AnalysisFlowData {
+object ParseFlowData {
 
   // 5C F9 DD 1E 35 76 Start mac
   private val beginFlag: Array[Byte] = Array[Byte](92, -7, -35, 30, 53, 118)
@@ -103,99 +103,36 @@ object AnalysisFlowData {
     data.position(8) // skip all the udp
   }
 
-  // *********************************************************************
-
-  // share for all threads
-  private val netflowParsers =
-    new scala.collection.mutable.HashMap[Int, NetFlowParser]()
-
-  private def vaildData(data: ByteBuffer): Option[NetFlowParser] = synchronized {
-
-    val netflowVersion = data.getShort
-
-    if (netflowParsers.contains(netflowVersion)){
-      val parser = netflowParsers.get(netflowVersion).get
-      Option(parser)
-    }else{
-      netflowVersion match {
-        case 5 =>
-          val v5 = new V5Parser()
-          netflowParsers += (5 -> v5)
-          Some(v5)
-        case 9 =>
-          val v9 = new V9Parser()
-          netflowParsers += (9 -> v9)
-          Some(v9)
-        case _ => None
-      }
-    }
+  def main(args: Array[String]) {
+    val fs = new DataInputStream(new FileInputStream("/home/ayscb/202.97.32.135.pcap"))
+    val conf = new NetFlowConf()
+    val w = new ParseFlowData(conf)
+    w.analysisStream(fs)
+    w.closeWriter()
   }
-
-  // *********************************************************************
 }
 
-class AnalysisFlowData(val netflowConf: NetFlowConf) {
+class ParseFlowData(val netflowConf: NetFlowConf) {
 
   // for analysis the file  ( thread !!)
   private val reuse: Array[Byte] = new Array[Byte](6)
-  private val netflowDataBuffer = ByteBuffer.allocate(1500) // receive the udp package
+  private val netflowDataBuffer = ByteBuffer.allocate(1500)
+  // receive the udp package
   private val writeUtil = new NetFlowWriterUtil(netflowConf) // for write
 
-  // for test
-  var writetest: FileWriter = new FileWriter("/home/ayscb/data_result/worker-parquet"+Thread.currentThread().getId)
-
-  def setTestwriter(write: FileWriter) = writetest = write
-
-  def analysisnetflow(data: ByteBuffer): Unit = {
-    val startT = System.nanoTime()
-
-        AnalysisFlowData.vaildData(data) match {
-          case Some(analysis) =>
-            // dell with the netflow
-            val headerData = analysis.unPackHeader(data)
-            val totalFlowSet = analysis.getTotalFlowSet(headerData)
-            val UnixSeconds = analysis.getUnixSeconds(headerData)
-            var flowsetCount = 0
-
-        if (totalFlowSet == 0) {
-          // this package is whole templates package
-          // we only update the template and skip the package
-          if (analysis.isTemplateFlowSet(data)) {
-            analysis.updateTemplate(data)
-          }
-        } else {
-          while (flowsetCount != totalFlowSet && data.hasRemaining) {
-            // the flow set is template , so we should undate the template
-            if (analysis.isTemplateFlowSet(data)) {
-              analysis.updateTemplate(data)
-            } else {
-              // first we should check if the template exist ( v9 : >255, not exist : -1  )
-              val tmpId = analysis.isTemplateExist(data)
-              if (tmpId != -1) {
-                val record = new NetflowGroup(
-                  analysis.getTemplate(tmpId),
-                  Array(UnixSeconds),
-                  data)
-                val startt = System.nanoTime()
-                writeUtil.UpdateCurrentWriter(UnixSeconds)
-                writeUtil.writeData(record)
-                writetest.write(String.valueOf((System.nanoTime() - startt) / 1000) + "\t")
-                flowsetCount += record.flowCount
-              }
-            }
-          }
-        }
-      case None =>
+  def parseNetflow(data: ByteBuffer): Unit = {
+    val netflowVersion = data.getShort
+    netflowVersion match {
+      case 5 => V5Parser.parseNetflow(writeUtil,data)
+      case 9 => V9Parser.parseNetflow(writeUtil,data)
+      case _ =>
     }
-    writetest.write(String.valueOf((System.nanoTime() - startT) / 1000) +
-      System.getProperty("line.separator"))
   }
 
   def analysisStream(data: DataInputStream): Unit = {
     while (data.available() > 0 &&
-      AnalysisFlowData.findNextRecord(data, reuse, netflowDataBuffer) != 0) {
-
-      analysisnetflow(netflowDataBuffer)
+      ParseFlowData.findNextRecord(data, reuse, netflowDataBuffer) != 0) {
+      parseNetflow(netflowDataBuffer)
       data.skipBytes(4) //  skip 4 byte mac CRC, and jump into next while cycle
     }
   }

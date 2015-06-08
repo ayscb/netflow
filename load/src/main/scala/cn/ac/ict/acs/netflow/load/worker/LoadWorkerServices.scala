@@ -31,7 +31,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{Path, FileSystem}
 
 import cn.ac.ict.acs.netflow.load.LoadMessages.CombineFinished
-import cn.ac.ict.acs.netflow.load.util.{AnalysisFlowData, ParquetState, NetFlowCombineMeta}
+import cn.ac.ict.acs.netflow.load.util.{ParseFlowData, ParquetState, NetFlowCombineMeta}
 import cn.ac.ict.acs.netflow.util.{TimeUtils, ThreadUtils, Utils}
 
 trait WorkerService {
@@ -226,9 +226,8 @@ trait WriteParquetService {
   private var readRateFlag = false
 
   // the thread to resolve netflow package
-  private def netflowWriter =
-    new Runnable() {
-
+  private def netflowWriter = {
+    val writer = new Runnable() {
       private var sampled = false
       // et true after call method 'getCurrentRate'
       private var startTime = 0L
@@ -242,13 +241,14 @@ trait WriteParquetService {
       }
 
       // write data to parquet
-      private val netFlowWriter = new AnalysisFlowData(conf)
+      private val _netFlowWriter = new ParseFlowData(conf)
 
       override def run() : Unit = {
         logInfo("[Netflow] Start sub Write Parquet %d".format(Thread.currentThread().getId) )
         writerThreadsQueue.enqueue(Thread.currentThread())
-        while (!Thread.interrupted()) {
-        //  val data = bufferList.poll // when list empty , null
+        // while (!Thread.interrupted()) {
+        while (true) {
+          //  val data = bufferList.poll // when list empty , null
           val data = bufferList.take
           if(data != null){
             if (readRateFlag && !sampled) {
@@ -258,16 +258,21 @@ trait WriteParquetService {
               sampled = false
             }
             packageCount += 1
-            netFlowWriter.analysisnetflow(data)
+            _netFlowWriter.parseNetflow(data)
           }
         }
-        netFlowWriter.closeWriter()
+        _netFlowWriter.closeWriter()
       }
     }
+    writer
+  }
+
+
 
   def initParquetWriterPool(threadNum: Int) = {
-    for (i <- 0 until threadNum)
-      writerThreadPool.submit(netflowWriter)
+    new Thread(netflowWriter,"parquet-writer").start()
+//    for (i <- 0 until threadNum)
+//      writerThreadPool.submit(netflowWriter)
   }
 
   def getCurrentThreadsNum: Int = writerThreadsQueue.size

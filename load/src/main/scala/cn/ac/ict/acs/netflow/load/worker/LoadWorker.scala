@@ -103,8 +103,8 @@ class LoadWorker(
   var registrationRetryTimer: Option[Cancellable] = None
 
   // load data
-  val defaultWriterNum = conf.getInt("netflow.writer.default.number", 4)
-  val maxQueueNum = conf.getInt("netflow.queue.maxPackageNum", 10000)
+  val defaultWriterNum = conf.getInt("netflow.writer.default.number", 1)
+  val maxQueueNum = conf.getInt("netflow.queue.maxPackageNum", 100000000)
   val warnThreshold = {
     val threshold = conf.getInt("netflow.queue.defalutWarnThreshold", 70)
     if (0 < threshold && threshold < 100) threshold else 70

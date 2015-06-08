@@ -47,6 +47,7 @@ object LoadConf {
   val ZOOKEEPER_DIR = "netflow.deploy.zookeeper.dir"
   val RECOVERY_DIR = "netflow.deploy.recoveryDirectory"
 
+  val dICTIONARY_INTERVAL = "netflow.parquet.dictionary.interval"
   val LOAD_INTERVAL = "netflow.load.interval"
   val LOAD_DATARATE = "netflow.load.dataRate"
   val LOAD_STARTTIME = "netflow.load.startTime"

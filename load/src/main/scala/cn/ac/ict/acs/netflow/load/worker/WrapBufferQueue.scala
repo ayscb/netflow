@@ -22,17 +22,17 @@ import java.nio.ByteBuffer
 import java.util.concurrent.{LinkedBlockingQueue, LinkedBlockingDeque}
 
 class WrapBufferQueue(
-    maxQueueNum: Int,
-    warnThreshold: Int,
-    loadBalanceStrategyFunc: () => Unit,
-    sendOverflowMessage: () => Unit) {
+    val maxQueueNum: Int,
+    val warnThreshold: Int,
+    val loadBalanceStrategyFunc: () => Unit,
+    val sendOverflowMessage: () => Unit) {
 
   require(0 < warnThreshold && warnThreshold < 100,
     message = " The Queue warnThreshold should be in (0,100) ")
 
   private val bufferQueue = new LinkedBlockingQueue[ByteBuffer](maxQueueNum)
  // private val bufferQueue = new SynchronousQueue[ByteBuffer]()
-  private var warnThresholdNum = maxQueueNum * warnThreshold / 100
+  private val warnThresholdNum = ((warnThreshold * 0.1 / 100 ) * maxQueueNum ).asInstanceOf[Int]
 
   // get the element from queue , block when the queue is empty
   def take = {
@@ -41,17 +41,17 @@ class WrapBufferQueue(
   }
 
   // put the element to queue, block when the queue is full
-  def put(byteBuffer: ByteBuffer) = synchronized {
+  def put(byteBuffer: ByteBuffer) = {
     checkThreshold()
     bufferQueue.put(byteBuffer)
-    println("put into data :" + bufferQueue.size() +" ---- " + bufferQueue.remainingCapacity())
+  //  println("put into data :" + bufferQueue.size() +" ---- " + bufferQueue.remainingCapacity())
   }
 
   // get the element from queue , return null when the queue is empty
   def poll = { bufferQueue.poll() }
 
   // return false when the queue is full
-  def offer(byteBuffer: ByteBuffer) = synchronized {
+  def offer(byteBuffer: ByteBuffer) = {
     checkThreshold()
     bufferQueue.offer(byteBuffer)
   }
@@ -74,11 +74,11 @@ class WrapBufferQueue(
 //    }
   }
 
-  def setWarnThreshold(newWarnThreshold: Int) = {
-    if (0 < newWarnThreshold && newWarnThreshold < 100) {
-      warnThresholdNum = maxQueueNum * newWarnThreshold / 100
-    } else {
-      throw new IllegalArgumentException(" newWarnThreshold should be in (0,100) ")
-    }
-  }
+//  def setWarnThreshold(newWarnThreshold: Int) = {
+//    if (0 < newWarnThreshold && newWarnThreshold < 100) {
+//      warnThresholdNum = maxQueueNum * newWarnThreshold / 100
+//    } else {
+//      throw new IllegalArgumentException(" newWarnThreshold should be in (0,100) ")
+//    }
+//  }
 }

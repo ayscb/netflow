@@ -11,7 +11,8 @@
   <modelVersion>4.0.0</modelVersion>
 
   <properties>
-    <parquet.version>1.6.0rc7</parquet.version>
+    <parquet.groupid>com.twitter</parquet.groupid>
+    <parquet.version>1.6.0</parquet.version>
   </properties>
 
   <artifactId>netflow-load</artifactId>
@@ -26,32 +27,32 @@
 
     <!-- Parquet -->
     <dependency>
-      <groupId>com.twitter</groupId>
+      <groupId>${parquet.groupid}</groupId>
       <artifactId>parquet-format</artifactId>
       <version>2.2.0</version>
     </dependency>
     <dependency>
-      <groupId>com.twitter</groupId>
+      <groupId>${parquet.groupid}</groupId>
       <artifactId>parquet-common</artifactId>
       <version>${parquet.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.twitter</groupId>
+      <groupId>${parquet.groupid}</groupId>
       <artifactId>parquet-generator</artifactId>
       <version>${parquet.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.twitter</groupId>
+      <groupId>${parquet.groupid}</groupId>
       <artifactId>parquet-column</artifactId>
       <version>${parquet.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.twitter</groupId>
+      <groupId>${parquet.groupid}</groupId>
       <artifactId>parquet-encoding</artifactId>
       <version>${parquet.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.twitter</groupId>
+      <groupId>${parquet.groupid}</groupId>
       <artifactId>parquet-hadoop</artifactId>
       <version>${parquet.version}</version>
     </dependency>
