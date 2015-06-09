@@ -72,7 +72,6 @@ class DataFlowWriteSupport extends WriteSupport[NetflowGroup] with Logging {
     }
   }
 
-
   private def writePrimitiveValue(
     types: parquet.schema.PrimitiveType,
     data: ByteBuffer,

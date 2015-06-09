@@ -20,7 +20,7 @@ package cn.ac.ict.acs.netflow.load.worker
 
 import java.io.FileWriter
 import java.net.InetSocketAddress
-import java.nio.ByteBuffer
+import java.nio.{ByteOrder, ByteBuffer}
 import java.nio.channels.{ServerSocketChannel, SelectionKey, Selector, SocketChannel}
 import java.util
 import java.util.concurrent.LinkedBlockingDeque
@@ -61,6 +61,7 @@ trait WorkerService {
         logInfo(s"[Netflow] The Service for Receiver is ready to start ")
         private val selector = Selector.open()
         private val shortBuf = ByteBuffer.allocate(2) // short length
+        shortBuf.order(ByteOrder.LITTLE_ENDIAN)
 
         private val writer = new FileWriter("/home/ayscb/data_result/worker-service")
         private var counts = 0
@@ -123,14 +124,14 @@ trait WorkerService {
           if(scount == 2){
             val len = shortBuf.getShort(0)
             writer.write(s"$counts --- $len ----\n")
-            counts += 1
             writer.flush()
             if(len<=0) return
 
-            val buff = ByteBuffer.allocate(len)
+            val ActualSize = len - scount
+            val buff = ByteBuffer.allocate(ActualSize)
             var count = channel.read(buff)
             if(count == -1){ close(key,remoteHost); return }
-            while(count != len){
+            while(count != ActualSize){
               val curCount = channel.read(buff)
               if(curCount == -1){
                 close(key,remoteHost); return

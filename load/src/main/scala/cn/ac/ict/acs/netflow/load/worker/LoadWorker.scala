@@ -348,7 +348,7 @@ object LoadWorker extends Logging {
 
     val arg = new Array[String](1)
    // arg(0) = "netflow-load://aysdp:9099"
-    arg(0) = "aysdp-pc:9099"
+    arg(0) = "10.30.5.139:9099"
     val args = new LoadWorkerArguments(arg, conf)
 
     val (actorSystem, _) = startSystemAndActor(args.host, args.port, args.webUiPort,

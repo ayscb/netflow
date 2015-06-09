@@ -104,9 +104,8 @@ trait MasterService {
         // deal with the read connection request
         private def readConnection(key: SelectionKey): Unit = {
           val channel = key.channel().asInstanceOf[SocketChannel]
-          val remoteHost =
-            channel.getRemoteAddress.asInstanceOf[InetSocketAddress]
-              .getAddress.getHostAddress
+          val remoteHost = channel.getRemoteAddress.asInstanceOf[InetSocketAddress]
+                                  .getAddress.getHostAddress
 
           logInfo(s"[Netflow] The $remoteHost receiver is request to master.")
 
@@ -131,12 +130,15 @@ trait MasterService {
                 }
 
                 // get worker ips
-                val data = assignWorker(remoteHost)
-                if (data != None){
-                  channel.write(CommandSet.responseReceiver(CommandMode.add, data.get))
-                } else {
-                  // No available worker to assigned
-                  waitQueue += (remoteHost -> channel)
+                assignWorker(remoteHost) match {
+                  case Some(data: Array[(String, Int)]) =>
+                    val cmd = CommandSet.responseReceiver(Some(data), None)
+                    channel.write(cmd)
+
+                   // channel.write(CommandSet.responseReceiver(CommandMode.add, data))
+                  case None =>
+                    // No available worker to assigned
+                    waitQueue += (remoteHost -> channel)
                 }
               }
               channel.register(selector, SelectionKey.OP_READ)
@@ -285,6 +287,42 @@ object CommandSet {
         sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
       })
     }
+    res_buffer.put(sb.toString().getBytes)
+    res_buffer.flip()
+    res_buffer
+  }
+
+  /**
+   *    $$+2&1.2.3.4:1000&2.2.2.2:1234&
+   *    $$-1&3.4.5.6:1000&
+   *    $$-1&3.4.5.6:1000&+2&1.2.3.4:1000&2.2.2.2:1234&
+   * @param addIpAdds
+   * @param deleIpAdds
+   * @return
+   */
+  def responseReceiver(addIpAdds: Option[Array[(String, Int)]],deleIpAdds: Option[Array[(String, Int)]]):ByteBuffer ={
+    res_buffer.clear()
+    sb.clear()
+    sb.append(CommandStruct.res_prefix)     // $$
+
+    deleIpAdds match{
+      case Some(ipAdds)=>
+        sb.append("-").append(ipAdds.length).append(CommandStruct.delim)
+        ipAdds.map(ip_port=>{
+          sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
+        })
+      case None =>
+    }
+
+    addIpAdds match{
+      case Some(ipAdds)=>
+        sb.append("+").append(ipAdds.length).append(CommandStruct.delim)
+        ipAdds.map(ip_port=>{
+          sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
+        })
+      case None =>
+    }
+
     res_buffer.put(sb.toString().getBytes)
     res_buffer.flip()
     res_buffer

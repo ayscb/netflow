@@ -314,7 +314,7 @@ class LoadMaster(
 
   // when a worker registered in master, run this function
   private def assignWorkerToWaittingReceiver( workerIP : String ): Unit = synchronized {
-    if (waitQueue.size != 0) {
+    if (waitQueue.nonEmpty) {
       val cmd = CommandSet.responseReceiver(CommandMode.add, Array(workerToPort.get(workerIP).get))
 
       waitQueue.remove(workerIP) match {
@@ -372,7 +372,7 @@ class LoadMaster(
           receiverToWorkers.get(receiver).get -= deadworker
 
           val workers = receiverToWorkers.get(receiver).get
-          if (workers.size == 0) {
+          if (workers.nonEmpty) {
             // only one worker to connect this receiver, so we should
             // tell the receiver to connect another worker
             val availableWorker = workerToBufferRate.toList.sortWith(_._2 < _._2)
