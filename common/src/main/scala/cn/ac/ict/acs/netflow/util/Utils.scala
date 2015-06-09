@@ -18,17 +18,17 @@
  */
 package cn.ac.ict.acs.netflow.util
 
-import java.io.{IOException, FileInputStream, InputStreamReader, File}
-import java.net.{Inet4Address, NetworkInterface, InetAddress, BindException}
-import java.util.{Locale, Properties}
+import java.io.{ IOException, FileInputStream, InputStreamReader, File }
+import java.net.{ Inet4Address, NetworkInterface, InetAddress, BindException }
+import java.util.{ Locale, Properties }
 
 import scala.collection.Map
 import scala.collection.JavaConversions._
-import scala.util.control.{ControlThrowable, NonFatal}
+import scala.util.control.{ ControlThrowable, NonFatal }
 
 import org.eclipse.jetty.util.MultiException
 
-import cn.ac.ict.acs.netflow.{Logging, NetFlowConf, NetFlowException}
+import cn.ac.ict.acs.netflow.{ Logging, NetFlowConf, NetFlowException }
 
 object Utils extends Logging {
 
@@ -43,10 +43,10 @@ object Utils extends Logging {
    * @param serviceName Name of the service.
    */
   def startServiceOnPort[T](
-      startPort: Int,
-      startService: Int => (T, Int),
-      conf: NetFlowConf,
-      serviceName: String = ""): (T, Int) = {
+    startPort: Int,
+    startService: Int => (T, Int),
+    conf: NetFlowConf,
+    serviceName: String = ""): (T, Int) = {
 
     require(startPort == 0 || (1024 <= startPort && startPort < 65536),
       "startPort should be between 1024 and 65535 (inclusive), or 0 for a random free port.")
@@ -148,8 +148,10 @@ object Utils extends Logging {
         val activeNetworkIFs = NetworkInterface.getNetworkInterfaces.toList
         val reOrderedNetworkIFs = activeNetworkIFs.reverse
         for (ni <- reOrderedNetworkIFs) {
-          for (addr <- ni.getInetAddresses if !addr.isLinkLocalAddress &&
-            !addr.isLoopbackAddress && addr.isInstanceOf[Inet4Address]) {
+          for (
+            addr <- ni.getInetAddresses if !addr.isLinkLocalAddress &&
+              !addr.isLoopbackAddress && addr.isInstanceOf[Inet4Address]
+          ) {
             // We've found an address that looks reasonable!
             logWarning("Your hostname, " + InetAddress.getLocalHost.getHostName + " resolves to" +
               " a loopback address: " + address.getHostAddress + "; using " + addr.getHostAddress +
@@ -176,11 +178,13 @@ object Utils extends Logging {
   def loadDefaultProperties(conf: NetFlowConf, filePath: String = null): String = {
     val path = Option(filePath).getOrElse(getDefaultPropertiesFile())
     Option(path).foreach { confFile =>
-      getPropertiesFromFile(confFile).filter { case (k, v) =>
-        k.startsWith("netflow.")
-      }.foreach { case (k, v) =>
-        conf.setIfMissing(k, v)
-        sys.props.getOrElseUpdate(k, v)
+      getPropertiesFromFile(confFile).filter {
+        case (k, v) =>
+          k.startsWith("netflow.")
+      }.foreach {
+        case (k, v) =>
+          conf.setIfMissing(k, v)
+          sys.props.getOrElseUpdate(k, v)
       }
     }
     path
@@ -209,18 +213,21 @@ object Utils extends Logging {
   def getDefaultPropertiesFile(env: Map[String, String] = sys.env): String = {
     env.get("NETFLOW_CONF_DIR")
       .orElse(env.get("NETFLOW_HOME").map { t => s"$t${File.separator}conf" })
-      .map { t => new File(s"$t${File.separator}netflow-defaults.conf")}
+      .map { t => new File(s"$t${File.separator}netflow-defaults.conf") }
       .filter(_.isFile)
       .map(_.getAbsolutePath)
       .orNull
   }
 
-  /** Returns the system properties map that is thread-safe to iterator over. It gets the
-    * properties which have been set explicitly, as well as those for which only a default value
-    * has been defined. */
+  /**
+   * Returns the system properties map that is thread-safe to iterator over. It gets the
+   * properties which have been set explicitly, as well as those for which only a default value
+   * has been defined.
+   */
   def getSystemProperties: Map[String, String] = {
-    val sysProps = for (key <- System.getProperties.stringPropertyNames()) yield
-    (key, System.getProperty(key))
+    val sysProps =
+      for (key <- System.getProperties.stringPropertyNames())
+        yield (key, System.getProperty(key))
 
     sysProps.toMap
   }
@@ -250,13 +257,13 @@ object Utils extends Logging {
     val KB = 1L << 10
 
     val (value, unit) = {
-      if (size >= 2*TB) {
+      if (size >= 2 * TB) {
         (size.asInstanceOf[Double] / TB, "TB")
-      } else if (size >= 2*GB) {
+      } else if (size >= 2 * GB) {
         (size.asInstanceOf[Double] / GB, "GB")
-      } else if (size >= 2*MB) {
+      } else if (size >= 2 * MB) {
         (size.asInstanceOf[Double] / MB, "MB")
-      } else if (size >= 2*KB) {
+      } else if (size >= 2 * KB) {
         (size.asInstanceOf[Double] / KB, "KB")
       } else {
         (size.asInstanceOf[Double], "B")
@@ -278,14 +285,14 @@ object Utils extends Logging {
   def memoryStringToMb(str: String): Int = {
     val lower = str.toLowerCase
     if (lower.endsWith("k")) {
-      (lower.substring(0, lower.length-1).toLong / 1024).toInt
+      (lower.substring(0, lower.length - 1).toLong / 1024).toInt
     } else if (lower.endsWith("m")) {
-      lower.substring(0, lower.length-1).toInt
+      lower.substring(0, lower.length - 1).toInt
     } else if (lower.endsWith("g")) {
-      lower.substring(0, lower.length-1).toInt * 1024
+      lower.substring(0, lower.length - 1).toInt * 1024
     } else if (lower.endsWith("t")) {
-      lower.substring(0, lower.length-1).toInt * 1024 * 1024
-    } else {// no suffix, so it's just a number in bytes
+      lower.substring(0, lower.length - 1).toInt * 1024 * 1024
+    } else { // no suffix, so it's just a number in bytes
       (lower.toLong / 1024 / 1024).toInt
     }
   }

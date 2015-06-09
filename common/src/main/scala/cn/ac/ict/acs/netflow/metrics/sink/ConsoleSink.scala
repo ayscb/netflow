@@ -21,13 +21,13 @@ package cn.ac.ict.acs.netflow.metrics.sink
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
-import com.codahale.metrics.{ConsoleReporter, MetricRegistry}
+import com.codahale.metrics.{ ConsoleReporter, MetricRegistry }
 
 import cn.ac.ict.acs.netflow.util.TimeUtils
 import cn.ac.ict.acs.netflow.metrics.MetricsSystem
 
 class ConsoleSink(val property: Properties, val registry: MetricRegistry,
-  securityMgr: SecurityManager) extends Sink {
+    securityMgr: SecurityManager) extends Sink {
   val CONSOLE_DEFAULT_PERIOD = 10L
 
   val CONSOLE_KEY_PERIOD = "period"

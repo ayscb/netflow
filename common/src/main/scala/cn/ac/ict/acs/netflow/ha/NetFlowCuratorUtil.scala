@@ -20,11 +20,11 @@ package cn.ac.ict.acs.netflow.ha
 
 import scala.collection.JavaConversions._
 
-import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
+import org.apache.curator.framework.{ CuratorFramework, CuratorFrameworkFactory }
 import org.apache.curator.retry.ExponentialBackoffRetry
 import org.apache.zookeeper.KeeperException
 
-import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
+import cn.ac.ict.acs.netflow.{ Logging, NetFlowConf }
 
 object NetFlowCuratorUtil extends Logging {
 

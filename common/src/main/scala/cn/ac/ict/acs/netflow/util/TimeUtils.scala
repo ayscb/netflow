@@ -21,19 +21,19 @@ package cn.ac.ict.acs.netflow.util
 import java.util.concurrent.TimeUnit
 
 import org.joda.time.DateTime
-import org.joda.time.format.{DateTimeFormatter, DateTimeFormat}
+import org.joda.time.format.{ DateTimeFormatter, DateTimeFormat }
 
 import cn.ac.ict.acs.netflow.NetFlowConf
 
 object TimeUtils {
 
   val CREATE_PATTERN = "yyyyMMddHHmmss"
-  val SHOW_PATTERN   = "yyyy-MM-dd,HH:mm:ss"
+  val SHOW_PATTERN = "yyyy-MM-dd,HH:mm:ss"
 
   val SECOND_PATH_PATTERN = "/yyyy/MM/dd/HH/mm/ss"
   val MINUTE_PATH_PATTERN = "/yyyy/MM/dd/HH/mm"
-  val HOUR_PATH_PATTERN   = "/yyyy/MM/dd/HH"
-  val DAY_PATH_PATTERN    = "/yyyy/MM/dd"
+  val HOUR_PATH_PATTERN = "/yyyy/MM/dd/HH"
+  val DAY_PATH_PATTERN = "/yyyy/MM/dd"
 
   def newFormat(patternStr: String): DateTimeFormatter = {
     DateTimeFormat.forPattern(patternStr)
@@ -169,12 +169,12 @@ object TimeUtils {
   }
 
   val TIME_SUFFIXES = Map(
-    "us"  -> TimeUnit.MICROSECONDS,
-    "ms"  -> TimeUnit.MILLISECONDS,
-    "s"   -> TimeUnit.SECONDS,
-    "m"   -> TimeUnit.MINUTES,
+    "us" -> TimeUnit.MICROSECONDS,
+    "ms" -> TimeUnit.MILLISECONDS,
+    "s" -> TimeUnit.SECONDS,
+    "m" -> TimeUnit.MINUTES,
     "min" -> TimeUnit.MINUTES,
-    "h"   -> TimeUnit.HOURS,
-    "d"   -> TimeUnit.DAYS)
+    "h" -> TimeUnit.HOURS,
+    "d" -> TimeUnit.DAYS)
 
 }

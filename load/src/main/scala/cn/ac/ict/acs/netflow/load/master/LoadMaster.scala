@@ -37,14 +37,14 @@ import cn.ac.ict.acs.netflow.load.LoadMessages
 import cn.ac.ict.acs.netflow.load.master.CommandSet.CommandMode
 import cn.ac.ict.acs.netflow.load.master.CommandSet.CommandMode.Mode
 import cn.ac.ict.acs.netflow.util._
-import cn.ac.ict.acs.netflow.ha.{LeaderElectionAgent, MonarchyLeaderAgent, LeaderElectable}
+import cn.ac.ict.acs.netflow.ha.{ LeaderElectionAgent, MonarchyLeaderAgent, LeaderElectable }
 
 class LoadMaster(
-    masterHost: String,
-    masterPort: Int,
-    webUiPort: Int,
-    val conf: NetFlowConf)
-  extends Actor with ActorLogReceive with MasterService with LeaderElectable with Logging {
+  masterHost: String,
+  masterPort: Int,
+  webUiPort: Int,
+  val conf: NetFlowConf)
+    extends Actor with ActorLogReceive with MasterService with LeaderElectable with Logging {
 
   import DeployMessages._
   import LoadMasterMessages._
@@ -305,14 +305,14 @@ class LoadMaster(
 
   // called after a worker registered successfully, record workerToUdpPort & workerToCollectors
   private def registerWorkerStructor(workerIP: String, workerPort: Int): Unit = {
-    workerToPort += (workerIP ->(workerIP, workerPort))
+    workerToPort += (workerIP -> (workerIP, workerPort))
     workerToReceivers += (workerIP -> new ArrayBuffer[String])
     workerToBufferRate += (workerIP -> 0)
     assignWorkerToWaittingReceiver(workerIP)
   }
 
   // when a worker registered in master, run this function
-  private def assignWorkerToWaittingReceiver( workerIP : String ): Unit = synchronized {
+  private def assignWorkerToWaittingReceiver(workerIP: String): Unit = synchronized {
     if (waitQueue.nonEmpty) {
       val cmd = CommandSet.responseReceiver(CommandMode.add, Array(workerToPort.get(workerIP).get))
 
@@ -586,7 +586,6 @@ class LoadMaster(
         logError(s"the worker $workerHost is not running? there are no receivers to connect with? ")
     }
   }
-
 
 }
 

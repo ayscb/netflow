@@ -19,7 +19,7 @@
 package cn.ac.ict.acs.netflow.metrics.source
 
 import com.codahale.metrics.MetricRegistry
-import com.codahale.metrics.jvm.{MemoryUsageGaugeSet, GarbageCollectorMetricSet}
+import com.codahale.metrics.jvm.{ MemoryUsageGaugeSet, GarbageCollectorMetricSet }
 
 class JvmSource extends Source {
   override val sourceName = "jvm"

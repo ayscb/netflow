@@ -19,9 +19,9 @@
 package cn.ac.ict.acs.netflow.query.broker
 
 import cn.ac.ict.acs.netflow.NetFlowConf
-import cn.ac.ict.acs.netflow.util.{IntParam, Utils}
+import cn.ac.ict.acs.netflow.util.{ IntParam, Utils }
 
-class BrokerArguments(args: Array[String], conf: NetFlowConf)  {
+class BrokerArguments(args: Array[String], conf: NetFlowConf) {
 
   var host = Utils.localHostName()
   var port = 0
@@ -63,14 +63,14 @@ class BrokerArguments(args: Array[String], conf: NetFlowConf)  {
       printUsageAndExit(0)
 
     case value :: tail =>
-      if (masters != null) {  // Two positional arguments were given
+      if (masters != null) { // Two positional arguments were given
         printUsageAndExit(1)
       }
       masters = value.stripPrefix("netflow-query://").split(",").map("netflow-query://" + _)
       parse(tail)
 
     case Nil =>
-      if (masters == null) {  // No positional argument was given
+      if (masters == null) { // No positional argument was given
         printUsageAndExit(1)
       }
 

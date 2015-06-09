@@ -22,18 +22,18 @@ import java.nio.ByteBuffer
 
 object BytesUtil {
 
-  def toUShort( value : ByteBuffer ) : Int =
+  def toUShort(value: ByteBuffer): Int =
     value.getShort & 0xFFFF
 
   def toUByte(value: ByteBuffer): Int =
     value.get() & 0xFF
 
-  def toUInt( value : ByteBuffer ) : Long ={
-    if(value.remaining() > 4){
+  def toUInt(value: ByteBuffer): Long = {
+    if (value.remaining() > 4) {
       val v = value.getInt
       v & 0xFFFFFFFFL
-    }else{
-      println(value.array().take(20).map(x=>x&0xff).mkString(";"))
+    } else {
+      println(value.array().take(20).map(x => x & 0xff).mkString(";"))
       0L
     }
   }

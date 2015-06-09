@@ -20,7 +20,7 @@ package cn.ac.ict.acs.netflow.metrics.sink
 
 import java.util.Properties
 
-import com.codahale.metrics.{JmxReporter, MetricRegistry}
+import com.codahale.metrics.{ JmxReporter, MetricRegistry }
 
 class JmxSink(val property: Properties, val registry: MetricRegistry) extends Sink {
 
@@ -34,6 +34,6 @@ class JmxSink(val property: Properties, val registry: MetricRegistry) extends Si
     reporter.stop()
   }
 
-  override def report() { }
+  override def report() {}
 
 }

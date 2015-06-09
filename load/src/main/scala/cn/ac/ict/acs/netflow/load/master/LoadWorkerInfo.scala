@@ -23,15 +23,15 @@ import akka.actor.ActorRef
 import cn.ac.ict.acs.netflow.util.Utils
 
 class LoadWorkerInfo(
-    val id: String,
-    val host: String,
-    val port: Int,
-    val cores: Int,
-    val memory: Int,
-    val actor: ActorRef,
-    val webUiPort: Int,
-    val tcpPort: Int)
-  extends Serializable {
+  val id: String,
+  val host: String,
+  val port: Int,
+  val cores: Int,
+  val memory: Int,
+  val actor: ActorRef,
+  val webUiPort: Int,
+  val tcpPort: Int)
+    extends Serializable {
 
   Utils.checkHost(host, "Expected hostname")
   assert(port > 0 && tcpPort > 0)

@@ -21,7 +21,7 @@ package cn.ac.ict.acs.netflow.load.worker
 import java.lang.management.ManagementFactory
 
 import cn.ac.ict.acs.netflow.NetFlowConf
-import cn.ac.ict.acs.netflow.util.{MemoryParam, IntParam, Utils}
+import cn.ac.ict.acs.netflow.util.{ MemoryParam, IntParam, Utils }
 
 class LoadWorkerArguments(args: Array[String], conf: NetFlowConf) {
 
@@ -85,7 +85,7 @@ class LoadWorkerArguments(args: Array[String], conf: NetFlowConf) {
       if (masters != null) { // Two positional arguments were given
         printUsageAndExit(1)
       }
-        masters = value.stripPrefix("netflow-load://").split(",").map("netflow-load://" + _)
+      masters = value.stripPrefix("netflow-load://").split(",").map("netflow-load://" + _)
       parse(tail)
 
     case Nil =>

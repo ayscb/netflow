@@ -20,19 +20,19 @@ package cn.ac.ict.acs.netflow.load.worker
 
 import java.io.FileWriter
 import java.net.InetSocketAddress
-import java.nio.{ByteOrder, ByteBuffer}
-import java.nio.channels.{ServerSocketChannel, SelectionKey, Selector, SocketChannel}
+import java.nio.{ ByteOrder, ByteBuffer }
+import java.nio.channels.{ ServerSocketChannel, SelectionKey, Selector, SocketChannel }
 import java.util
 import java.util.concurrent.LinkedBlockingDeque
 
 import scala.collection.mutable
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{Path, FileSystem}
+import org.apache.hadoop.fs.{ Path, FileSystem }
 
 import cn.ac.ict.acs.netflow.load.LoadMessages.CombineFinished
-import cn.ac.ict.acs.netflow.load.util.{ParseFlowData, ParquetState, NetFlowCombineMeta}
-import cn.ac.ict.acs.netflow.util.{TimeUtils, ThreadUtils, Utils}
+import cn.ac.ict.acs.netflow.load.util.{ ParseFlowData, ParquetState, NetFlowCombineMeta }
+import cn.ac.ict.acs.netflow.util.{ TimeUtils, ThreadUtils, Utils }
 
 trait WorkerService {
   self: LoadWorker =>
@@ -54,7 +54,7 @@ trait WorkerService {
 
   private def doStartRunner(port: Int): (Thread, Int) = {
 
-    var actualPort :Int = port
+    var actualPort: Int = port
 
     val thread =
       new Thread("Receiver-Worker-Service") {
@@ -71,10 +71,10 @@ trait WorkerService {
           val serverSocketChannel = java.nio.channels.ServerSocketChannel.open()
           serverSocketChannel.configureBlocking(false)
           val serverSocket = serverSocketChannel.socket()
-          if(actualPort == 0){
+          if (actualPort == 0) {
             serverSocket.bind(null)
             actualPort = serverSocket.getLocalPort
-          }else{
+          } else {
             serverSocket.bind(new InetSocketAddress(actualPort))
           }
 
@@ -87,9 +87,9 @@ trait WorkerService {
               while (iter.hasNext) {
                 val key = iter.next()
                 iter.remove()
-                if (key.isAcceptable){
+                if (key.isAcceptable) {
                   acceptConnection(key)
-                }else if (key.isReadable){
+                } else if (key.isReadable) {
                   readConnection(key)
                 }
               }
@@ -121,21 +121,21 @@ trait WorkerService {
 
           shortBuf.clear()
           val scount = channel.read(shortBuf)
-          if(scount == 2){
+          if (scount == 2) {
             val len = shortBuf.getShort(0)
             writer.write(s"$counts --- $len ----\n")
             writer.flush()
-            if(len<=0) return
+            if (len <= 0) return
 
             val ActualSize = len - scount
             val buff = ByteBuffer.allocate(ActualSize)
             var count = channel.read(buff)
-            if(count == -1){ close(key,remoteHost); return }
-            while(count != ActualSize){
+            if (count == -1) { close(key, remoteHost); return }
+            while (count != ActualSize) {
               val curCount = channel.read(buff)
-              if(curCount == -1){
-                close(key,remoteHost); return
-              }else{
+              if (curCount == -1) {
+                close(key, remoteHost); return
+              } else {
                 count += curCount
               }
             }
@@ -143,16 +143,16 @@ trait WorkerService {
             buff.flip()
             bufferList.put(buff)
             buffcount += 1
-          }else if(scount == -1 ){
-            close(key,remoteHost)
-          }else{
+          } else if (scount == -1) {
+            close(key, remoteHost)
+          } else {
             writer.flush()
             writer.close()
             logInfo(s"[Netflow] Error The $scount")
           }
         }
 
-        def close(key: SelectionKey, ip :String ): Unit ={
+        def close(key: SelectionKey, ip: String): Unit = {
           val channel = key.channel().asInstanceOf[SocketChannel]
           channel.shutdownInput()
           key.cancel()
@@ -163,7 +163,7 @@ trait WorkerService {
       }
 
     thread.start()
-    while(actualPort == 0) Thread.sleep(1000)
+    while (actualPort == 0) Thread.sleep(1000)
     (thread, actualPort)
   }
 
@@ -194,7 +194,8 @@ trait CombineService {
             second = TimeUtils.getPreviousBaseTime(conf, second)
 
           case ParquetState.NO_PARQUET =>
-            logError("[Netfow-Combine] The Path %s should be a parquet dictionary.".format(pathStr))
+            logError(("[Netfow-Combine] The Path %s should be a " +
+              "parquet dictionary.").format(pathStr))
             fs.close()
             return
 
@@ -244,14 +245,14 @@ trait WriteParquetService {
       // write data to parquet
       private val _netFlowWriter = new ParseFlowData(conf)
 
-      override def run() : Unit = {
-        logInfo("[Netflow] Start sub Write Parquet %d".format(Thread.currentThread().getId) )
+      override def run(): Unit = {
+        logInfo("[Netflow] Start sub Write Parquet %d".format(Thread.currentThread().getId))
         writerThreadsQueue.enqueue(Thread.currentThread())
         // while (!Thread.interrupted()) {
         while (true) {
           //  val data = bufferList.poll // when list empty , null
           val data = bufferList.take
-          if(data != null){
+          if (data != null) {
             if (readRateFlag && !sampled) {
               ratesQueue.put(getCurrentRate)
               sampled = true
@@ -268,10 +269,8 @@ trait WriteParquetService {
     writer
   }
 
-
-
   def initParquetWriterPool(threadNum: Int) = {
-    new Thread(netflowWriter,"parquet-writer").start()
+    new Thread(netflowWriter, "parquet-writer").start()
     //    for (i <- 0 until threadNum)
     //      writerThreadPool.submit(netflowWriter)
   }

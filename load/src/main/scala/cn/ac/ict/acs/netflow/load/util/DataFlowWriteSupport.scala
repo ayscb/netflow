@@ -27,8 +27,8 @@ import scala.collection.immutable.HashMap
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.Logging
 import parquet.hadoop.api.WriteSupport
-import parquet.io.api.{Binary, RecordConsumer}
-import parquet.schema.{MessageType, Type}
+import parquet.io.api.{ Binary, RecordConsumer }
+import parquet.schema.{ MessageType, Type }
 import parquet.schema.PrimitiveType.PrimitiveTypeName._
 
 /**
@@ -36,8 +36,8 @@ import parquet.schema.PrimitiveType.PrimitiveTypeName._
  *
  */
 // TODO
-case class NetflowGroup(version : Int, template: SingleTemplate,
-  Header: Array[AnyVal], data: ByteBuffer) {
+case class NetflowGroup(version: Int, template: SingleTemplate,
+    Header: Array[AnyVal], data: ByteBuffer) {
   // netflow's statistic. For count the netflow numbers to judge when a record is over
   var flowCount = 0
   def getflowCount = flowCount
@@ -130,7 +130,7 @@ class DataFlowWriteSupport extends WriteSupport[NetflowGroup] with Logging {
     val tempID = record.data.getShort
     val flowLen = record.data.getShort
 
-    if(flowLen <= 0){
+    if (flowLen <= 0) {
       // skip inaccurate package
       logWarning(s"[Netflow] The package's length should be > 0, but now $flowLen")
       return
@@ -142,7 +142,7 @@ class DataFlowWriteSupport extends WriteSupport[NetflowGroup] with Logging {
     // we analysis the package as multirow
     while (bytesCount != flowLen) {
 
-      if(bytesCount > flowLen ){
+      if (bytesCount > flowLen) {
         // skip inaccurate package
         logWarning(s"[Netflow] The package's length should be $flowLen, but now $bytesCount")
         record.data.position(startPos + flowLen)
@@ -176,11 +176,11 @@ class DataFlowWriteSupport extends WriteSupport[NetflowGroup] with Logging {
       })
 
       write.endMessage()
-      record.flowCount +=  1
+      record.flowCount += 1
     }
   }
 
-  private def parseFixeFlowSetData(record:NetflowGroup): Unit = {
+  private def parseFixeFlowSetData(record: NetflowGroup): Unit = {
 
     val fields: util.List[Type] = schema.getFields // get whole fielsd
 
@@ -206,6 +206,6 @@ class DataFlowWriteSupport extends WriteSupport[NetflowGroup] with Logging {
       write.endField(curFields.getName, field._1)
     })
     write.endMessage()
-    record.flowCount =  1
+    record.flowCount = 1
   }
 }

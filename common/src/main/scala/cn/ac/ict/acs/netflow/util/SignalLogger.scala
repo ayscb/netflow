@@ -20,7 +20,7 @@ package cn.ac.ict.acs.netflow.util
 
 import org.apache.commons.lang3.SystemUtils
 import org.slf4j.Logger
-import sun.misc.{Signal, SignalHandler}
+import sun.misc.{ Signal, SignalHandler }
 
 /**
  * Used to log signals received. This can be very useful in debugging crashes or kills.

@@ -21,14 +21,14 @@ package cn.ac.ict.acs.netflow.metrics.sink
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
-import com.codahale.metrics.{Slf4jReporter, MetricRegistry}
+import com.codahale.metrics.{ Slf4jReporter, MetricRegistry }
 
 import cn.ac.ict.acs.netflow.metrics.MetricsSystem
 import cn.ac.ict.acs.netflow.util.TimeUtils
 
 class Slf4jSink(
-  val property: Properties,
-  val registry: MetricRegistry) extends Sink {
+    val property: Properties,
+    val registry: MetricRegistry) extends Sink {
 
   val SLF4J_DEFAULT_PERIOD = 10L
 

@@ -20,9 +20,9 @@ package cn.ac.ict.acs.netflow.util
 
 import java.util.concurrent._
 
-import scala.concurrent.{ExecutionContextExecutor, ExecutionContext}
+import scala.concurrent.{ ExecutionContextExecutor, ExecutionContext }
 
-import com.google.common.util.concurrent.{ThreadFactoryBuilder, MoreExecutors}
+import com.google.common.util.concurrent.{ ThreadFactoryBuilder, MoreExecutors }
 
 /**
  * Copied from spark

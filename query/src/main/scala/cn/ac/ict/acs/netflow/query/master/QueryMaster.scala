@@ -24,7 +24,7 @@ import scala.concurrent.Await
 
 import akka.actor._
 import akka.pattern.ask
-import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
+import akka.remote.{ DisassociatedEvent, RemotingLifecycleEvent }
 import akka.serialization.SerializationExtension
 import akka.util.Timeout
 
@@ -36,14 +36,14 @@ import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.util._
 import cn.ac.ict.acs.netflow.query.RestMessages
 import cn.ac.ict.acs.netflow.query.broker.ValidJobDescription
-import cn.ac.ict.acs.netflow.ha.{MonarchyLeaderAgent, LeaderElectable, LeaderElectionAgent}
+import cn.ac.ict.acs.netflow.ha.{ MonarchyLeaderAgent, LeaderElectable, LeaderElectionAgent }
 
 class QueryMaster(
-    host: String,
-    port: Int,
-    webUiPort: Int,
-    val conf: NetFlowConf)
-  extends Actor with ActorLogReceive with LeaderElectable with Logging {
+  host: String,
+  port: Int,
+  webUiPort: Int,
+  val conf: NetFlowConf)
+    extends Actor with ActorLogReceive with LeaderElectable with Logging {
 
   import MasterMessages._
   import QueryMasterMessages._
@@ -401,12 +401,13 @@ class QueryMaster(
 
     case RestAllJobsInfoRequest => {
       val list = new mutable.ArrayBuffer[JobInfoAbstraction]()
-      idToJobs.foreach { case (id, j) =>
-        list += JobInfoAbstraction(id, j.submitTime.toString(createTimeFormat),
-          j.query.sql.take(15) + " ...", j._state.toString, j._submissionId,
-          j._startTime.map(_.toString(createTimeFormat)),
-          j._endTime.map(_.toString(createTimeFormat)),
-          j._message, j._driverState)
+      idToJobs.foreach {
+        case (id, j) =>
+          list += JobInfoAbstraction(id, j.submitTime.toString(createTimeFormat),
+            j.query.sql.take(15) + " ...", j._state.toString, j._submissionId,
+            j._startTime.map(_.toString(createTimeFormat)),
+            j._endTime.map(_.toString(createTimeFormat)),
+            j._message, j._driverState)
       }
       sender ! RestAllJobsInfoResponse(list.toSeq)
 
@@ -463,7 +464,7 @@ class QueryMaster(
             // Try to fetch result from ResultTracker
             if (j._state == JobState.FINISHED && j.jobType == JobType.ADHOC) {
               val receiver = sender
-              for (result <- (resultTracker ? GetJobResult(jobId))){
+              for (result <- (resultTracker ? GetJobResult(jobId))) {
                 val cachedValue = result match {
                   case JobResult(_, v) => Some(v)
                   case JobNotFound => None
@@ -474,10 +475,10 @@ class QueryMaster(
               }
 
             } else {
-             sender !
-               RestJobStatusResponse(jobId, j._state.toString,
-                 j.submitTime.toString(showFormat), j._startTime.map(_.toString(showFormat)),
-                 j._endTime.map(_.toString(showFormat)), None, j._message)
+              sender !
+                RestJobStatusResponse(jobId, j._state.toString,
+                  j.submitTime.toString(showFormat), j._startTime.map(_.toString(showFormat)),
+                  j._endTime.map(_.toString(showFormat)), None, j._message)
             }
           }
           case None =>
@@ -503,7 +504,7 @@ class QueryMaster(
               if (j._submissionId.isDefined) {
                 val success = killJobInSpark(j)
                 sender ! RestKillJobResponse(jobId, success, None)
-              } else {// this should never happen
+              } else { // this should never happen
                 logError("Running job without submissionId")
                 assert(false)
               }
@@ -523,7 +524,7 @@ class QueryMaster(
         case Some(j) => {
           submitToSpark(j)
         }
-        case None =>{
+        case None => {
           val msg = s"Job $jobId does not exist"
           logWarning(msg)
         }
@@ -572,8 +573,8 @@ class QueryMaster(
         getOrElse(defaultSparkProperties)
 
     val effectiveEnvironmentVariables =
-    desc.environmentVariables.map(_ ++ defaultEnvironmentVariables).
-      getOrElse(defaultEnvironmentVariables)
+      desc.environmentVariables.map(_ ++ defaultEnvironmentVariables).
+        getOrElse(defaultEnvironmentVariables)
 
     val outPath = desc.outputPath.getOrElse("/tmp")
 
@@ -727,10 +728,10 @@ object QueryMaster extends Logging {
    * (3) The web UI bound port
    */
   def startSystemAndActor(
-      host: String,
-      port: Int,
-      webUiPort: Int,
-      conf: NetFlowConf): (ActorSystem, Int, Int) = {
+    host: String,
+    port: Int,
+    webUiPort: Int,
+    conf: NetFlowConf): (ActorSystem, Int, Int) = {
     val (actorSystem, boundPort) =
       AkkaUtils.createActorSystem(QUERYMASTER_ACTORSYSTEM, host, port, conf)
     val actor = actorSystem.actorOf(

@@ -18,13 +18,13 @@
  */
 package cn.ac.ict.acs.netflow.util
 
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.{ Duration, FiniteDuration }
 import scala.concurrent.Await
 
-import akka.actor.{Address, ActorRef, ExtendedActorSystem, ActorSystem}
+import akka.actor.{ Address, ActorRef, ExtendedActorSystem, ActorSystem }
 import akka.pattern.ask
 import com.typesafe.config.ConfigFactory
-import org.apache.log4j.{Level, Logger}
+import org.apache.log4j.{ Level, Logger }
 
 import cn.ac.ict.acs.netflow._
 
@@ -44,10 +44,10 @@ object AkkaUtils extends Logging {
    *
    */
   def createActorSystem(
-      name: String,
-      host: String,
-      port: Int,
-      conf: NetFlowConf): (ActorSystem, Int) = {
+    name: String,
+    host: String,
+    port: Int,
+    conf: NetFlowConf): (ActorSystem, Int) = {
     val startService: Int => (ActorSystem, Int) = { actualPort =>
       doCreateActorSystem(name, host, actualPort, conf)
     }
@@ -55,10 +55,10 @@ object AkkaUtils extends Logging {
   }
 
   private def doCreateActorSystem(
-      name: String,
-      host: String,
-      port: Int,
-      conf: NetFlowConf): (ActorSystem, Int) = {
+    name: String,
+    host: String,
+    port: Int,
+    conf: NetFlowConf): (ActorSystem, Int) = {
 
     val akkaThreads = conf.getInt("netflow.akka.threads", 4)
     val akkaBatchSize = conf.getInt("netflow.akka.batchSize", 15)
@@ -77,7 +77,6 @@ object AkkaUtils extends Logging {
 
     val akkaHeartBeatPauses = conf.getInt("netflow.akka.heartbeat.pauses", 6000)
     val akkaHeartBeatInterval = conf.getInt("netflow.akka.heartbeat.interval", 1000)
-
 
     val akkaConf = ConfigFactory.parseString(
       s"""
@@ -148,9 +147,9 @@ object AkkaUtils extends Logging {
    * throw a NetFlowException if this fails.
    */
   def askWithReply[T](
-      message: Any,
-      actor: ActorRef,
-      timeout: FiniteDuration): T = {
+    message: Any,
+    actor: ActorRef,
+    timeout: FiniteDuration): T = {
     askWithReply[T](message, actor, maxAttempts = 1, retryInterval = Int.MaxValue, timeout)
   }
 
@@ -159,11 +158,11 @@ object AkkaUtils extends Logging {
    * throw a NetFlowException if this fails even after the specified number of retries.
    */
   def askWithReply[T](
-      message: Any,
-      actor: ActorRef,
-      maxAttempts: Int,
-      retryInterval: Int,
-      timeout: FiniteDuration): T = {
+    message: Any,
+    actor: ActorRef,
+    maxAttempts: Int,
+    retryInterval: Int,
+    timeout: FiniteDuration): T = {
     // TODO: Consider removing multiple attempts
     if (actor == null) {
       throw new NetFlowException(s"Error sending message [message = $message]" +
@@ -203,11 +202,11 @@ object AkkaUtils extends Logging {
     if (ssl) "akka.ssl.tcp" else "akka.tcp"
 
   def address(
-      protocol: String,
-      systemName: String,
-      host: String,
-      port: Any,
-      actorName: String): String = {
+    protocol: String,
+    systemName: String,
+    host: String,
+    port: Any,
+    actorName: String): String = {
     s"$protocol://$systemName@$host:$port/user/$actorName"
   }
 

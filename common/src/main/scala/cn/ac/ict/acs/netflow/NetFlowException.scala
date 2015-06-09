@@ -19,7 +19,7 @@
 package cn.ac.ict.acs.netflow
 
 class NetFlowException(message: String, cause: Throwable)
-  extends Exception(message, cause) {
+    extends Exception(message, cause) {
 
   def this(message: String) = this(message, null)
 }

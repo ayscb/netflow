@@ -22,15 +22,15 @@ import akka.actor.ActorRef
 import cn.ac.ict.acs.netflow.util.Utils
 
 class BrokerInfo(
-    val id: String,
-    val host: String,
-    val port: Int,
-    val restPort: Int,
-    val actor: ActorRef)
-  extends Serializable {
+  val id: String,
+  val host: String,
+  val port: Int,
+  val restPort: Int,
+  val actor: ActorRef)
+    extends Serializable {
 
   Utils.checkHost(host, "Expected hostname")
-  assert (port > 0)
+  assert(port > 0)
 
   init()
 

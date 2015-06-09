@@ -18,7 +18,7 @@
  */
 package cn.ac.ict.acs.netflow.load.master
 
-import com.codahale.metrics.{Gauge, MetricRegistry}
+import com.codahale.metrics.{ Gauge, MetricRegistry }
 
 import cn.ac.ict.acs.netflow.metrics.source.Source
 

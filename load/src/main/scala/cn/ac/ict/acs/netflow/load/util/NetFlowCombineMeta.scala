@@ -22,11 +22,11 @@ import org.apache.hadoop.conf.Configuration
 
 import scala.collection.mutable
 
-import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
-import parquet.hadoop.{ParquetFileReader, ParquetFileWriter}
+import org.apache.hadoop.fs.{ FileStatus, FileSystem, Path }
+import parquet.hadoop.{ ParquetFileReader, ParquetFileWriter }
 
 import cn.ac.ict.acs.netflow.load.util.ParquetState.ParquetState
-import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
+import cn.ac.ict.acs.netflow.{ Logging, NetFlowConf }
 
 /**
  * merge all parquets's meta infomation in a assigned document to a single file

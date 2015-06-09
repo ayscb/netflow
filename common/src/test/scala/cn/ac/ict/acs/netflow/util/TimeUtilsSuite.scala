@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
 
 import cn.ac.ict.acs.netflow.NetFlowConf
 import org.joda.time.DateTime
-import org.scalatest.{Matchers, FunSuite}
+import org.scalatest.{ Matchers, FunSuite }
 
 import cn.ac.ict.acs.netflow.util.TimeUtils._
 

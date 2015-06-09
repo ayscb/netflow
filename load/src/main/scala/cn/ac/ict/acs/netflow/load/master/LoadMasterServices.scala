@@ -21,7 +21,7 @@ package cn.ac.ict.acs.netflow.load.master
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
-import java.nio.channels.{ServerSocketChannel, SelectionKey, Selector, SocketChannel}
+import java.nio.channels.{ ServerSocketChannel, SelectionKey, Selector, SocketChannel }
 
 import cn.ac.ict.acs.netflow.load.master.CommandSet.CommandMode
 import cn.ac.ict.acs.netflow.util.Utils
@@ -73,9 +73,9 @@ trait MasterService {
                   readConnection(key)
                 } else if (key.isWritable) {
                   // writeConnection(key)
-                }else if( key.isValid){
+                } else if (key.isValid) {
                   printf("valid")
-                }else if(key.isConnectable){
+                } else if (key.isConnectable) {
                   printf("isConnectable")
                 }
               }
@@ -100,7 +100,6 @@ trait MasterService {
           logInfo(s"[Netflow] The receiver Service accepts a connection from $remoteIP.receiver ")
         }
 
-
         // deal with the read connection request
         private def readConnection(key: SelectionKey): Unit = {
           val channel = key.channel().asInstanceOf[SocketChannel]
@@ -114,11 +113,11 @@ trait MasterService {
             val count = channel.read(reqBuff)
             if (count > 0) {
               reqBuff.flip()
-              if(CommandSet.isReqWorkerList(reqBuff)){
+              if (CommandSet.isReqWorkerList(reqBuff)) {
 
-                CommandSet.isReqWorkerListAndReport(reqBuff) match{
+                CommandSet.isReqWorkerListAndReport(reqBuff) match {
                   case Some(result) =>
-                    if (workerToPort.contains(result._1)){
+                    if (workerToPort.contains(result._1)) {
                       if (workerToPort(result._1)._2 == result._2) {
                         workerToPort -= result._1
                         workerToBufferRate -= result._1
@@ -143,7 +142,7 @@ trait MasterService {
               }
               channel.register(selector, SelectionKey.OP_READ)
 
-            }else if(count == -1){
+            } else if (count == -1) {
               // close socket
               channel.shutdownInput()
               receiverToSocket -= remoteHost
@@ -154,9 +153,9 @@ trait MasterService {
               key.cancel()
               logInfo(s"[Netflow] The $remoteHost receiver is closed")
             }
-          }
-          catch {
-            case  e:IOException => logWarning("s[Netflow] The connect is closed." + e.getMessage)
+          } catch {
+            case e: IOException =>
+              logWarning("s[Netflow] The connect is closed." + e.getMessage)
               receiverToSocket -= remoteHost
               receiverToWorkers -= remoteHost
               workerToReceivers.foreach(x => {
@@ -181,7 +180,7 @@ trait MasterService {
 
         // called when a receiver ask for worker's info
         private def assignWorker(receiver: String, workerNum: Int = 1):
-        Option[Array[(String, Int)]] = {
+          Option[Array[(String, Int)]] = {
 
           receiverToWorkers.get(receiver) match {
             case None =>
@@ -191,7 +190,7 @@ trait MasterService {
               if (workers.size == 0) {
                 // the first time to assign worker
 
-                if( workerToPort.size == 0 ){
+                if (workerToPort.size == 0) {
                   logWarning(s"[Netflow] There is no available worker to run in cluster.")
                   return None
                 }
@@ -205,7 +204,7 @@ trait MasterService {
                 // if needs more than one worker
                 if (workers.size != workerNum) {
 
-                  val orderByworkerList = workerToBufferRate.filterNot(x=>x._1 == receiver)
+                  val orderByworkerList = workerToBufferRate.filterNot(x => x._1 == receiver)
                     .toList.sortWith(_._2 < _._2)
 
                   var oi = 0
@@ -239,7 +238,7 @@ object CommandSet {
   }
 
   /* the command struct that connect with receiver */
-  object CommandStruct{
+  object CommandStruct {
     // the command request from worker to master
     val req_workerlist = "$req$"
     val req_report = "$report$"
@@ -270,20 +269,20 @@ object CommandSet {
   def responseReceiver(mode: Mode, ipAdds: Array[(String, Int)]): ByteBuffer = {
     res_buffer.clear()
     sb.clear()
-    if(mode == add){
+    if (mode == add) {
       // $$+1&12.1.1.1:123&112.12.13.14:123&
       sb.append(CommandStruct.res_prefix).append("+")
         .append(ipAdds.length).append(CommandStruct.delim)
 
-      ipAdds.map(ip_port=>{
+      ipAdds.map(ip_port => {
         sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
       })
 
-    }else if (mode == delete){
+    } else if (mode == delete) {
       sb.append(CommandStruct.res_prefix).append("-")
         .append(ipAdds.length).append(CommandStruct.delim)
 
-      ipAdds.map(ip_port=>{
+      ipAdds.map(ip_port => {
         sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
       })
     }
@@ -301,24 +300,24 @@ object CommandSet {
    * @return
    */
   def responseReceiver(addIpAdds: Option[Array[(String, Int)]],
-      deleIpAdds: Option[Array[(String, Int)]]):ByteBuffer = {
+    deleIpAdds: Option[Array[(String, Int)]]): ByteBuffer = {
     res_buffer.clear()
     sb.clear()
-    sb.append(CommandStruct.res_prefix)     // $$
+    sb.append(CommandStruct.res_prefix) // $$
 
-    deleIpAdds match{
-      case Some(ipAdds)=>
+    deleIpAdds match {
+      case Some(ipAdds) =>
         sb.append("-").append(ipAdds.length).append(CommandStruct.delim)
-        ipAdds.map(ip_port=>{
+        ipAdds.map(ip_port => {
           sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
         })
       case None =>
     }
 
-    addIpAdds match{
-      case Some(ipAdds)=>
+    addIpAdds match {
+      case Some(ipAdds) =>
         sb.append("+").append(ipAdds.length).append(CommandStruct.delim)
-        ipAdds.map(ip_port=>{
+        ipAdds.map(ip_port => {
           sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
         })
       case None =>
@@ -329,20 +328,20 @@ object CommandSet {
     res_buffer
   }
 
-  def isReqWorkerList(data:ByteBuffer): Boolean ={
+  def isReqWorkerList(data: ByteBuffer): Boolean = {
     data.array.startsWith(CommandStruct.req_workerlist)
   }
 
-  def isReqWorkerListAndReport(data:ByteBuffer) : Option[(String,Int)] ={
-    if(data.limit() == CommandStruct.req_workerlist.length){
+  def isReqWorkerListAndReport(data: ByteBuffer): Option[(String, Int)] = {
+    if (data.limit() == CommandStruct.req_workerlist.length) {
       None
-    }else{
+    } else {
       val pos = CommandStruct.req_workerlist.length
       assert(data.get(pos) == '-')
       data.position(pos + 1)
       val ipStr = new String(data.array(), data.position(), data.remaining()).split(":")
       assert(ipStr.length == 2) // only has one address
-      Some((ipStr(0),ipStr(1).toInt))
+      Some((ipStr(0), ipStr(1).toInt))
     }
   }
 

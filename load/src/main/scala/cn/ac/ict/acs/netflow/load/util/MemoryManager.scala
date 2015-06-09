@@ -43,8 +43,8 @@ object MemoryManager {
   }
 
   def apply(memoryPoolRatio: Float,
-      minMemoryAllocation: Long,
-      schema: parquet.schema.MessageType): Unit = {
+    minMemoryAllocation: Long,
+    schema: parquet.schema.MessageType): Unit = {
     checkRatio(memoryPoolRatio)
     new MemoryManager(memoryPoolRatio, minMemoryAllocation, schema)
   }

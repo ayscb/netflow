@@ -18,8 +18,8 @@
  */
 package cn.ac.ict.acs.netflow.query.broker
 
-import java.io.{OutputStreamWriter, BufferedWriter, InputStreamReader, BufferedReader}
-import java.net.{UnknownHostException, Socket}
+import java.io.{ OutputStreamWriter, BufferedWriter, InputStreamReader, BufferedReader }
+import java.net.{ UnknownHostException, Socket }
 import java.util.UUID
 
 import scala.concurrent.Future
@@ -29,7 +29,7 @@ import scala.concurrent.duration._
 import akka.actor._
 import akka.pattern.ask
 import akka.io.IO
-import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
+import akka.remote.{ DisassociatedEvent, RemotingLifecycleEvent }
 import akka.util.Timeout
 
 import org.json4s.DefaultFormats
@@ -38,19 +38,19 @@ import org.joda.time.DateTime
 import spray.can.Http
 import spray.http.MediaTypes._
 import spray.httpx.Json4sJacksonSupport
-import spray.routing.{RequestContext, Route, HttpService}
+import spray.routing.{ RequestContext, Route, HttpService }
 
 import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.util._
-import cn.ac.ict.acs.netflow.query.{RestMessage, RestMessages}
+import cn.ac.ict.acs.netflow.query.{ RestMessage, RestMessages }
 
 class RestBroker(
-    val host: String,
-    val port: Int,
-    val restPort: Int,
-    val masterAkkaUrls: Array[String],
-    val conf: NetFlowConf)
-  extends Actor with RestService with BrokerLike with ActorLogReceive with Logging {
+  val host: String,
+  val port: Int,
+  val restPort: Int,
+  val masterAkkaUrls: Array[String],
+  val conf: NetFlowConf)
+    extends Actor with RestService with BrokerLike with ActorLogReceive with Logging {
 
   implicit def actorRefFactory: ActorContext = context
 
@@ -68,7 +68,7 @@ trait BrokerLike {
   import DeployMessages._
 
   Utils.checkHost(host, "Expected hostname")
-  assert (port > 0)
+  assert(port > 0)
 
   val createTimeFormat = TimeUtils.createFormat
 
@@ -95,7 +95,7 @@ trait BrokerLike {
   var master: ActorSelection = null
   var masterAddress: Address = null
   var activeMasterUrl: String = ""
-  var activeMasterWebUiUrl : String = ""
+  var activeMasterWebUiUrl: String = ""
   @volatile var registered = false
   @volatile var connected = false
 
@@ -316,9 +316,9 @@ trait RestService extends HttpService with Json4sJacksonSupport {
           }
         }
     } ~
-    (get & path("tableSchema")) {
-      complete(200, "The Schema below:")
-    }
+      (get & path("tableSchema")) {
+        complete(200, "The Schema below:")
+      }
   }
 
   val otherRoutes: Route = path("status") {
@@ -342,66 +342,65 @@ trait RestService extends HttpService with Json4sJacksonSupport {
     }
   }
 
-//  val configurationRoutes = pathPrefix("v1" / "conf") {
-//    // Forwarding rules configuration
-//    pathPrefix("f-rules") {
-//      // GET /v1/conf/f-rules return all available rules
-//      (get & pathEndOrSingleSlash) {
-//        requestConfigurationServer {
-//          GetAllRules
-//        }
-//      } ~
-//        // POST /v1/conf/f-rules add forwarding rules described in request body
-//        (post & pathEndOrSingleSlash) {
-//          requestConfigurationServer {
-//            entity(as[ForwardingRule]) { rule =>
-//              InsertRules(rule)
-//            }
-//          }
-//        } ~
-//        // PUT /v1/conf/f-rules/<ruleId> update the specified rule
-//        (put & path(Segment)) { ruleId =>
-//          requestConfigurationServer {
-//            entity(as[RuleItem]) { ruleItem =>
-//              UpdateSingleRule(ruleId, ruleItem)
-//            }
-//          }
-//        } ~
-//        // DELETE /v1/conf/f-rules/<ruleId> delete the specified rule
-//        (delete & path(Segment)) { ruleId =>
-//          requestConfigurationServer {
-//            DeleteSingleRule(ruleId)
-//          }
-//        }
-//    }
-//  }
+  //  val configurationRoutes = pathPrefix("v1" / "conf") {
+  //    // Forwarding rules configuration
+  //    pathPrefix("f-rules") {
+  //      // GET /v1/conf/f-rules return all available rules
+  //      (get & pathEndOrSingleSlash) {
+  //        requestConfigurationServer {
+  //          GetAllRules
+  //        }
+  //      } ~
+  //        // POST /v1/conf/f-rules add forwarding rules described in request body
+  //        (post & pathEndOrSingleSlash) {
+  //          requestConfigurationServer {
+  //            entity(as[ForwardingRule]) { rule =>
+  //              InsertRules(rule)
+  //            }
+  //          }
+  //        } ~
+  //        // PUT /v1/conf/f-rules/<ruleId> update the specified rule
+  //        (put & path(Segment)) { ruleId =>
+  //          requestConfigurationServer {
+  //            entity(as[RuleItem]) { ruleItem =>
+  //              UpdateSingleRule(ruleId, ruleItem)
+  //            }
+  //          }
+  //        } ~
+  //        // DELETE /v1/conf/f-rules/<ruleId> delete the specified rule
+  //        (delete & path(Segment)) { ruleId =>
+  //          requestConfigurationServer {
+  //            DeleteSingleRule(ruleId)
+  //          }
+  //        }
+  //    }
+  //  }
 
   case class ForwardingRule(rules: Seq[RuleItem])
 
   case class RuleItem(routerId: String, srcPort: Int, destIp: String, rate: String)
 
-
-//  def requestConfigurationServer(x: Any): Route = { ctx =>
-//    x match {
-//      case GetAllRules =>
-//        Future {
-//          try {
-//            val socket = new Socket(confServerHost, confServerPort)
-//            val br = new BufferedReader(new InputStreamReader(socket.getInputStream))
-//            val bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream))
-//            bw.write("GETALLRULES")
-//
-//          } catch {
-//            case uhe: UnknownHostException =>
-//
-//          }
-//
-//
-//
-//        }
-//
-//    }
-//  }
+  //  def requestConfigurationServer(x: Any): Route = { ctx =>
+  //    x match {
+  //      case GetAllRules =>
+  //        Future {
+  //          try {
+  //            val socket = new Socket(confServerHost, confServerPort)
+  //            val br = new BufferedReader(new InputStreamReader(socket.getInputStream))
+  //            val bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream))
+  //            bw.write("GETALLRULES")
+  //
+  //          } catch {
+  //            case uhe: UnknownHostException =>
+  //
+  //          }
+  //
+  //
+  //
+  //        }
+  //
+  //    }
+  //  }
 }
 
 object RestBroker extends Logging {
@@ -433,12 +432,12 @@ object RestBroker extends Logging {
   }
 
   def createActorAndListen(
-      actorSystem: ActorSystem,
-      host: String,
-      port: Int,
-      restPort: Int,
-      masterAkkaUrls: Array[String],
-      conf: NetFlowConf) = {
+    actorSystem: ActorSystem,
+    host: String,
+    port: Int,
+    restPort: Int,
+    masterAkkaUrls: Array[String],
+    conf: NetFlowConf) = {
     val startActorAndListen: Int => (ActorRef, Int) = { actualRestPort =>
       doCreateActorAndListen(actorSystem, host, port, actualRestPort,
         masterAkkaUrls, conf)
@@ -447,12 +446,12 @@ object RestBroker extends Logging {
   }
 
   def doCreateActorAndListen(
-      actorSystem: ActorSystem,
-      host: String,
-      port: Int,
-      restPort: Int,
-      masterAkkaUrls: Array[String],
-      conf: NetFlowConf): (ActorRef, Int) = {
+    actorSystem: ActorSystem,
+    host: String,
+    port: Int,
+    restPort: Int,
+    masterAkkaUrls: Array[String],
+    conf: NetFlowConf): (ActorRef, Int) = {
 
     val actor = actorSystem.actorOf(Props(classOf[RestBroker], host, port, restPort,
       masterAkkaUrls, conf), name = BROKER_ACTOR)

@@ -23,9 +23,8 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
 
-import cn.ac.ict.acs.netflow.{Query, NetFlowException}
+import cn.ac.ict.acs.netflow.{ Query, NetFlowException }
 import cn.ac.ict.acs.netflow.query.master.JobType
-
 
 case class JobDescription(
     description: Option[String],
@@ -95,7 +94,7 @@ case class RelativeTime(num: Int, unit: String) {
   def toDuration: FiniteDuration = {
     unit match {
       case "day" | "days" => new FiniteDuration(num, TimeUnit.DAYS)
-      case "hour" | "hours"=> new FiniteDuration(num, TimeUnit.HOURS)
+      case "hour" | "hours" => new FiniteDuration(num, TimeUnit.HOURS)
       case "minute" | "minutes" => new FiniteDuration(num, TimeUnit.MINUTES)
       case "second" | "seconds" => new FiniteDuration(num, TimeUnit.SECONDS)
       case "millisecond" | "milliseconds" => new FiniteDuration(num, TimeUnit.MILLISECONDS)
@@ -106,14 +105,14 @@ case class RelativeTime(num: Int, unit: String) {
 }
 
 case class ValidJobDescription(
-    description: Option[String],
-    jobType: JobType.Value,
-    deferTime: FiniteDuration,
-    frequency: Option[FiniteDuration],
-    query: Query,
-    jar: Option[String],
-    mainClass: Option[String],
-    appArgs: Option[Array[String]],
-    sparkProperties: Option[Map[String, String]],
-    environmentVariables: Option[Map[String, String]],
-    outputPath: Option[String])
+  description: Option[String],
+  jobType: JobType.Value,
+  deferTime: FiniteDuration,
+  frequency: Option[FiniteDuration],
+  query: Query,
+  jar: Option[String],
+  mainClass: Option[String],
+  appArgs: Option[Array[String]],
+  sparkProperties: Option[Map[String, String]],
+  environmentVariables: Option[Map[String, String]],
+  outputPath: Option[String])

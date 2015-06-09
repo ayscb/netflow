@@ -24,7 +24,7 @@ import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.ha._
 
 class ZKRecoveryModeFactory(conf: NetFlowConf, serializer: Serialization)
-  extends RecoveryModeFactory(conf, serializer) {
+    extends RecoveryModeFactory(conf, serializer) {
 
   def createPersistenceEngine() = new LoadMasterZKPersistenceEngine(conf, serializer)
 

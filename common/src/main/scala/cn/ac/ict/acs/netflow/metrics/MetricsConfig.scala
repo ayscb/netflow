@@ -18,7 +18,7 @@
  */
 package cn.ac.ict.acs.netflow.metrics
 
-import java.io.{FileInputStream, InputStream}
+import java.io.{ FileInputStream, InputStream }
 import java.util.Properties
 
 import scala.collection.mutable
@@ -62,15 +62,16 @@ class MetricsConfig(val configFile: Option[String]) extends Logging {
       import scala.collection.JavaConversions._
 
       val defaultProperty = propertyCategories(DEFAULT_PREFIX)
-      for { (inst, prop) <- propertyCategories
-            if (inst != DEFAULT_PREFIX)
-            (k, v) <- defaultProperty
-            if (prop.getProperty(k) == null) } {
+      for {
+        (inst, prop) <- propertyCategories
+        if (inst != DEFAULT_PREFIX)
+        (k, v) <- defaultProperty
+        if (prop.getProperty(k) == null)
+      } {
         prop.setProperty(k, v)
       }
     }
   }
-
 
   def subProperties(prop: Properties, regex: Regex): mutable.HashMap[String, Properties] = {
     val subProperties = new mutable.HashMap[String, Properties]

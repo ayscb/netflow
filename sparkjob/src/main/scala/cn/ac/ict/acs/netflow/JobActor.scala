@@ -22,7 +22,7 @@ import scala.concurrent.Future
 
 import akka.actor._
 
-import org.apache.spark.{SparkContext, SparkConf}
+import org.apache.spark.{ SparkContext, SparkConf }
 import org.apache.spark.sql.SQLContext
 
 import cn.ac.ict.acs.netflow.util._
@@ -30,7 +30,7 @@ import cn.ac.ict.acs.netflow.util._
 class JobActor(
   masterUrl: String,
   jobId: String)
-  extends Actor with ActorLogReceive with Logging {
+    extends Actor with ActorLogReceive with Logging {
   import JobMessages._
   import context.dispatcher
 
@@ -80,7 +80,7 @@ class JobActor(
   }
 
   def runJob(sparkMaster: String, query: Query,
-      resultTracker: ActorRef, outputPath: String): (Boolean, Option[Throwable]) = {
+    resultTracker: ActorRef, outputPath: String): (Boolean, Option[Throwable]) = {
 
     var sc: SparkContext = null
 
@@ -89,10 +89,10 @@ class JobActor(
       sc = new SparkContext(conf)
       val sqlContext = new SQLContext(sc)
 
-//      val result = sqlContext.sql(query.sql)
+      // val result = sqlContext.sql(query.sql)
 
       import sqlContext.implicits._
-      val a = sc.parallelize(Seq(1,2,3,4,5,6,7,8,9,10,11), 5)
+      val a = sc.parallelize(Seq(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), 5)
       val result = a.toDF()
 
       if (resultTracker != null) {

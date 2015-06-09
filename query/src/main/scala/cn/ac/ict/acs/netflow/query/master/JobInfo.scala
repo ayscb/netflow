@@ -24,7 +24,7 @@ import org.joda.time.DateTime
 
 import cn.ac.ict.acs.netflow.Query
 import cn.ac.ict.acs.netflow.query.RestMessages.RestJobInfoResponse
-import cn.ac.ict.acs.netflow.util.{Utils, TimeUtils}
+import cn.ac.ict.acs.netflow.util.{ Utils, TimeUtils }
 
 object JobType extends Enumeration {
   type JobType = Value
@@ -33,20 +33,20 @@ object JobType extends Enumeration {
 }
 
 class JobInfo(
-    val id: String,
-    val desc: Option[String],
-    val jobType: JobType.Value,
-    val submitTime: DateTime,
-    val deferTime: FiniteDuration,
-    val frequency: Option[FiniteDuration],
-    val query: Query,
-    val jar: String,
-    val mainClass: String,
-    val appArgs: Array[String],
-    val sparkProperties: Map[String, String],
-    val environmentVariables: Map[String, String],
-    val outputPath: String)
-  extends Serializable {
+  val id: String,
+  val desc: Option[String],
+  val jobType: JobType.Value,
+  val submitTime: DateTime,
+  val deferTime: FiniteDuration,
+  val frequency: Option[FiniteDuration],
+  val query: Query,
+  val jar: String,
+  val mainClass: String,
+  val appArgs: Array[String],
+  val sparkProperties: Map[String, String],
+  val environmentVariables: Map[String, String],
+  val outputPath: String)
+    extends Serializable {
   import JobState._
 
   def description = desc.getOrElse(mainClass)
@@ -102,6 +102,5 @@ class JobInfo(
     _endTime = Some(new DateTime)
     _submissionId = None
   }
-
 
 }

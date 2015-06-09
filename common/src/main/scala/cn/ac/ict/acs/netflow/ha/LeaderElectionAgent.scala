@@ -36,6 +36,6 @@ trait LeaderElectable {
  * we're initially and always the leader.
  */
 private[netflow] class MonarchyLeaderAgent(val masterActor: LeaderElectable)
-  extends LeaderElectionAgent {
+    extends LeaderElectionAgent {
   masterActor.appointLeader()
 }

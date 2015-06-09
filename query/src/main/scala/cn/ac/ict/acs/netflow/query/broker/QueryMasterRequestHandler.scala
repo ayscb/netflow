@@ -47,11 +47,11 @@ import cn.ac.ict.acs.netflow.util.ActorLogReceive
  * @param conf configuration
  */
 class QueryMasterRequestHandler(
-    rc: RequestContext,
-    requestMessage: RestMessage,
-    master: ActorSelection,
-    conf: NetFlowConf)
-  extends Actor with ActorLogReceive with Json4sSupport with Logging {
+  rc: RequestContext,
+  requestMessage: RestMessage,
+  master: ActorSelection,
+  conf: NetFlowConf)
+    extends Actor with ActorLogReceive with Json4sSupport with Logging {
 
   implicit def json4sFormats = DefaultFormats
 

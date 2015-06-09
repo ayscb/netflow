@@ -22,7 +22,7 @@ import java.net.InetAddress
 import java.util
 import java.util.UUID
 import akka.actor._
-import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
+import akka.remote.{ DisassociatedEvent, RemotingLifecycleEvent }
 
 import org.joda.time.DateTime
 import cn.ac.ict.acs.netflow._
@@ -43,9 +43,9 @@ class LoadWorker(
   actorSystemName: String,
   actorName: String,
   val conf: NetFlowConf)
-  extends Actor with ActorLogReceive
-  with WorkerService with WriteParquetService with CombineService
-  with Logging {
+    extends Actor with ActorLogReceive
+    with WorkerService with WriteParquetService with CombineService
+    with Logging {
 
   import DeployMessages._
   import LoadMessages._
@@ -69,7 +69,7 @@ class LoadWorker(
 
   val FUZZ_MULTIPLIER_INTERVAL_LOWER_BOUND = 0.500 // fuzz multiplier interval lower bound
   val REGISTRATION_RETRY_FUZZ_MULTIPLIER = { // registration retry fuzz multiplier
-  val randomNumberGenerator = new Random(UUID.randomUUID.getMostSignificantBits)
+    val randomNumberGenerator = new Random(UUID.randomUUID.getMostSignificantBits)
     randomNumberGenerator.nextDouble + FUZZ_MULTIPLIER_INTERVAL_LOWER_BOUND
   }
 
@@ -143,7 +143,7 @@ class LoadWorker(
       registered = true
       changeMaster(masterUrl, masterWebUrl)
       context.system.scheduler.schedule(0.millis, HEARTBEAT_MILLIS.millis, self, SendHeartbeat)
-      context.system.scheduler.schedule(0.millis,HEARTBEAT_MILLIS.millis, self, BufferBeat)
+      context.system.scheduler.schedule(0.millis, HEARTBEAT_MILLIS.millis, self, BufferBeat)
 
     case RegisterWorkerFailed(message) =>
       if (!registered) {

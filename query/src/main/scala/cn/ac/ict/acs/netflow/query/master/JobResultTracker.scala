@@ -20,7 +20,7 @@ package cn.ac.ict.acs.netflow.query.master
 
 import akka.actor.Actor
 
-import cn.ac.ict.acs.netflow.{JobMessages, Logging}
+import cn.ac.ict.acs.netflow.{ JobMessages, Logging }
 import cn.ac.ict.acs.netflow.util.ActorLogReceive
 
 class JobResultTracker(cacheSize: Int) extends Actor with ActorLogReceive with Logging {

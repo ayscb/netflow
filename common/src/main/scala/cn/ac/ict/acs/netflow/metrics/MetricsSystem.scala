@@ -28,7 +28,7 @@ import scala.collection.mutable
 
 import com.codahale.metrics.MetricRegistry
 
-import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
+import cn.ac.ict.acs.netflow.{ Logging, NetFlowConf }
 
 class MetricsSystem(
     val instance: String,
@@ -72,7 +72,7 @@ class MetricsSystem(
     defaultName
   }
 
-    def registerSource(source: Source) {
+  def registerSource(source: Source) {
     sources += source
     try {
       val regName = buildRegistryName(source)

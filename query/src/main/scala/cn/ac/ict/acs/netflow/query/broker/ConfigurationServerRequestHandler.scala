@@ -23,15 +23,14 @@ import org.json4s.DefaultFormats
 import spray.httpx.Json4sSupport
 import spray.routing.RequestContext
 
-import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
+import cn.ac.ict.acs.netflow.{ Logging, NetFlowConf }
 import cn.ac.ict.acs.netflow.query.RestMessage
 
 class ConfigurationServerRequestHandler(
-  rc: RequestContext,
-  requestMessage: RestMessage,
-  conf: NetFlowConf) extends Json4sSupport with Logging {
+    rc: RequestContext,
+    requestMessage: RestMessage,
+    conf: NetFlowConf) extends Json4sSupport with Logging {
 
   implicit def json4sFormats = DefaultFormats
-
 
 }

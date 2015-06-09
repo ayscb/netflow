@@ -21,15 +21,15 @@ package cn.ac.ict.acs.netflow.load.util
 import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicInteger
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{PathFilter, FileSystem, Path}
+import org.apache.hadoop.fs.{ PathFilter, FileSystem, Path }
 import parquet.column.ParquetProperties.WriterVersion
 import parquet.hadoop.ParquetWriter
 import parquet.hadoop.metadata.CompressionCodecName
 import cn.ac.ict.acs.netflow.load.LoadConf
-import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
+import cn.ac.ict.acs.netflow.{ Logging, NetFlowConf }
 import cn.ac.ict.acs.netflow.util.TimeUtils
 
-object NetFlowWriterUtil{
+object NetFlowWriterUtil {
 
   private var maxLoad: Float = MemoryManager.DEFAULT_MEMORY_POOL_RATIO
   private var memoryManager: MemoryManager = _
@@ -37,11 +37,11 @@ object NetFlowWriterUtil{
   private def initMemoryManager(conf: NetFlowConf): Unit = synchronized {
     if (memoryManager == null) {
       maxLoad =
-        conf.getFloat(LoadConf.MEMORY_POOL_RATIO,MemoryManager.DEFAULT_MEMORY_POOL_RATIO)
+        conf.getFloat(LoadConf.MEMORY_POOL_RATIO, MemoryManager.DEFAULT_MEMORY_POOL_RATIO)
 
       val minAllocation =
         conf.getLong(
-          LoadConf.MIN_MEMORY_ALLOCATION,MemoryManager.DEFAULT_MIN_MEMORY_ALLOCATION)
+          LoadConf.MIN_MEMORY_ALLOCATION, MemoryManager.DEFAULT_MIN_MEMORY_ALLOCATION)
 
       memoryManager =
         new MemoryManager(maxLoad, minAllocation, writeSupport.getSchema)
@@ -52,13 +52,13 @@ object NetFlowWriterUtil{
   private lazy val netFlowConf = new NetFlowConf(false)
   private lazy val hadoopConf = {
     val conf = new Configuration(false)
-    conf.set("fs.defaultFS","hdfs://localhost:8020")
+    conf.set("fs.defaultFS", "hdfs://localhost:8020")
     conf
   }
 
   val compress =
     CompressionCodecName.fromConf(
-      netFlowConf.get(LoadConf.COMPRESSION,CompressionCodecName.UNCOMPRESSED.name()))
+      netFlowConf.get(LoadConf.COMPRESSION, CompressionCodecName.UNCOMPRESSED.name()))
   val blockSize =
     netFlowConf.getInt(LoadConf.BLOCK_SIZE, ParquetWriter.DEFAULT_BLOCK_SIZE)
   val pageSize =
@@ -88,14 +88,14 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
 
   private val M = 2
   private val writers = new Array[ParquetWriter[NetflowGroup]](M)
-  private var closeBoundary : Long = 0
-  private val times = new Array[Long](M)  // 3 times boundary
+  private var closeBoundary: Long = 0
+  private val times = new Array[Long](M) // 3 times boundary
 
-  private var curWriterIdx = 0              // should be 0 or 1
+  private var curWriterIdx = 0 // should be 0 or 1
   private var startPos = 0
 
-  private val dicInterValTime = netflowConf.getInt(TimeUtils.LOAD_DIR_CREATION_INTERVAL ,600)
-  private val closeInterval = netflowConf.getInt("netflow.close.interval",180)    // default 180s
+  private val dicInterValTime = netflowConf.getInt(TimeUtils.LOAD_DIR_CREATION_INTERVAL, 600)
+  private val closeInterval = netflowConf.getInt("netflow.close.interval", 180) // default 180s
   assert(dicInterValTime > closeInterval)
 
   private val regularTime = Math.min((dicInterValTime + closeInterval) / 2, dicInterValTime / 2)
@@ -113,7 +113,7 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
 
     if (NetFlowWriterUtil.memoryManager != null) {
       NetFlowWriterUtil.memoryManager.removeWriter(writers(curWriterIdx))
-      if(curWriterIdx != startPos) {
+      if (curWriterIdx != startPos) {
         NetFlowWriterUtil.memoryManager.removeWriter(writers(startPos))
       }
     }
@@ -130,31 +130,31 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
 
   }
 
-  def getNetflowWriter(time:Long) : Option[ParquetWriter[NetflowGroup]] ={
-    if(times.head == 0){
+  def getNetflowWriter(time: Long): Option[ParquetWriter[NetflowGroup]] = {
+    if (times.head == 0) {
       // first times to call method
       var checked = false
 
       // get the interval time
-      val baseTime = TimeUtils.getCurrentBastTime(netflowConf,time)
-      val interValTime = netflowConf.getInt(TimeUtils.LOAD_DIR_CREATION_INTERVAL,600)
-      for(i <- times.indices){
-        times(i)= baseTime + i * interValTime
+      val baseTime = TimeUtils.getCurrentBastTime(netflowConf, time)
+      val interValTime = netflowConf.getInt(TimeUtils.LOAD_DIR_CREATION_INTERVAL, 600)
+      for (i <- times.indices) {
+        times(i) = baseTime + i * interValTime
       }
 
       // init the writers
-      for(i <- writers.indices){
+      for (i <- writers.indices) {
         val workPath = getFilePath(times(i))
-        if(!checked){
+        if (!checked) {
           //   checkHDFSFile(workPath)
           checked = true
         }
         writers(i) = initParquetWriter(times(i))
       }
       Some(writers.head)
-    }else{
+    } else {
       time match {
-        case x if x < times(startPos) => None// do nothing
+        case x if x < times(startPos) => None // do nothing
         case x if x < times(getIdx(startPos + 1)) => Some(writers(curWriterIdx))
         case x if x < closeBoundary =>
           regularCloseParquet()
@@ -169,12 +169,12 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
 
   private def getIdx(pos: Int): Int = pos % M
 
-  private def closeParquet():Unit = {
+  private def closeParquet(): Unit = {
     val closeIdx: Int = startPos
     val closeFilepath = getFilePath(times(closeIdx))
 
     startPos = getIdx(startPos + 1)
-    assert(startPos==curWriterIdx)
+    assert(startPos == curWriterIdx)
 
     times(closeIdx) = times(curWriterIdx) + dicInterValTime
     closeBoundary += dicInterValTime
@@ -198,10 +198,10 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
     writers(closeIdx) = initParquetWriter(times(closeIdx))
   }
 
-  private def ImmediatelyCloseParquet(): Unit ={
-    new Thread("Close-thread"){
+  private def ImmediatelyCloseParquet(): Unit = {
+    new Thread("Close-thread") {
       override def run(): Unit = {
-        if(!hasClosed) {
+        if (!hasClosed) {
           hasClosed = true
           closeParquet()
         }
@@ -209,12 +209,12 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
     }.start()
   }
 
-  private def regularCloseParquet():Unit={
-    new Thread("Close-thread"){
-      new Thread("Close-thread"){
+  private def regularCloseParquet(): Unit = {
+    new Thread("Close-thread") {
+      new Thread("Close-thread") {
         override def run(): Unit = {
           Thread.sleep(regularTime * 1000)
-          if(!hasClosed){
+          if (!hasClosed) {
             hasClosed = true
             closeParquet()
           }
@@ -223,13 +223,13 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
     }
   }
 
-  private def getFilePath(time : Long) : Path ={
+  private def getFilePath(time: Long): Path = {
     val basePathTime = TimeUtils.getTimeBasePathBySeconds(netflowConf, time)
     val num = NetFlowWriterUtil.fileIdx.getAndIncrement
     val numStr = if (num < 10) "0" + num.toString else num.toString
     val filestr = NetFlowWriterUtil.host + "-" + numStr + ".parquet"
 
-    new Path(new Path(basePathTime, LoadConf.TEMP_DICTIONARY),filestr)
+    new Path(new Path(basePathTime, LoadConf.TEMP_DICTIONARY), filestr)
   }
 
   private def initParquetWriter(time: Long): ParquetWriter[NetflowGroup] = {
@@ -262,25 +262,24 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
     writer
   }
 
-
   // we should check if the file exist in the HDFS
   // and delete if they are exist
-  private def checkHDFSFile(fileName : Path){
+  private def checkHDFSFile(fileName: Path) {
     val fs = FileSystem.get(NetFlowWriterUtil.hadoopConf)
-    if(fs == null){
+    if (fs == null) {
       logError(s"[Netfloe] Can not connect with HADOOP!")
       return
     }
     val s = fs.listStatus(fileName.getParent)
-    val ffs = fs.listStatus(fileName.getParent,new PathFilter {
+    val ffs = fs.listStatus(fileName.getParent, new PathFilter {
       override def accept(path: Path): Boolean = {
         !path.getName.startsWith(NetFlowWriterUtil.host)
       }
     })
 
-    ffs.foreach(file=>{
-      assert( file.isFile)
-      fs.delete(file.getPath,true)
+    ffs.foreach(file => {
+      assert(file.isFile)
+      fs.delete(file.getPath, true)
     })
   }
 }

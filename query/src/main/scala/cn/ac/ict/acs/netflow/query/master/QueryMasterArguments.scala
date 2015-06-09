@@ -19,7 +19,7 @@
 package cn.ac.ict.acs.netflow.query.master
 
 import cn.ac.ict.acs.netflow.NetFlowConf
-import cn.ac.ict.acs.netflow.util.{Utils, IntParam}
+import cn.ac.ict.acs.netflow.util.{ Utils, IntParam }
 
 class QueryMasterArguments(args: Array[String], conf: NetFlowConf) {
   var host = Utils.localHostName()

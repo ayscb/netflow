@@ -20,7 +20,7 @@ package cn.ac.ict.acs.netflow.load.worker
 
 import scala.collection.JavaConversions._
 
-import com.codahale.metrics.{Gauge, MetricRegistry}
+import com.codahale.metrics.{ Gauge, MetricRegistry }
 
 import cn.ac.ict.acs.netflow.metrics.source.Source
 import org.apache.hadoop.fs.FileSystem
@@ -31,7 +31,7 @@ class LoadWorkerSource(val worker: LoadWorker) extends Source {
 
   import MetricRegistry._
 
-  private def fileStats(scheme: String) : Option[FileSystem.Statistics] =
+  private def fileStats(scheme: String): Option[FileSystem.Statistics] =
     FileSystem.getAllStatistics().find(s => s.getScheme.equals(scheme))
 
   private def registerFileSystemStat[T](

@@ -18,9 +18,9 @@
  */
 package cn.ac.ict.acs.netflow
 
-import org.apache.log4j.{PropertyConfigurator, LogManager}
+import org.apache.log4j.{ PropertyConfigurator, LogManager }
 import org.slf4j.impl.StaticLoggerBinder
-import org.slf4j.{LoggerFactory, Logger}
+import org.slf4j.{ LoggerFactory, Logger }
 
 /**
  * Utility trait for classes that want to log data. Creates a SLF4J logger for the class and allows
