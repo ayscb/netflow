@@ -76,14 +76,24 @@ R10=0x000000077d8154b0 is an oop
  -   5 :  : 'WrapBufferQueue.scala'
  -   6 :  : 'Lscala/reflect/ScalaSignature;'
  -   7 :  : 'bytes'
- -   8 :  : '14A!'	yqK]1qV4g-:Rk,XM	QAn\1e	Hn\=1A3fa2|P)An\1ee)BC]$h\8x	YA"AbGNT!!%GO!m#1M\'	A15	aCC8-7b	IbCB]fVM	7	)A9YQ.=Rk,XMT;n!	)R$-	J;	!!Q
-q	Qb^1s]RC'/Z:i_2$B/1|"bYt7-Z*ue$XmZ=Gk:cA%M%QE
-Vt7^5p]B"!F
-!2"B+oSRDBIaIgtGm<fedwn^'fgNw-Y!	!Ly%t 9GM=Q"	mY	Z		ZA	)ZA	U!!CmY!-4gKJV/Z;f+9c@6	H;wQ1m8dkJXM;qjB;uS2TAPU4-As	)2i8dkJXM;MS:\WZ)vKV,C"F%B#>qn\!BQ=uK
+ -   8 :  : '14A!'	yqK]1qV4g-:Rk,XM	QAn\1e	Hn\=1A3fa2|P)An\1ee)BC]$h
+\8x	YA"AbGNT!!%GO!m#1M\'	A15	aCC8-7b	IbCB]fVM	7	)A9YQ.=Rk,XMT;n!	)R$-	J;	!!Q
+q	Qb^1s]RC'/Z:i_2$B/1|
+"bYt7-Z*ue$XmZ=Gk:cA%M%QE
+
+Vt7
+^5p]B"!F
+!2"B+oSRDBIaIgtGm<fedwn^'fgNw-Y!	!Ly%t 9GM=Q"	mY	Z		ZA	)ZA	U!!CmY!-4gKJV/Z;f+9c@6	H;wQ1m8dkJXM;qjB;uS2TAPU4-As	)2i8dkJXM;MS:\W
+Z)vKV,C"F%B#>
+qn\
+!BQ=uK
 +hMZ3sA)Aoa!-4gKJV/Z;fA!9!
 a
-YE<be:$N]3tQ>dGMT;n+abB'%IAToh5sKNDw3Ok6|F%Z9zb)MHq
-B*A&A$A	xCJtG:fg"|G(v[BQUA]8mYV		CX,ApM,'Z9BQCW7ZqAQ8pYgC^-)csR,')4gKJDQaAcZ3uGV(/8uV4g-:SCR,G#		AB2DWmY6UQJ,7[8mIR	AK&aM:L"5	IE:fi^'O+ien7e)	1#ClOA$	oK^<M8UQJ,7[8mI'
+YE<be:$N]3tQ>dGMT;n+abB'%IAToh5sKNDw3Ok6|F%Z9zb)M
+Hq
+B*A&A$A	xCJtG:fg"|G(v[BQUA]8mYV		CX,ApM,'Z9BQCW7ZqAQ8pYgC^-)csR,')4gKJDQaAcZ3uGV(/8uV4g-:SCR,G#		AB2
+DWmY6UQJ,7[8mIR	A
+K&aM:L"5	IE:fi^'O+ien7e)	1#ClOA$	oK^<M8UQJ,7[8mI'
  -   9 :  : 'maxQueueNum'
  -  10 :  : 'I'
  -  11 :  : 'loadBalanceStrategyFunc'
@@ -416,13 +426,13 @@ Heap after GC invocations=362 (full 2):
 Deoptimization events (10 events):
 Event: 815.759 Thread 0x000000000da64000 Uncommon trap: reason=class_check action=maybe_recompile pc=0x00000000036b4848 method=scala.collection.mutable.HashTable$class.findEntry(Lscala/collection/mutable/HashTable;Ljava/lang/Object;)Lscala/collection/mutable/HashEntry; @ 13
 Event: 815.759 Thread 0x000000000da64000 Uncommon trap: reason=class_check action=maybe_recompile pc=0x00000000036b16c0 method=scala.collection.mutable.HashTable$class.index(Lscala/collection/mutable/HashTable;I)I @ 9
-Event: 815.759 Thread 0x000000000da64000 Uncommon trap: reason=class_check action=maybe_recompile pc=0x0000000003619e04 method=scala.collection.mutable.HashTable$class.scala$collection$mutable$HashTable$$findEntry0(Lscala/collection/mutable/HashTable;Ljava/lang/Object;I)Lscala/collection/mutable/Þ‰@:Ò~‰@
+Event: 815.759 Thread 0x000000000da64000 Uncommon trap: reason=class_check action=maybe_recompile pc=0x0000000003619e04 method=scala.collection.mutable.HashTable$class.scala$collection$mutable$HashTable$$findEntry0(Lscala/collection/mutable/HashTable;Ljava/lang/Object;I)Lscala/collection/mutable/Þ‰@:ï¿½~ï¿½@
 Event: 815.853 Thread 0x000000000da64000 Uncommon trap: reason=class_check action=maybe_recompile pc=0x00000000036b4848 method=scala.collection.mutable.HashTable$class.findEntry(Lscala/collection/mutable/HashTable;Ljava/lang/Object;)Lscala/collection/mutable/HashEntry; @ 13
 Event: 815.853 Thread 0x000000000da64000 Uncommon trap: reason=class_check action=maybe_recompile pc=0x00000000036b16c0 method=scala.collection.mutable.HashTable$class.index(Lscala/collection/mutable/HashTable;I)I @ 9
-Event: 815.853 Thread 0x000000000da64000 Uncommon trap: reason=class_check action=maybe_recompile pc=0x0000000003619e04 method=scala.collection.mutable.HashTable$class.scala$collection$mutable$HashTable$$findEntry0(Lscala/collection/mutable/HashTable;Ljava/lang/Object;I)Lscala/collection/mutable/ä…ïsÒ~‰@
+Event: 815.853 Thread 0x000000000da64000 Uncommon trap: reason=class_check action=maybe_recompile pc=0x0000000003619e04 method=scala.collection.mutable.HashTable$class.scala$collection$mutable$HashTable$$findEntry0(Lscala/collection/mutable/HashTable;Ljava/lang/Object;I)Lscala/collection/mutable/ï¿½ï¿½sï¿½~ï¿½@
 Event: 815.853 Thread 0x000000000da64000 Uncommon trap: reason=class_check action=maybe_recompile pc=0x00000000036b4848 method=scala.collection.mutable.HashTable$class.findEntry(Lscala/collection/mutable/HashTable;Ljava/lang/Object;)Lscala/collection/mutable/HashEntry; @ 13
 Event: 815.853 Thread 0x000000000da64000 Uncommon trap: reason=class_check action=maybe_recompile pc=0x00000000036b16c0 method=scala.collection.mutable.HashTable$class.index(Lscala/collection/mutable/HashTable;I)I @ 9
-Event: 815.853 Thread 0x000000000da64000 Uncommon trap: reason=class_check action=maybe_recompile pc=0x0000000003619e04 method=scala.collection.mutable.HashTable$class.scala$collection$mutable$HashTable$$findEntry0(Lscala/collection/mutable/HashTable;Ljava/lang/Object;I)Lscala/collection/mutable/—¹±µý‰@
+Event: 815.853 Thread 0x000000000da64000 Uncommon trap: reason=class_check action=maybe_recompile pc=0x0000000003619e04 method=scala.collection.mutable.HashTable$class.scala$collection$mutable$HashTable$$findEntry0(Lscala/collection/mutable/HashTable;Ljava/lang/Object;I)Lscala/collection/mutable/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½@
 Event: 815.999 Thread 0x000000000da64000 Uncommon trap: reason=unreached action=reinterpret pc=0x000000000361ee78 method=java.lang.reflect.Method.invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object; @ 50
 
 Internal exceptions (10 events):
