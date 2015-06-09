@@ -19,7 +19,7 @@
 package cn.ac.ict.acs.netflow.load.worker
 
 import java.nio.ByteBuffer
-import java.util.concurrent.{LinkedBlockingQueue, LinkedBlockingDeque}
+import java.util.concurrent.{ LinkedBlockingQueue, LinkedBlockingDeque }
 
 class WrapBufferQueue(
     val maxQueueNum: Int,
@@ -31,12 +31,12 @@ class WrapBufferQueue(
     message = " The Queue warnThreshold should be in (0,100) ")
 
   private val bufferQueue = new LinkedBlockingQueue[ByteBuffer](maxQueueNum)
- // private val bufferQueue = new SynchronousQueue[ByteBuffer]()
-  private val warnThresholdNum = ((warnThreshold * 1.0 / 100 ) * maxQueueNum ).asInstanceOf[Int]
+  // private val bufferQueue = new SynchronousQueue[ByteBuffer]()
+  private val warnThresholdNum = ((warnThreshold * 1.0 / 100) * maxQueueNum).asInstanceOf[Int]
 
   // get the element from queue , block when the queue is empty
   def take = {
-    println("\t\t\t\ttake data :" + bufferQueue.size() +" ---- " + bufferQueue.remainingCapacity())
+    println("\t\t\t\ttake data :" + bufferQueue.size() + " ---- " + bufferQueue.remainingCapacity())
     bufferQueue.take()
   }
 
@@ -44,7 +44,7 @@ class WrapBufferQueue(
   def put(byteBuffer: ByteBuffer) = {
     checkThreshold()
     bufferQueue.put(byteBuffer)
-  //  println("put into data :" + bufferQueue.size() +" ---- " + bufferQueue.remainingCapacity())
+    //  println("put into data :" + bufferQueue.size() +" ---- " + bufferQueue.remainingCapacity())
   }
 
   // get the element from queue , return null when the queue is empty
@@ -56,12 +56,12 @@ class WrapBufferQueue(
     bufferQueue.offer(byteBuffer)
   }
 
-  def getcurrentBufferRate() : Int = {
-    (1.0*bufferQueue.size()/maxQueueNum).asInstanceOf[Int]
+  def getcurrentBufferRate(): Int = {
+    (1.0 * bufferQueue.size() / maxQueueNum).asInstanceOf[Int]
   }
 
   private def checkThreshold() = {
-    if(bufferQueue.size() > warnThresholdNum ){    // warn
+    if (bufferQueue.size() > warnThresholdNum) { // warn
       loadBalanceStrategyFunc
     } else if (bufferQueue.remainingCapacity() < 10) {
       // will block.....

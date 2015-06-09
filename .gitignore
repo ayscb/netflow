@@ -56,3 +56,4 @@ scalastyle-output.xml
 dependency-reduced-pom.xml
 
 sbt/
+hs_err_pid*.log

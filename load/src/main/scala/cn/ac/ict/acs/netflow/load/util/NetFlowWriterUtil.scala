@@ -93,7 +93,7 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
   private var curWriterIdx = 0              // should be 0 or 1
   private var startPos = 0
 
-  private val dicInterValTime = netflowConf.getInt(LoadConf.dICTIONARY_INTERVAL,600)
+  private val dicInterValTime = netflowConf.getInt(TimeUtils.LOAD_DIR_CREATION_INTERVAL,600)
   private val closeInterval = netflowConf.getInt("netflow.close.interval",180)    // default 180s
   assert(dicInterValTime > closeInterval)
 
