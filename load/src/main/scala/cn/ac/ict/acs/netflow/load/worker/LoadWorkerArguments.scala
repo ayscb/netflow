@@ -31,7 +31,6 @@ class LoadWorkerArguments(args: Array[String], conf: NetFlowConf) {
   var cores = inferDefaultCores()
   var memory = inferDefaultMemory()
   var masters: Array[String] = _
-  var workDir: String = _
   var propertiesFile: String = _
 
   // Check for settings in environment variables
@@ -46,9 +45,6 @@ class LoadWorkerArguments(args: Array[String], conf: NetFlowConf) {
   }
   if (System.getenv("NETFLOW_QUERY_WORKER_WEBUI_PORT") != null) {
     webUiPort = System.getenv("NETFLOW_QUERY_WORKER_WEBUI_PORT").toInt
-  }
-  if (System.getenv("NETFLOW_QUERY_WORKER_DIR") != null) {
-    workDir = System.getenv("NETFLOW_QUERY_WORKER_DIR")
   }
 
   parse(args.toList)
@@ -74,11 +70,6 @@ class LoadWorkerArguments(args: Array[String], conf: NetFlowConf) {
     case ("--memory" | "-m") :: MemoryParam(value) :: tail =>
       memory = value
       parse(tail)
-
-    case ("--work-dir" | "-d") :: value :: tail =>
-      workDir = value
-      parse(tail)
-
     case "--webui-port" :: IntParam(value) :: tail =>
       webUiPort = value
       parse(tail)
@@ -94,7 +85,7 @@ class LoadWorkerArguments(args: Array[String], conf: NetFlowConf) {
       if (masters != null) { // Two positional arguments were given
         printUsageAndExit(1)
       }
-      masters = value.stripPrefix("netflow-query://").split(",").map("netflow-query://" + _)
+        masters = value.stripPrefix("netflow-load://").split(",").map("netflow-load://" + _)
       parse(tail)
 
     case Nil =>
@@ -111,7 +102,7 @@ class LoadWorkerArguments(args: Array[String], conf: NetFlowConf) {
    */
   private def printUsageAndExit(exitCode: Int) {
     System.err.println(
-      "Usage: QueryWorker [options] <master>\n" +
+      "Usage: LoadWorker [options] <master>\n" +
         "\n" +
         "Master must be a URL of the form netflow-query://hostname:port\n" +
         "\n" +

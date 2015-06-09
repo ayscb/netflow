@@ -199,13 +199,8 @@ object AkkaUtils extends Logging {
     protocol(akkaConf.hasPath(sslProp) && akkaConf.getBoolean(sslProp))
   }
 
-  def protocol(ssl: Boolean = false): String = {
-    if (ssl) {
-      "akka.ssl.tcp"
-    } else {
-      "akka.tcp"
-    }
-  }
+  def protocol(ssl: Boolean = false): String =
+    if (ssl) "akka.ssl.tcp" else "akka.tcp"
 
   def address(
       protocol: String,

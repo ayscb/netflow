@@ -18,35 +18,34 @@
  */
 package cn.ac.ict.acs.netflow.load.worker
 
+import java.net.InetAddress
 import java.util
 import java.util.UUID
-
-import scala.util.Random
-import scala.concurrent.duration._
-
 import akka.actor._
 import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
 
 import org.joda.time.DateTime
-
 import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.load.LoadMessages
 import cn.ac.ict.acs.netflow.load.master.LoadMaster
 import cn.ac.ict.acs.netflow.util._
 
+import scala.util.Random
+import scala.concurrent.duration._
+
 class LoadWorker(
-    host: String,
-    port: Int,
-    webUiPort: Int,
-    cores: Int,
-    memory: Int,
-    masterAkkaUrls: Array[String],
-    actorSystemName: String,
-    actorName: String,
-    val conf: NetFlowConf)
-    extends Actor with ActorLogReceive
-    with WorkerService with WriteParquetService with CombineService
-    with Logging {
+  host: String,
+  port: Int,
+  webUiPort: Int,
+  cores: Int,
+  memory: Int,
+  masterAkkaUrls: Array[String],
+  actorSystemName: String,
+  actorName: String,
+  val conf: NetFlowConf)
+  extends Actor with ActorLogReceive
+  with WorkerService with WriteParquetService with CombineService
+  with Logging {
 
   import DeployMessages._
   import LoadMessages._
@@ -70,7 +69,7 @@ class LoadWorker(
 
   val FUZZ_MULTIPLIER_INTERVAL_LOWER_BOUND = 0.500 // fuzz multiplier interval lower bound
   val REGISTRATION_RETRY_FUZZ_MULTIPLIER = { // registration retry fuzz multiplier
-    val randomNumberGenerator = new Random(UUID.randomUUID.getMostSignificantBits)
+  val randomNumberGenerator = new Random(UUID.randomUUID.getMostSignificantBits)
     randomNumberGenerator.nextDouble + FUZZ_MULTIPLIER_INTERVAL_LOWER_BOUND
   }
 
@@ -102,8 +101,8 @@ class LoadWorker(
   var registrationRetryTimer: Option[Cancellable] = None
 
   // load data
-  val defaultWriterNum = conf.getInt("netflow.writer.default.number", 2)
-  val maxQueueNum = conf.getInt("netflow.queue.maxPackageNum", 10000)
+  val defaultWriterNum = conf.getInt("netflow.writer.default.number", 1)
+  val maxQueueNum = conf.getInt("netflow.queue.maxPackageNum", 100000000)
   val warnThreshold = {
     val threshold = conf.getInt("netflow.queue.defalutWarnThreshold", 70)
     if (0 < threshold && threshold < 100) threshold else 70
@@ -114,18 +113,22 @@ class LoadWorker(
       DefaultLoadBalanceStrategy.loadBalanceWorker,
       () => master ! BufferOverFlow)
 
+  val workerIP = InetAddress.getLocalHost.getHostAddress
+
   def coresFree: Int = cores - coresUsed
   def memoryFree: Int = memory - memoryUsed
 
   override def preStart(): Unit = {
     assert(!registered)
-    logInfo("Starting NetFlow QueryWorker %s:%d with %d cores, %s RAM".format(
+    logInfo("[Netflow] Starting NetFlow loadWorker %s:%d with %d cores, %s RAM".format(
       host, port, cores, Utils.megabytesToString(memory)))
-    logInfo(s"Running NetFlow version ${cn.ac.ict.acs.netflow.NETFLOW_VERSION}")
+    logInfo(s"[Netflow] Running NetFlow version ${cn.ac.ict.acs.netflow.NETFLOW_VERSION}")
     context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
 
-    initResolvingNetFlowThreads(defaultWriterNum)
+    logInfo(s"[Netflow] Init write parquet pool, and will start $defaultWriterNum threads")
+    initParquetWriterPool(defaultWriterNum)
     startWorkerService()
+
     registerWithMaster()
   }
 
@@ -136,19 +139,20 @@ class LoadWorker(
 
   override def receiveWithLogging = {
     case RegisteredWorker(masterUrl, masterWebUrl) =>
-      logInfo("Successfully registered with Query Master " + masterUrl)
+      logInfo("[Netflow] Successfully registered with load Master " + masterUrl)
       registered = true
       changeMaster(masterUrl, masterWebUrl)
       context.system.scheduler.schedule(0.millis, HEARTBEAT_MILLIS.millis, self, SendHeartbeat)
+      context.system.scheduler.schedule(0.millis,HEARTBEAT_MILLIS.millis, self, BufferBeat)
 
     case RegisterWorkerFailed(message) =>
       if (!registered) {
-        logError("Worker registration failed: " + message)
+        logError("[Netflow] Worker registration failed: " + message)
         System.exit(1)
       }
 
     case ReconnectWorker(masterUrl) =>
-      logInfo(s"Master with url $masterUrl requested this worker to reconnect.")
+      logInfo(s"[Netflow] Master with url $masterUrl requested this worker to reconnect.")
       registerWithMaster()
 
     case ReregisterWithMaster =>
@@ -156,18 +160,24 @@ class LoadWorker(
 
     case MasterChanged(masterUrl, masterWebUrl) =>
       // Get this message because of master recovery
-      logInfo("Master has changed, new master is at " + masterUrl)
+      logInfo("[Netflow] Master has changed, new master is at " + masterUrl)
       changeMaster(masterUrl, masterWebUrl)
 
     case SendHeartbeat =>
       if (connected) { master ! Heartbeat(workerId) }
 
     case x: DisassociatedEvent if x.remoteAddress == masterAddress =>
-      logInfo(s"$x Disassociated !")
+      logInfo(s"[Netflow] $x Disassociated !")
       masterDisconnected()
 
     case CombineParquet =>
-      combineService.start()
+    // combineService.start()
+
+    case BufferBeat =>
+      if (connected) master ! BufferReport(workerIP, bufferList.currentBufferRate())
+
+    case BufferInfo =>
+      master ! BufferReport(workerIP, bufferList.currentBufferRate())
   }
 
   private def changeMaster(url: String, webUrl: String): Unit = {
@@ -196,14 +206,14 @@ class LoadWorker(
             INITIAL_REGISTRATION_RETRY_INTERVAL, self, ReregisterWithMaster)
         }
       case Some(_) =>
-        logInfo("Not spawning another attempt to register with the master, since there is an" +
-          " attempt scheduled already.")
+        logInfo("[Netflow] Not spawning another attempt to register with the master," +
+          " since there is an attempt scheduled already.")
     }
   }
 
   private def tryRegisterAllMasters() {
     for (masterAkkaUrl <- masterAkkaUrls) {
-      logInfo("Connecting to QueryMaster " + masterAkkaUrl + "...")
+      logInfo("[Netflow] Connecting to Load Master " + masterAkkaUrl + "...")
       val actor = context.actorSelection(masterAkkaUrl)
       actor ! RegisterWorker(workerId, host, port, cores, memory, webUiPort, getWorkerServicePort)
     }
@@ -282,6 +292,7 @@ class LoadWorker(
     private var lastThreadNum = 0
 
     override def loadBalanceWorker(): Unit = {
+      logInfo("loadBalanceWorker")
       val currentThreadNum = getCurrentThreadsNum
       val currentThreadsAverageRate =
         calculateAverageRate(getCurrentThreadsRate)
@@ -331,9 +342,15 @@ object LoadWorker extends Logging {
   def main(argStrings: Array[String]) {
     SignalLogger.register(log)
     val conf = new NetFlowConf
-    val args = new LoadWorkerArguments(argStrings, conf)
+    //  val args = new LoadWorkerArguments(argStrings, conf)
+
+    val arg = new Array[String](1)
+    // arg(0) = "netflow-load://aysdp:9099"
+    arg(0) = "10.30.5.139:9099"
+    val args = new LoadWorkerArguments(arg, conf)
+
     val (actorSystem, _) = startSystemAndActor(args.host, args.port, args.webUiPort,
-      args.cores, args.memory, args.masters, args.workDir, conf = conf)
+      args.cores, args.memory, args.masters, conf = conf)
     actorSystem.awaitTermination()
   }
 
@@ -344,7 +361,6 @@ object LoadWorker extends Logging {
     cores: Int,
     memory: Int,
     masterUrls: Array[String],
-    workDir: String,
     workerNumber: Option[Int] = None,
     conf: NetFlowConf = new NetFlowConf): (ActorSystem, Int) = {
 
@@ -353,7 +369,7 @@ object LoadWorker extends Logging {
     val masterAkkaUrls = masterUrls.map(
       LoadMaster.toAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
     actorSystem.actorOf(Props(classOf[LoadWorker], host, boundPort, webUiPort, cores,
-      memory, masterAkkaUrls, sysName, actorName, workDir, conf), name = actorName)
+      memory, masterAkkaUrls, sysName, actorName, conf), name = actorName)
     (actorSystem, boundPort)
   }
 }

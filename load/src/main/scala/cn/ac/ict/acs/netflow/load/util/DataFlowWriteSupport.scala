@@ -29,15 +29,27 @@ import org.apache.spark.Logging
 import parquet.hadoop.api.WriteSupport
 import parquet.io.api.{Binary, RecordConsumer}
 import parquet.schema.{MessageType, Type}
+import parquet.schema.PrimitiveType.PrimitiveTypeName._
+
+/**
+ * get the parquet writer from some configure
+ *
+ */
+// TODO
+case class NetflowGroup(version : Int, template: SingleTemplate,
+  Header: Array[AnyVal], data: ByteBuffer) {
+  // netflow's statistic. For count the netflow numbers to judge when a record is over
+  var flowCount = 0
+  def getflowCount = flowCount
+}
 
 /**
  * get the writeSupport for analysis the record as one row ( nest format )
  * Created by ayscb on 2015/4/23.
  */
-
-abstract class DataFlowWriteSupport extends WriteSupport[NetflowGroup] with Logging {
-  protected var schema: MessageType = _
-  protected var write: RecordConsumer = null
+class DataFlowWriteSupport extends WriteSupport[NetflowGroup] with Logging {
+  private val schema: MessageType = NetFlowShema.singleSchema
+  private var write: RecordConsumer = null
 
   def getSchema = schema
 
@@ -53,16 +65,15 @@ abstract class DataFlowWriteSupport extends WriteSupport[NetflowGroup] with Logg
 
   override def write(record: NetflowGroup): Unit = {
     log.debug("[ parquet : the template' length is %d ] ".format(record.template.fieldsCount))
-    log.debug("[ parquet : the data header' length is %d ] ".format(record.Header.size))
-    analysisFlowSetData(record)
+    log.debug("[ parquet : the data header' length is %d ] ".format(record.Header.length))
+
+    record.version match {
+      case 9 => parseVarFlowSetData(record)
+      case _ => parseFixeFlowSetData(record)
+    }
   }
 
-  // the data ' position is from flowSet length
-  protected def analysisFlowSetData(record: NetflowGroup): Unit
-
-  import parquet.schema.PrimitiveType.PrimitiveTypeName._
-
-  protected def writePrimitiveValue(
+  private def writePrimitiveValue(
     types: parquet.schema.PrimitiveType,
     data: ByteBuffer,
     dataLen: Int) = {
@@ -95,7 +106,7 @@ abstract class DataFlowWriteSupport extends WriteSupport[NetflowGroup] with Logg
     }
   }
 
-  protected def writeHeaderValue(
+  private def writeHeaderValue(
     types: parquet.schema.PrimitiveType,
     data: Any): Unit = {
     types.getPrimitiveTypeName match {
@@ -105,34 +116,46 @@ abstract class DataFlowWriteSupport extends WriteSupport[NetflowGroup] with Logg
       case FIXED_LEN_BYTE_ARRAY =>
         val dataArray = data.asInstanceOf[Array[Byte]]
         write.addBinary(
-          Binary.fromByteArray(util.Arrays.copyOf(dataArray, dataArray.size)))
+          Binary.fromByteArray(util.Arrays.copyOf(dataArray, dataArray.length)))
       case INT96 => throw new RuntimeException("[ parquet ] No support this type")
       case _ => throw new RuntimeException("[ parquet ] No support this type")
     }
   }
 
-}
-
-class DataFlowSingleWriteSupport extends DataFlowWriteSupport {
-  schema = NetFlowShema.singleSchema
-
-  override def analysisFlowSetData(record: NetflowGroup): Unit = {
+  // the data ' position is from flowSet length
+  private def parseVarFlowSetData(record: NetflowGroup): Unit = {
 
     // except 'flowSetID' and 'length' field length
+    val startPos = record.data.position()
     val tempID = record.data.getShort
-    val flowLen = BytesUtil.toUShort(record.data) - 4
+    val flowLen = record.data.getShort
 
-    val fields: util.List[Type] = schema.getFields // get whole fielsd
-    var bytesCount = 0
+    if(flowLen <= 0){
+      // skip inaccurate package
+      logWarning(s"[Netflow] The package's length should be > 0, but now $flowLen")
+      return
+    }
+
+    //   val fields: util.List[Type] = schema.getFields // get whole fielsd
+    var bytesCount = 4
 
     // we analysis the package as multirow
     while (bytesCount != flowLen) {
+
+      if(bytesCount > flowLen ){
+        // skip inaccurate package
+        logWarning(s"[Netflow] The package's length should be $flowLen, but now $bytesCount")
+        record.data.position(startPos + flowLen)
+        return
+      }
+
       var clmIdx = 0
       write.startMessage()
 
       // write the header
       record.Header.foreach(x => {
-        val curFields = fields.get(clmIdx).asPrimitiveType()
+        //       val curFields = fields.get(clmIdx).asPrimitiveType()
+        val curFields = schema.getType(clmIdx).asPrimitiveType()
         write.startField(curFields.getName, clmIdx)
         writeHeaderValue(curFields, x)
         write.endField(curFields.getName, clmIdx)
@@ -143,16 +166,46 @@ class DataFlowSingleWriteSupport extends DataFlowWriteSupport {
       val temp = record.template.iterator
       temp.foreach(field => {
         val curClmId = clmIdx + field._1
-        val curFields = fields.get(curClmId).asPrimitiveType()
+        //    val curFields = fields.get(curClmId).asPrimitiveType()
+        val curFields = schema.getType(curClmId).asPrimitiveType()
+
         write.startField(curFields.getName, curClmId)
         writePrimitiveValue(curFields, record.data, field._2)
-        write.endField(curFields.getName, field._1)
+        write.endField(curFields.getName, curClmId)
         bytesCount += field._2
       })
 
       write.endMessage()
-      //  bytesCount += record.template.getRecordBytes
-      record.flowCount = record.flowCount + 1
+      record.flowCount +=  1
     }
+  }
+
+  private def parseFixeFlowSetData(record:NetflowGroup): Unit = {
+
+    val fields: util.List[Type] = schema.getFields // get whole fielsd
+
+    var clmIdx = 0
+
+    write.startMessage()
+    // write the header
+    record.Header.foreach(x => {
+      val curFields = fields.get(clmIdx).asPrimitiveType()
+      write.startField(curFields.getName, clmIdx)
+      writeHeaderValue(curFields, x)
+      write.endField(curFields.getName, clmIdx)
+      clmIdx += 1
+    })
+
+    // write the body
+    val tempIter = record.template.iterator
+    tempIter.foreach(field => {
+      val curClmId = clmIdx + field._1
+      val curFields = fields.get(curClmId).asPrimitiveType()
+      write.startField(curFields.getName, curClmId)
+      writePrimitiveValue(curFields, record.data, field._2)
+      write.endField(curFields.getName, field._1)
+    })
+    write.endMessage()
+    record.flowCount =  1
   }
 }

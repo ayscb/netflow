@@ -20,6 +20,7 @@ package cn.ac.ict.acs.netflow
 
 import org.apache.spark.sql.types._
 
+@deprecated
 object NetFlowSchema extends java.io.Serializable{
   private val NULLABLE: Boolean = true
 

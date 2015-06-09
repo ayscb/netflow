@@ -29,6 +29,7 @@ import cn.ac.ict.acs.netflow.load.util.ParquetState.ParquetState
 import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
 
 /**
+ * merge all parquets's meta infomation in a assigned document to a single file
  * Created by ayscb on 2015/4/23.
  */
 object NetFlowCombineMeta extends Logging {

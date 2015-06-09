@@ -20,157 +20,267 @@ package cn.ac.ict.acs.netflow.load.util
 
 import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicInteger
-
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
+import org.apache.hadoop.fs.{PathFilter, FileSystem, Path}
 import parquet.column.ParquetProperties.WriterVersion
 import parquet.hadoop.ParquetWriter
 import parquet.hadoop.metadata.CompressionCodecName
-
 import cn.ac.ict.acs.netflow.load.LoadConf
 import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
 import cn.ac.ict.acs.netflow.util.TimeUtils
 
-/**
- * get the parquet writer from some configure
- *
- */
-object NetFlowWriterUtil {
+object NetFlowWriterUtil{
 
-  private var maxLoad: Float = 0.0f
+  private var maxLoad: Float = MemoryManager.DEFAULT_MEMORY_POOL_RATIO
   private var memoryManager: MemoryManager = _
 
   private def initMemoryManager(conf: NetFlowConf): Unit = synchronized {
     if (memoryManager == null) {
-      val maxLoad =
-        conf.getFloat(
-          LoadConf.MEMORY_POOL_RATIO,
-          MemoryManager.DEFAULT_MEMORY_POOL_RATIO)
+      maxLoad =
+        conf.getFloat(LoadConf.MEMORY_POOL_RATIO,MemoryManager.DEFAULT_MEMORY_POOL_RATIO)
+
       val minAllocation =
         conf.getLong(
-          LoadConf.MIN_MEMORY_ALLOCATION,
-          MemoryManager.DEFAULT_MIN_MEMORY_ALLOCATION)
+          LoadConf.MIN_MEMORY_ALLOCATION,MemoryManager.DEFAULT_MIN_MEMORY_ALLOCATION)
+
       memoryManager =
         new MemoryManager(maxLoad, minAllocation, writeSupport.getSchema)
     }
   }
 
   private val host = InetAddress.getLocalHost.getHostName
+  private lazy val netFlowConf = new NetFlowConf(false)
+  private lazy val hadoopConf = {
+    val conf = new Configuration(false)
+    conf.set("fs.defaultFS","hdfs://localhost:8020")
+    conf
+  }
+
+  val compress =
+    CompressionCodecName.fromConf(
+      netFlowConf.get(LoadConf.COMPRESSION,CompressionCodecName.UNCOMPRESSED.name()))
+  val blockSize =
+    netFlowConf.getInt(LoadConf.BLOCK_SIZE, ParquetWriter.DEFAULT_BLOCK_SIZE)
+  val pageSize =
+    netFlowConf.getInt(LoadConf.PAGE_SIZE, ParquetWriter.DEFAULT_PAGE_SIZE)
+  val enableDictionary =
+    netFlowConf.getBoolean(LoadConf.ENABLE_DICTIONARY,
+      ParquetWriter.DEFAULT_IS_DICTIONARY_ENABLED)
+  val dictionaryPageSize =
+    netFlowConf.getInt(LoadConf.DICTIONARY_PAGE_SIZE, ParquetWriter.DEFAULT_PAGE_SIZE)
+  val vilidating =
+    netFlowConf.getBoolean(LoadConf.PAGE_SIZE, ParquetWriter.DEFAULT_IS_VALIDATING_ENABLED)
+  val writerVersion =
+    WriterVersion.fromString(
+      netFlowConf.get(LoadConf.WRITER_VERSION, WriterVersion.PARQUET_1_0.toString))
+  val MemoryManageEnable =
+    netFlowConf.getBoolean(LoadConf.ENABLE_MEMORYMANAGER, defaultValue = false)
 
   // *************************************************************************************
-  private lazy val writeSupport = new DataFlowSingleWriteSupport()
+  private lazy val writeSupport = new DataFlowWriteSupport()
+  private val fileIdx = new AtomicInteger()
 
   def apply(netflowConf: NetFlowConf) = new NetFlowWriterUtil(netflowConf)
-
-  private val fileIdx = new AtomicInteger()
-  // ************************** other method ********************************************
-
-  def main(args: Array[String]) {
-    val netflow = new NetFlowWriterUtil(new NetFlowConf())
-  }
 }
 
+// TODO ? may has bug
 class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
 
-  lazy val compress =
-    CompressionCodecName.fromConf(
-      netflowConf.get(
-        LoadConf.COMPRESSION,
-        CompressionCodecName.UNCOMPRESSED.name()))
-  lazy val blockSize =
-    netflowConf.getInt(LoadConf.BLOCK_SIZE, ParquetWriter.DEFAULT_BLOCK_SIZE)
-  lazy val pageSize =
-    netflowConf.getInt(LoadConf.PAGE_SIZE, ParquetWriter.DEFAULT_PAGE_SIZE)
-  lazy val enableDictionary =
-    netflowConf.getBoolean(LoadConf.ENABLE_DICTIONARY, ParquetWriter.DEFAULT_IS_DICTIONARY_ENABLED)
-  lazy val dictionaryPageSize =
-    netflowConf.getInt(LoadConf.DICTIONARY_PAGE_SIZE, ParquetWriter.DEFAULT_PAGE_SIZE)
-  lazy val validating =
-    netflowConf.getBoolean(LoadConf.PAGE_SIZE, ParquetWriter.DEFAULT_IS_VALIDATING_ENABLED)
-  lazy val writerVersion =
-    WriterVersion.fromString(
-      netflowConf.get(LoadConf.WRITER_VERSION, WriterVersion.PARQUET_1_0.toString))
+  private val M = 2
+  private val writers = new Array[ParquetWriter[NetflowGroup]](M)
+  private var closeBoundary : Long = 0
+  private val times = new Array[Long](M)  // 3 times boundary
 
-  lazy val MemoryManageEnable =
-    netflowConf.getBoolean(LoadConf.ENABLE_MEMORYMANAGER, defaultValue = false)
+  private var curWriterIdx = 0              // should be 0 or 1
+  private var startPos = 0
 
-  private var writer: ParquetWriter[NetflowGroup] = null
-  private var nextTime: Long = 0L
-  private var workPath: Path = _
+  private val dicInterValTime = netflowConf.getInt(TimeUtils.LOAD_DIR_CREATION_INTERVAL ,600)
+  private val closeInterval = netflowConf.getInt("netflow.close.interval",180)    // default 180s
+  assert(dicInterValTime > closeInterval)
 
-  private def initParquetWriter(file: Path): Unit = {
-    log.info(s"[ NetFlow : Parquet block size(MB) : %d MB ] ".format(blockSize / 1024 / 1024))
-    log.info(s"[ NetFlow : Parquet page size(KB) : %d KB ] ".format(pageSize / 1024))
-    log.info(s"[ NetFlow : Parquet dictionary page size :  $dictionaryPageSize ]")
-    log.info(s"[ NetFlow : Dictionary is $enableDictionary ]")
-    log.info(s"[ NetFlow : Validation is $validating ]")
-    log.info(s"[ NetFlow : Writer version is $writerVersion ]")
+  private val regularTime = Math.min((dicInterValTime + closeInterval) / 2, dicInterValTime / 2)
+  private var hasClosed = false
 
-    writer = new ParquetWriter[NetflowGroup](
-      file, NetFlowWriterUtil.writeSupport, compress,
-      blockSize, pageSize,
-      dictionaryPageSize, enableDictionary, validating, writerVersion, new Configuration())
+  private var changeWriter = false
 
-    if (MemoryManageEnable) {
+  def closeParquetWriter(): Unit = {
+    if (curWriterIdx == startPos) {
+      writers(curWriterIdx).close()
+    } else {
+      writers(curWriterIdx).close()
+      writers(startPos).close()
+    }
+
+    if (NetFlowWriterUtil.memoryManager != null) {
+      NetFlowWriterUtil.memoryManager.removeWriter(writers(curWriterIdx))
+      if(curWriterIdx != startPos) {
+        NetFlowWriterUtil.memoryManager.removeWriter(writers(startPos))
+      }
+    }
+
+    // remove the file
+    // workPath 2015/1/1/1/00/_temp/host-01.parquet => 2015/1/1/1/00/host-01.parquet
+    val closeFilepath = getFilePath(times(curWriterIdx))
+    val fileName = closeFilepath.getName // fileName = host-01.parquet
+    val workBase = closeFilepath.getParent.getParent // workBase = 2015/1/1/1/00/
+
+    val fs = workBase.getFileSystem(new Configuration())
+    fs.rename(closeFilepath, new Path(workBase, fileName))
+    fs.close()
+
+  }
+
+  def getNetflowWriter(time:Long) : Option[ParquetWriter[NetflowGroup]] ={
+    if(times.head == 0){
+      // first times to call method
+      var checked = false
+
+      // get the interval time
+      val baseTime = TimeUtils.getCurrentBastTime(netflowConf,time)
+      val interValTime = netflowConf.getInt(TimeUtils.LOAD_DIR_CREATION_INTERVAL,600)
+      for(i <- times.indices){
+        times(i)= baseTime + i * interValTime
+      }
+
+      // init the writers
+      for(i <- writers.indices){
+        val workPath = getFilePath(times(i))
+        if(!checked){
+          //   checkHDFSFile(workPath)
+          checked = true
+        }
+        writers(i) = initParquetWriter(times(i))
+      }
+      Some(writers.head)
+    }else{
+      time match {
+        case x if x < times(startPos) => None// do nothing
+        case x if x < times(getIdx(startPos + 1)) => Some(writers(curWriterIdx))
+        case x if x < closeBoundary =>
+          regularCloseParquet()
+          curWriterIdx = curWriterIdx ^ startPos
+          Some(writers(curWriterIdx))
+        case _ =>
+          ImmediatelyCloseParquet()
+          Some(writers(curWriterIdx))
+      }
+    }
+  }
+
+  private def getIdx(pos: Int): Int = pos % M
+
+  private def closeParquet():Unit = {
+    val closeIdx: Int = startPos
+    val closeFilepath = getFilePath(times(closeIdx))
+
+    startPos = getIdx(startPos + 1)
+    assert(startPos==curWriterIdx)
+
+    times(closeIdx) = times(curWriterIdx) + dicInterValTime
+    closeBoundary += dicInterValTime
+
+    writers(closeIdx).close()
+    if (NetFlowWriterUtil.memoryManager != null) {
+      NetFlowWriterUtil.memoryManager.removeWriter(writers(closeIdx))
+    }
+    logInfo(s"[Netflow] File $closeFilepath write over!")
+
+    // remove the file
+    // workPath 2015/1/1/1/00/_temp/host-01.parquet => 2015/1/1/1/00/host-01.parquet
+    val fileName = closeFilepath.getName // fileName = host-01.parquet
+    val workBase = closeFilepath.getParent.getParent // workBase = 2015/1/1/1/00/
+
+    val fs = workBase.getFileSystem(new Configuration())
+    fs.rename(closeFilepath, new Path(workBase, fileName))
+    fs.close()
+
+    // init
+    writers(closeIdx) = initParquetWriter(times(closeIdx))
+  }
+
+  private def ImmediatelyCloseParquet(): Unit ={
+    new Thread("Close-thread"){
+      override def run(): Unit = {
+        if(!hasClosed) {
+          hasClosed = true
+          closeParquet()
+        }
+      }
+    }.start()
+  }
+
+  private def regularCloseParquet():Unit={
+    new Thread("Close-thread"){
+      new Thread("Close-thread"){
+        override def run(): Unit = {
+          Thread.sleep(regularTime * 1000)
+          if(!hasClosed){
+            hasClosed = true
+            closeParquet()
+          }
+        }
+      }.start()
+    }
+  }
+
+  private def getFilePath(time : Long) : Path ={
+    val basePathTime = TimeUtils.getTimeBasePathBySeconds(netflowConf, time)
+    val num = NetFlowWriterUtil.fileIdx.getAndIncrement
+    val numStr = if (num < 10) "0" + num.toString else num.toString
+    val filestr = NetFlowWriterUtil.host + "-" + numStr + ".parquet"
+
+    new Path(new Path(basePathTime, LoadConf.TEMP_DICTIONARY),filestr)
+  }
+
+  private def initParquetWriter(time: Long): ParquetWriter[NetflowGroup] = {
+    log.info(s"[NetFlow: Parquet block size(MB) : %d MB ] "
+      .format(NetFlowWriterUtil.blockSize / 1024 / 1024))
+    log.info(s"[NetFlow: Parquet page size(KB) : %d KB ] "
+      .format(NetFlowWriterUtil.pageSize / 1024))
+    log.info(s"[NetFlow: Parquet dictionary page size :" +
+      s" ${NetFlowWriterUtil.dictionaryPageSize} ]")
+    log.info(s"[NetFlow: Dictionary is ${NetFlowWriterUtil.enableDictionary} ]")
+    log.info(s"[NetFlow: Validation is ${NetFlowWriterUtil.vilidating} ]")
+    log.info(s"[NetFlow: Writer version is ${NetFlowWriterUtil.writerVersion} ]")
+
+    val writer = new ParquetWriter[NetflowGroup](
+      getFilePath(time), NetFlowWriterUtil.writeSupport, NetFlowWriterUtil.compress,
+      NetFlowWriterUtil.blockSize, NetFlowWriterUtil.pageSize,
+      NetFlowWriterUtil.dictionaryPageSize, NetFlowWriterUtil.enableDictionary,
+      NetFlowWriterUtil.vilidating, NetFlowWriterUtil.writerVersion,
+      NetFlowWriterUtil.hadoopConf)
+
+    if (NetFlowWriterUtil.MemoryManageEnable) {
       NetFlowWriterUtil.initMemoryManager(netflowConf)
       if (NetFlowWriterUtil.memoryManager.getMemoryPoolRatio != NetFlowWriterUtil.maxLoad) {
         log.warn(("The configuration [ %s ] has been set. " +
           "It should not be reset by the new value: %f").
           format(LoadConf.MEMORY_POOL_RATIO, NetFlowWriterUtil.maxLoad))
       }
-      NetFlowWriterUtil.memoryManager.addWriter(writer, blockSize)
+      NetFlowWriterUtil.memoryManager.addWriter(writer, NetFlowWriterUtil.blockSize)
     }
+    writer
   }
 
-  private def initParquetWriter(time: Long): Unit = {
-    val basePathTime = TimeUtils.getTimeBasePathBySeconds(netflowConf, time)
-    workPath = new Path(
-      new Path(basePathTime, LoadConf.TEMP_DICTIONARY),
-      getworkFileStr)
 
-    initParquetWriter(workPath)
-    log.info(s"[ Netflow: write the file $workPath ]")
-  }
-
-  def UpdateCurrentWriter(currentTime: Long, memoryManageEnable: Boolean = false): Unit = {
-    if (currentTime > nextTime) {
-      nextTime = TimeUtils.getNextBaseTime(netflowConf, currentTime)
-
-      if (writer != null) {
-        closeParquetWriter()
-        initParquetWriter(nextTime)
-        log.info(s" [ Netflow : next time : $nextTime ] ")
-      } else {
-        val currBaseTime = TimeUtils.getCurrentBastTime(netflowConf, currentTime)
-        initParquetWriter(currBaseTime)
-        log.info(s" [ Netflow : next time : $currBaseTime ] ")
+  // we should check if the file exist in the HDFS
+  // and delete if they are exist
+  private def checkHDFSFile(fileName : Path){
+    val fs = FileSystem.get(NetFlowWriterUtil.hadoopConf)
+    if(fs == null){
+      logError(s"[Netfloe] Can not connect with HADOOP!")
+      return
+    }
+    val s = fs.listStatus(fileName.getParent)
+    val ffs = fs.listStatus(fileName.getParent,new PathFilter {
+      override def accept(path: Path): Boolean = {
+        !path.getName.startsWith(NetFlowWriterUtil.host)
       }
-    }
-  }
+    })
 
-  def writeData(data: NetflowGroup) = {
-    writer.write(data)
-  }
-
-  def closeParquetWriter(): Unit = {
-    writer.close()
-    if (NetFlowWriterUtil.memoryManager != null) {
-      NetFlowWriterUtil.memoryManager.removeWriter(writer)
-    }
-    writer = null
-
-    // workPath 2015/1/1/1/00/_temp/host-01.parquet => 2015/1/1/1/00/host-01.parquet
-    val fileName = workPath.getName // fileName = host-01.parquet
-    val workBase = workPath.getParent.getParent // workBase = 2015/1/1/1/00/
-
-    val fs = workBase.getFileSystem(new Configuration())
-    fs.rename(workPath, new Path(workBase, fileName))
-    fs.close()
-  }
-
-  private def getworkFileStr: String = {
-    val num = NetFlowWriterUtil.fileIdx.getAndIncrement
-    val numStr = if (num < 10) "0" + num.toString else num.toString
-    NetFlowWriterUtil.host + "-" + numStr + ".parquet"
+    ffs.foreach(file=>{
+      assert( file.isFile)
+      fs.delete(file.getPath,true)
+    })
   }
 }
