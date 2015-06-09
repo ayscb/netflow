@@ -32,7 +32,7 @@ class WrapBufferQueue(
 
   private val bufferQueue = new LinkedBlockingQueue[ByteBuffer](maxQueueNum)
  // private val bufferQueue = new SynchronousQueue[ByteBuffer]()
-  private val warnThresholdNum = ((warnThreshold * 0.1 / 100 ) * maxQueueNum ).asInstanceOf[Int]
+  private val warnThresholdNum = ((warnThreshold * 1.0 / 100 ) * maxQueueNum ).asInstanceOf[Int]
 
   // get the element from queue , block when the queue is empty
   def take = {
@@ -57,9 +57,9 @@ class WrapBufferQueue(
   }
 
   def getcurrentBufferRate() : Int = {
-    // 10*(maxQueueNum - bufferQueue.remainingCapacity())/maxQueueNum
-    10*bufferQueue.size()/maxQueueNum
+    (1.0*bufferQueue.size()/maxQueueNum).asInstanceOf[Int]
   }
+
   private def checkThreshold() = {
     if(bufferQueue.size() > warnThresholdNum ){    // warn
       loadBalanceStrategyFunc
@@ -67,18 +67,5 @@ class WrapBufferQueue(
       // will block.....
       sendOverflowMessage
     }
-//    if(bufferQueue.size() > warnThresholdNum){
-//      loadBalanceStrategyFunc
-//    }else if(bufferQueue.size() > maxQueueNum - 10){
-//      sendOverflowMessage
-//    }
   }
-
-//  def setWarnThreshold(newWarnThreshold: Int) = {
-//    if (0 < newWarnThreshold && newWarnThreshold < 100) {
-//      warnThresholdNum = maxQueueNum * newWarnThreshold / 100
-//    } else {
-//      throw new IllegalArgumentException(" newWarnThreshold should be in (0,100) ")
-//    }
-//  }
 }
