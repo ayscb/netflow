@@ -23,8 +23,8 @@ import cn.ac.ict.acs.netflow.util.{IntParam, Utils}
 
 class LoadMasterArguments(args: Array[String], conf: NetFlowConf) {
   var host = Utils.localHostName()
-  var port = 9099
-  var webUiPort = 18080
+  var port = 9088
+  var webUiPort = 18070
   var propertiesFile: String = null
 
   // Check for settings in environment variables

@@ -1,0 +1,25 @@
+{
+  "rules" : [
+    {
+      "routerId": "r1",
+      "srcPort": 1345,
+      "destIp": "192.168.1.2",
+      "rate": "10MB/s"
+    }, {
+      "routerId": "r3",
+      "srcPort": 123,
+      "destIp": "192.168.1.2",
+      "rate": "90MB/s"
+    }, {
+      "routerId": "r5",
+      "srcPort": 1345,
+      "destIp": "192.168.1.2",
+      "rate": "1MB/s"
+    }, {
+      "routerId": "r8",
+      "srcPort": 1345,
+      "destIp": "192.168.1.2",
+      "rate": "28MB/s"
+    }
+  ]
+}

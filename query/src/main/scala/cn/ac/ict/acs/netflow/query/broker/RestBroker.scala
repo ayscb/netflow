@@ -18,8 +18,11 @@
  */
 package cn.ac.ict.acs.netflow.query.broker
 
+import java.io.{OutputStreamWriter, BufferedWriter, InputStreamReader, BufferedReader}
+import java.net.{UnknownHostException, Socket}
 import java.util.UUID
 
+import scala.concurrent.Future
 import scala.util.Random
 import scala.concurrent.duration._
 
@@ -52,7 +55,7 @@ class RestBroker(
   implicit def actorRefFactory: ActorContext = context
 
   val currentRoutes =
-    respondWithMediaType(`application/json`)(jobRoutes ~ v1Routes ~ otherRoutes)
+    respondWithMediaType(`application/json`)(queryRoutes ~ /* configurationRoutes ~ */ otherRoutes)
 
   override def receiveWithLogging =
     lifecycleMaintenance orElse runRoute(currentRoutes)
@@ -271,48 +274,48 @@ trait RestService extends HttpService with Json4sJacksonSupport {
 
   implicit def json4sJacksonFormats = DefaultFormats
 
-  val jobRoutes: Route = pathPrefix("v1" / "jobs") {
-    // GET /v1/jobs return all jobs information summarily
-    (get & pathEndOrSingleSlash) {
-      requestQueryMaster {
-        RestAllJobsInfoRequest
-      }
-    } ~
-      // POST /v1/jobs submit job described in Request body
-      (post & pathEndOrSingleSlash) {
-        entity(as[JobDescription]) { jobDesc =>
-          val (vjd, success, message) = jobDesc.doValidate()
-          if (success) {
-            requestQueryMaster {
-              RestSubmitJobRequest(vjd)
+  val queryRoutes: Route = pathPrefix("v1") {
+
+    // Job routes
+    pathPrefix("jobs") {
+      // GET /v1/jobs return all jobs information summarily
+      (get & pathEndOrSingleSlash) {
+        requestQueryMaster {
+          RestAllJobsInfoRequest
+        }
+      } ~
+        // POST /v1/jobs submit job described in Request body
+        (post & pathEndOrSingleSlash) {
+          entity(as[JobDescription]) { jobDesc =>
+            val (vjd, success, message) = jobDesc.doValidate()
+            if (success) {
+              requestQueryMaster {
+                RestSubmitJobRequest(vjd)
+              }
+            } else {
+              complete(400, message.getOrElse("Invalid job description"))
             }
-          } else {
-            complete(400, message.getOrElse("Invalid job description"))
+          }
+        } ~
+        // GET /v1/jobs/<jobId> return job result
+        (get & path(Segment)) { jobId =>
+          requestQueryMaster {
+            RestJobStatusRequest(jobId)
+          }
+        } ~
+        // GET /v1/jobs/<jobId>/detail return job detailed information
+        (get & path(Segment / "detail")) { jobId =>
+          requestQueryMaster {
+            RestJobInfoRequest(jobId)
+          }
+        } ~
+        // DELETE /v1/jobs/<jobId> delete the job
+        (delete & path(Segment)) { jobId =>
+          requestQueryMaster {
+            RestKillJobRequest(jobId)
           }
         }
-      } ~
-      // GET /v1/jobs/<jobId> return job result
-      (get & path(Segment)) { jobId =>
-        requestQueryMaster {
-          RestJobStatusRequest(jobId)
-        }
-      } ~
-      // GET /v1/jobs/<jobId>/detail return job detailed information
-      (get & path(Segment / "detail")) { jobId =>
-        requestQueryMaster {
-          RestJobInfoRequest(jobId)
-        }
-      } ~
-      // DELETE /v1/jobs/<jobId> delete the job
-      (delete & path(Segment)) { jobId =>
-        requestQueryMaster {
-          RestKillJobRequest(jobId)
-        }
-      }
-  }
-
-  // All Routes that related to v1
-  val v1Routes: Route = pathPrefix("v1") {
+    } ~
     (get & path("tableSchema")) {
       complete(200, "The Schema below:")
     }
@@ -327,6 +330,10 @@ trait RestService extends HttpService with Json4sJacksonSupport {
   }
 
   def requestQueryMaster(message: RestMessage): Route = { ctx =>
+    def handleRequest(rc: RequestContext, message: RestMessage, master: ActorSelection) = {
+      context.actorOf(Props(classOf[QueryMasterRequestHandler], rc, message, master, conf))
+    }
+
     logDebug(s"Get ${message.toString} from client")
     if (master != null) {
       handleRequest(ctx, message, master)
@@ -335,9 +342,66 @@ trait RestService extends HttpService with Json4sJacksonSupport {
     }
   }
 
-  def handleRequest(rc: RequestContext, message: RestMessage, master: ActorSelection) = {
-    context.actorOf(Props(classOf[RequestHandler], rc, message, master, conf))
-  }
+//  val configurationRoutes = pathPrefix("v1" / "conf") {
+//    // Forwarding rules configuration
+//    pathPrefix("f-rules") {
+//      // GET /v1/conf/f-rules return all available rules
+//      (get & pathEndOrSingleSlash) {
+//        requestConfigurationServer {
+//          GetAllRules
+//        }
+//      } ~
+//        // POST /v1/conf/f-rules add forwarding rules described in request body
+//        (post & pathEndOrSingleSlash) {
+//          requestConfigurationServer {
+//            entity(as[ForwardingRule]) { rule =>
+//              InsertRules(rule)
+//            }
+//          }
+//        } ~
+//        // PUT /v1/conf/f-rules/<ruleId> update the specified rule
+//        (put & path(Segment)) { ruleId =>
+//          requestConfigurationServer {
+//            entity(as[RuleItem]) { ruleItem =>
+//              UpdateSingleRule(ruleId, ruleItem)
+//            }
+//          }
+//        } ~
+//        // DELETE /v1/conf/f-rules/<ruleId> delete the specified rule
+//        (delete & path(Segment)) { ruleId =>
+//          requestConfigurationServer {
+//            DeleteSingleRule(ruleId)
+//          }
+//        }
+//    }
+//  }
+
+  case class ForwardingRule(rules: Seq[RuleItem])
+
+  case class RuleItem(routerId: String, srcPort: Int, destIp: String, rate: String)
+
+
+//  def requestConfigurationServer(x: Any): Route = { ctx =>
+//    x match {
+//      case GetAllRules =>
+//        Future {
+//          try {
+//            val socket = new Socket(confServerHost, confServerPort)
+//            val br = new BufferedReader(new InputStreamReader(socket.getInputStream))
+//            val bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream))
+//            bw.write("GETALLRULES")
+//
+//          } catch {
+//            case uhe: UnknownHostException =>
+//
+//          }
+//
+//
+//
+//        }
+//
+//    }
+//  }
 }
 
 object RestBroker extends Logging {
