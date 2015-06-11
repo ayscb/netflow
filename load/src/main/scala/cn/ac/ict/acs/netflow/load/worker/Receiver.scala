@@ -19,6 +19,7 @@
 
 package cn.ac.ict.acs.netflow.load.worker
 
+import java.io.IOException
 import java.net.{ InetSocketAddress, ServerSocket }
 import java.nio.ByteBuffer
 import java.nio.channels._
@@ -32,6 +33,8 @@ import cn.ac.ict.acs.netflow.{ NetFlowException, Logging, NetFlowConf }
  * A multi-way receiver that serve connections from collectors and read packets from it
  * @param packetBuffer buffer gathering incoming packets
  * @param conf netflowConf
+ *
+ * TODO thread restart?
  */
 class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Runnable with Logging {
 
@@ -40,6 +43,8 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Runnabl
 
   val channels = mutable.HashSet.empty[Channel]
   val channelToIp = mutable.HashMap.empty[Channel, String]
+
+  def collectors = channelToIp.values
 
   override def run() = {
     val serverSocketChannel = ServerSocketChannel.open()
@@ -56,24 +61,28 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Runnabl
 
     try {
       while (true) {
-        // Blocking until channel of interest appears
-        selector.select()
+        try {
+          // Blocking until channel of interest appears
+          selector.select()
 
-        val iter = selector.selectedKeys().iterator()
-        while (iter.hasNext) {
-          val key = iter.next()
-          if (key.isAcceptable) {
-            registerChannel(key)
-          } else if (key.isReadable) {
-            readPacketFromSocket(key)
+          val iter = selector.selectedKeys().iterator()
+          while (iter.hasNext) {
+            val key = iter.next()
+            if (key.isAcceptable) {
+              registerChannel(key)
+            } else if (key.isReadable) {
+              readPacketFromSocket(key)
+            }
+            iter.remove()
           }
-          iter.remove()
+        } catch {
+          case e: IOException =>
+            // TODO
         }
       }
     } finally {
       // When a selector is closed, all channels registered with that selector are deregistered,
       // and the associated keys are invalidated(cancelled)
-      // TODO restart?
       logWarning("multi-way receiver terminated")
       selector.close()
       channels.foreach(_.close())
