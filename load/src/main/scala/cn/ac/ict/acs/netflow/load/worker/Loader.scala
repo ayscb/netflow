@@ -18,11 +18,6 @@
  */
 package cn.ac.ict.acs.netflow.load.worker
 
-import java.nio.ByteBuffer
-import java.util.concurrent.ConcurrentHashMap
-
-import cn.ac.ict.acs.netflow.NetFlowConf
-
 trait Writer {
   def init()
   def write(rowIter: Iterator[Row])
@@ -54,81 +49,3 @@ class ParquetWriterWrapper extends WriterWrapper {
 
   def close() = ???
 }
-
-class Loader(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Runnable {
-
-  var writerWrapper: WriterWrapper = _
-
-  override def run(): Unit = {
-    while(true) {
-      val currentPacket = packetBuffer.take
-
-      val (flowSets, packetTime) = PacketParser.parse(currentPacket)
-      val rows: Iterator[Row] = flowSets.flatMap(_.getRows)
-
-      writerWrapper.write(rows, packetTime)
-    }
-  }
-
-}
-
-object PacketParser {
-  
-  val templates = new ConcurrentHashMap[RouterTemplate, Template]
-
-  /**
-   *
-   * @param packet
-   * @return (Iterator[FlowSet] , PacketTime)
-   */
-  def parse(packet: ByteBuffer): (Iterator[DataFlowSet], Long) = {
-    // read templates
-    // 1. router ip
-    val packetTime = 0
-
-    def insertTemplate(templateFlowSet: TemplateFlowSet): Unit = {
-      // insert template into templates
-    }
-
-    val dataflowSet = new Iterator[DataFlowSet] {
-
-      var currentDS: DataFlowSet = _
-
-      def hasNext = {
-        // update currentDS
-        false
-      }
-
-      def next() = currentDS
-    }
-    (dataflowSet, packetTime)
-  }
-}
-
-case class RouterTemplate(routerIp: String, templateId: Int)
-
-case class Template
-
-abstract class FlowSet {
-  def bb: ByteBuffer
-  def start: Int
-}
-
-case class DataFlowSet(bb: ByteBuffer, start: Int) extends FlowSet {
-  def getRows: Iterator[Row] = {
-
-    new Iterator[Row] {
-      var curRow: Row = _
-
-      def hasNext = ???
-
-      def next() = curRow
-    }
-  }
-}
-
-case class TemplateFlowSet(bb: ByteBuffer, start: Int) extends FlowSet {
-
-}
-
-case class Row(bb: ByteBuffer, start: Int, length: Int, template: Template)

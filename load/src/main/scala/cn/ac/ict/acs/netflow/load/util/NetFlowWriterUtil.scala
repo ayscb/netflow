@@ -136,7 +136,7 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
       var checked = false
 
       // get the interval time
-      val baseTime = TimeUtils.getCurrentBastTime(netflowConf, time)
+      val baseTime = TimeUtils.getCurrentBastTime(time, netflowConf)
       val interValTime = netflowConf.getInt(TimeUtils.LOAD_DIR_CREATION_INTERVAL, 600)
       for (i <- times.indices) {
         times(i) = baseTime + i * interValTime
@@ -224,7 +224,7 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
   }
 
   private def getFilePath(time: Long): Path = {
-    val basePathTime = TimeUtils.getTimeBasePathBySeconds(netflowConf, time)
+    val basePathTime = TimeUtils.getTimeBasePathBySeconds(time, netflowConf)
     val num = NetFlowWriterUtil.fileIdx.getAndIncrement
     val numStr = if (num < 10) "0" + num.toString else num.toString
     val filestr = NetFlowWriterUtil.host + "-" + numStr + ".parquet"

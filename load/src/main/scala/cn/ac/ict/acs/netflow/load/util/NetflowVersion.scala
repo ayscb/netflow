@@ -34,7 +34,7 @@ case class NetflowHeader(fields: Any*)
  * @param fieldsCount total fields number
  */
 class SingleTemplate(val tmpId: String, val fieldsCount: Int)
-  extends Iterable[(Int, Int)] {
+ {
 
   private var recordBytes = 0
   private val keyList = new Array[Int](fieldsCount)
@@ -71,7 +71,7 @@ class SingleTemplate(val tmpId: String, val fieldsCount: Int)
     })
   }
 
-  override def iterator: Iterator[(Int, Int)] = new Iterator[(Int, Int)] {
+   def iterator: Iterator[(Int, Int)] = new Iterator[(Int, Int)] {
     private var currId = 0
     override def hasNext: Boolean = currId < fieldsCount
 

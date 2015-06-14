@@ -32,7 +32,7 @@ class LoadWorkerSource(val worker: LoadWorker) extends Source {
   import MetricRegistry._
 
   private def fileStats(scheme: String): Option[FileSystem.Statistics] =
-    FileSystem.getAllStatistics().find(s => s.getScheme.equals(scheme))
+    FileSystem.getAllStatistics.find(s => s.getScheme.equals(scheme))
 
   private def registerFileSystemStat[T](
     scheme: String, name: String, f: FileSystem.Statistics => T, defaultValue: T) = {
@@ -55,11 +55,11 @@ class LoadWorkerSource(val worker: LoadWorker) extends Source {
 
   // Gauge for file system stats of this worker
   for (scheme <- Array("hdfs", "file")) {
-    registerFileSystemStat(scheme, "read_bytes", _.getBytesRead(), 0L)
-    registerFileSystemStat(scheme, "write_bytes", _.getBytesWritten(), 0L)
-    registerFileSystemStat(scheme, "read_ops", _.getReadOps(), 0)
-    registerFileSystemStat(scheme, "largeRead_ops", _.getLargeReadOps(), 0)
-    registerFileSystemStat(scheme, "write_ops", _.getWriteOps(), 0)
+    registerFileSystemStat(scheme, "read_bytes", _.getBytesRead, 0L)
+    registerFileSystemStat(scheme, "write_bytes", _.getBytesWritten, 0L)
+    registerFileSystemStat(scheme, "read_ops", _.getReadOps, 0)
+    registerFileSystemStat(scheme, "largeRead_ops", _.getLargeReadOps, 0)
+    registerFileSystemStat(scheme, "write_ops", _.getWriteOps, 0)
   }
 
   // Load characteristic of each thread ....

@@ -21,6 +21,8 @@ package cn.ac.ict.acs.netflow
 import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
 
+import org.apache.hadoop.conf.Configuration
+
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
 
@@ -35,6 +37,7 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
   def this() = this(true)
 
   @transient private val settings = new ConcurrentHashMap[String, String]()
+  @transient private val _hadoopConfiguration = newConfiguration()
 
   if (loadDefaults) {
     // Load any netflow.* system properties that passed as -D<name>=<value> at start time
@@ -130,4 +133,24 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
   /** Does the configuration contain a given parameter? */
   def contains(key: String): Boolean = settings.containsKey(key)
 
+  def hadoopConfiguration: Configuration = _hadoopConfiguration
+
+  /**
+   * Return an appropriate (subclass) of Configuration. Creating config can initializes some Hadoop
+   * subsystems.
+   */
+  def newConfiguration(): Configuration = {
+    val hadoopConf = new Configuration()
+
+    // Copy any "netflow.hadoop.foo=bar" system properties into conf as "foo=bar"
+    getAll.foreach { case (key, value) =>
+      if (key.startsWith("netflow.hadoop.")) {
+        hadoopConf.set(key.substring("netflow.hadoop.".length), value)
+      }
+    }
+    val bufferSize = get("netflow.buffer.size", "65536")
+    hadoopConf.set("io.file.buffer.size", bufferSize)
+
+    hadoopConf
+  }
 }

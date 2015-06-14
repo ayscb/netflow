@@ -55,7 +55,7 @@ class TimeUtilsSuite extends FunSuite with Matchers {
   test("generate path") {
     val t1 = DateTime.parse("2015-10-11,12:32:11", showFormat)
     assertResult("/2015/10/11/12/32") {
-      getTimeBasePathBySeconds(new NetFlowConf, t1.getMillis / 1000)
+      getTimeBasePathBySeconds(t1.getMillis / 1000, new NetFlowConf)
     }
   }
 

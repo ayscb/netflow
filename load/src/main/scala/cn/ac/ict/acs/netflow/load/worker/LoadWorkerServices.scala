@@ -25,8 +25,6 @@ import java.nio.channels.{ ServerSocketChannel, SelectionKey, Selector, SocketCh
 import java.util
 import java.util.concurrent.LinkedBlockingDeque
 
-import scala.collection.mutable
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{ Path, FileSystem }
 
@@ -42,8 +40,6 @@ trait WorkerService {
   private var ActualPort: Int = _
   private var buffcount = 0
 
-  private val receiverToWorker = new mutable.HashMap[String, SocketChannel]()
-
   def getWorkerServicePort = ActualPort
 
   def startWorkerService() = {
@@ -55,6 +51,7 @@ trait WorkerService {
   private def doStartRunner(port: Int): (Thread, Int) = {
 
     var actualPort: Int = port
+
 
     val thread =
       new Thread("Receiver-Worker-Service") {
@@ -109,7 +106,6 @@ trait WorkerService {
           // save the remote ip
           val remoteIP = socketChannel.getRemoteAddress.asInstanceOf[InetSocketAddress]
             .getAddress.getHostAddress
-          receiverToWorker += (remoteIP -> socketChannel)
           logInfo(s"[Netflow] The receiver Service accepts a connection from $remoteIP. ")
         }
 
@@ -175,15 +171,15 @@ trait CombineService {
 
     override def run(): Unit = {
       logInfo(s"[Netfow-Combine] Combine thread is start to running...")
-      var second = TimeUtils.getPreviousBaseTime(conf, System.currentTimeMillis() / 1000)
+      var second = TimeUtils.getPreviousBaseTime(System.currentTimeMillis() / 1000, conf)
       val retryMaxNum = 2
       val fs = FileSystem.get(new Configuration())
       for (i <- 0 until retryMaxNum) {
-        val pathStr = TimeUtils.getTimeBasePathBySeconds(conf, second)
+        val pathStr = TimeUtils.getTimeBasePathBySeconds(second, conf)
 
         NetFlowCombineMeta.combineFiles(fs, new Path(pathStr), conf) match {
           case ParquetState.DIC_NOT_EXIST =>
-            second = TimeUtils.getPreviousBaseTime(conf, second)
+            second = TimeUtils.getPreviousBaseTime(second, conf)
 
           case ParquetState.NO_DIC =>
             logError("[Netfow-Combine] The Path %s should be a dictionary.".format(pathStr))
@@ -191,7 +187,7 @@ trait CombineService {
             return
 
           case ParquetState.DIC_EMPTY =>
-            second = TimeUtils.getPreviousBaseTime(conf, second)
+            second = TimeUtils.getPreviousBaseTime(second, conf)
 
           case ParquetState.NO_PARQUET =>
             logError(("[Netfow-Combine] The Path %s should be a " +

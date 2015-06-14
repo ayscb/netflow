@@ -70,7 +70,7 @@ object TimeUtils {
    * @param seconds since epoch
    * @return
    */
-  def getTimeBasePathBySeconds(conf: NetFlowConf, seconds: Long): String = {
+  def getTimeBasePathBySeconds(seconds: Long, conf: NetFlowConf): String = {
     val pathFmt = loadDirFormat(conf)
     new DateTime(seconds * 1000).toString(pathFmt)
   }
@@ -83,7 +83,7 @@ object TimeUtils {
    * @param second
    * @return
    */
-  def getPreviousBaseTime(conf: NetFlowConf, second: Long): Long = {
+  def getPreviousBaseTime(second: Long, conf: NetFlowConf): Long = {
     val interval = loadDirIntervalSec(conf)
     second / interval * interval - interval
   }
@@ -96,7 +96,7 @@ object TimeUtils {
    * @param second
    * @return
    */
-  def getCurrentBastTime(conf: NetFlowConf, second: Long): Long = {
+  def getCurrentBastTime(second: Long, conf: NetFlowConf): Long = {
     val interval = loadDirIntervalSec(conf)
     second / interval * interval
   }
@@ -109,7 +109,7 @@ object TimeUtils {
    * @param second
    * @return
    */
-  def getNextBaseTime(conf: NetFlowConf, second: Long): Long = {
+  def getNextBaseTime(second: Long, conf: NetFlowConf): Long = {
     val interval = loadDirIntervalSec(conf)
     second / interval * interval + interval
   }

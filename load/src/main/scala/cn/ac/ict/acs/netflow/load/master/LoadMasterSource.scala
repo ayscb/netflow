@@ -29,7 +29,7 @@ class LoadMasterSource(val master: LoadMaster) extends Source {
   import MetricRegistry._
 
   metricRegistry.register(name("aliveLoadWorkers"), new Gauge[Int] {
-    override def getValue: Int = master.workers.filter(_.state == WorkerState.ALIVE).size
+    override def getValue: Int = master.workers.count(_.state == WorkerState.ALIVE)
   })
 
   // TODO

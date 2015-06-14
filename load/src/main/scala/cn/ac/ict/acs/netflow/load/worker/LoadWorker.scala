@@ -342,12 +342,7 @@ object LoadWorker extends Logging {
   def main(argStrings: Array[String]) {
     SignalLogger.register(log)
     val conf = new NetFlowConf
-    //  val args = new LoadWorkerArguments(argStrings, conf)
-
-    val arg = new Array[String](1)
-    // arg(0) = "netflow-load://aysdp:9099"
-    arg(0) = "10.30.5.139:9099"
-    val args = new LoadWorkerArguments(arg, conf)
+    val args = new LoadWorkerArguments(argStrings, conf)
 
     val (actorSystem, _) = startSystemAndActor(args.host, args.port, args.webUiPort,
       args.cores, args.memory, args.masters, conf = conf)
