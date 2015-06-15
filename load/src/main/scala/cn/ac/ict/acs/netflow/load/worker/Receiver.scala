@@ -36,15 +36,18 @@ import cn.ac.ict.acs.netflow.{ NetFlowException, Logging, NetFlowConf }
  *
  * TODO thread restart?
  */
-class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Runnable with Logging {
+class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Thread with Logging {
 
   logInfo(s"Initializing Multi-Way Receiver")
+  setName("Receiver server Thread")
+
   private var selector: Selector = _
 
-  val channels = mutable.HashSet.empty[Channel]
-  val channelToIp = mutable.HashMap.empty[Channel, String]
+  private val channels = mutable.HashSet.empty[Channel]
+  private val channelToIp = mutable.HashMap.empty[Channel, String]
 
-  def collectors = channelToIp.values
+  var port = 0
+  def collectors: Iterable[String] = channelToIp.values
 
   override def run() = {
     val serverSocketChannel = ServerSocketChannel.open()
@@ -55,6 +58,7 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Runnabl
     val (_, actualPort) =
       Utils.startServiceOnPort(0, startListening(serverSocket), conf, "multi-way receiver")
     logInfo(s"Receiver is listening $actualPort for netflow packets")
+    port = actualPort
 
     selector = Selector.open()
     serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT)

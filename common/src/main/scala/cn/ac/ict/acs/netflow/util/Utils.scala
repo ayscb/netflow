@@ -118,7 +118,7 @@ object Utils extends Logging {
     InetAddress.getByName(address).getHostName
   }
 
-  private var customHostname: Option[String] = sys.env.get("NETFLOW_LOCAL_HOSTNAME")
+  private val customHostname: Option[String] = sys.env.get("NETFLOW_LOCAL_HOSTNAME")
 
   /**
    * Get the local host's IP address in dotted-quad format (e.g. 1.2.3.4).
@@ -194,7 +194,7 @@ object Utils extends Logging {
   def getPropertiesFromFile(filename: String): Map[String, String] = {
     val file = new File(filename)
     require(file.exists(), s"Properties file $file does not exist")
-    require(file.isFile(), s"Properties file $file is not a normal file")
+    require(file.isFile, s"Properties file $file is not a normal file")
 
     val inReader = new InputStreamReader(new FileInputStream(file), "UTF-8")
     try {

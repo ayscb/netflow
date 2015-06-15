@@ -266,30 +266,30 @@ object CommandSet {
    * if the ipAdds is available, return ips
    * else return "null"
    */
-  def responseReceiver(mode: Mode, ipAdds: Array[(String, Int)]): ByteBuffer = {
-    res_buffer.clear()
-    sb.clear()
-    if (mode == add) {
-      // $$+1&12.1.1.1:123&112.12.13.14:123&
-      sb.append(CommandStruct.res_prefix).append("+")
-        .append(ipAdds.length).append(CommandStruct.delim)
-
-      ipAdds.map(ip_port => {
-        sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
-      })
-
-    } else if (mode == delete) {
-      sb.append(CommandStruct.res_prefix).append("-")
-        .append(ipAdds.length).append(CommandStruct.delim)
-
-      ipAdds.map(ip_port => {
-        sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
-      })
-    }
-    res_buffer.put(sb.toString().getBytes)
-    res_buffer.flip()
-    res_buffer
-  }
+//  def responseReceiver(mode: Mode, ipAdds: Array[(String, Int)]): ByteBuffer = {
+//    res_buffer.clear()
+//    sb.clear()
+//    if (mode == add) {
+//      // $$+1&12.1.1.1:123&112.12.13.14:123&
+//      sb.append(CommandStruct.res_prefix).append("+")
+//        .append(ipAdds.length).append(CommandStruct.delim)
+//
+//      ipAdds.map(ip_port => {
+//        sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
+//      })
+//
+//    } else if (mode == delete) {
+//      sb.append(CommandStruct.res_prefix).append("-")
+//        .append(ipAdds.length).append(CommandStruct.delim)
+//
+//      ipAdds.map(ip_port => {
+//        sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
+//      })
+//    }
+//    res_buffer.put(sb.toString().getBytes)
+//    res_buffer.flip()
+//    res_buffer
+//  }
 
   /**
    *    $$+2&1.2.3.4:1000&2.2.2.2:1234&

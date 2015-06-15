@@ -26,10 +26,11 @@ import akka.remote.{ DisassociatedEvent, RemotingLifecycleEvent }
 
 import org.joda.time.DateTime
 import cn.ac.ict.acs.netflow._
-import cn.ac.ict.acs.netflow.load.LoadMessages
+import cn.ac.ict.acs.netflow.load.{LoadConf, LoadMessages}
 import cn.ac.ict.acs.netflow.load.master.LoadMaster
 import cn.ac.ict.acs.netflow.util._
 
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 import scala.concurrent.duration._
 
@@ -43,9 +44,7 @@ class LoadWorker(
   actorSystemName: String,
   actorName: String,
   val conf: NetFlowConf)
-    extends Actor with ActorLogReceive
-    with WorkerService with WriteParquetService with CombineService
-    with Logging {
+    extends Actor with ActorLogReceive with Logging {
 
   import DeployMessages._
   import LoadMessages._
@@ -92,6 +91,7 @@ class LoadWorker(
 
   @volatile var registered = false
   @volatile var connected = false
+
   val workerId = generateWorkerId()
 
   var coresUsed = 0
@@ -101,17 +101,27 @@ class LoadWorker(
   var registrationRetryTimer: Option[Cancellable] = None
 
   // load data
-  val defaultWriterNum = conf.getInt("netflow.writer.default.number", 1)
-  val maxQueueNum = conf.getInt("netflow.queue.maxPackageNum", 100000000)
+  val defaultWriterNum = conf.getInt(LoadConf.WRITER_NUMBER, 1)
+  val maxQueueNum = conf.getInt(LoadConf.QUEUE_MAXPACKAGE_NUM, 100000000)
   val warnThreshold = {
-    val threshold = conf.getInt("netflow.queue.defalutWarnThreshold", 70)
+    val threshold = conf.getInt(LoadConf.QUEUE_WARN_THRESHOLD, 70)
     if (0 < threshold && threshold < 100) threshold else 70
   }
 
-  val bufferList =
+  // buffer list
+  val netflowBuff =
     new WrapBufferQueue(maxQueueNum, warnThreshold,
       DefaultLoadBalanceStrategy.loadBalanceWorker,
-      () => master ! BufferOverFlow)
+      () => master! BufferOverFlow)
+
+  // load Service
+  val loadserver = new LoaderService(netflowBuff, conf)
+
+  // receiver Service
+  val receiverserver = new Receiver(netflowBuff, conf)
+
+  /** whole load thread's current combine file timestamp **/
+  val combineTimeStamp = new ArrayBuffer[Long]()
 
   val workerIP = InetAddress.getLocalHost.getHostAddress
 
@@ -126,24 +136,27 @@ class LoadWorker(
     context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
 
     logInfo(s"[Netflow] Init write parquet pool, and will start $defaultWriterNum threads")
-    initParquetWriterPool(defaultWriterNum)
-    startWorkerService()
+    loadserver.initParquetWriterPool(defaultWriterNum)
+    receiverserver.start()
 
     registerWithMaster()
   }
 
   override def postStop(): Unit = {
     registrationRetryTimer.foreach(_.cancel())
-    logInfo(s"udpActor and ResolvingActor stop working !")
+
+    logInfo(s"Close receiver server and load server!")
+    receiverserver.interrupt()
+    loadserver.stopAllWriterThreads()
   }
 
   override def receiveWithLogging = {
     case RegisteredWorker(masterUrl, masterWebUrl) =>
-      logInfo("[Netflow] Successfully registered with load Master " + masterUrl)
+      logInfo("Successfully registered with load Master " + masterUrl)
       registered = true
       changeMaster(masterUrl, masterWebUrl)
       context.system.scheduler.schedule(0.millis, HEARTBEAT_MILLIS.millis, self, SendHeartbeat)
-      context.system.scheduler.schedule(0.millis, HEARTBEAT_MILLIS.millis, self, BufferBeat)
+      context.system.scheduler.schedule(0.millis, HEARTBEAT_MILLIS.millis, self, BuffHeatBeat)
 
     case RegisterWorkerFailed(message) =>
       if (!registered) {
@@ -164,20 +177,47 @@ class LoadWorker(
       changeMaster(masterUrl, masterWebUrl)
 
     case SendHeartbeat =>
-      if (connected) { master ! Heartbeat(workerId) }
+      if (connected)  master ! Heartbeat(workerId)
 
     case x: DisassociatedEvent if x.remoteAddress == masterAddress =>
       logInfo(s"[Netflow] $x Disassociated !")
       masterDisconnected()
 
-    case CombineParquet =>
-    // combineService.start()
+    // the message is sent by loadService to tell load worker to combine whole parquet
+    case CloseParquet(timeStamp) =>
+      combineTimeStamp += timeStamp
+      if (combineTimeStamp.size == loadserver.curThreadsNum) {
+        combineTimeStamp.sortWith(_ < _)
+        if (combineTimeStamp.head == combineTimeStamp.last) {
+          if (connected) master ! CloseParquet(combineTimeStamp.head)
+        } else {
+          logWarning(String.format("Current total thread is %d, " +
+            "and all thread's stamp time in a dictionary should be same, but now %s. ",
+            loadserver.curThreadsNum: Int, combineTimeStamp.mkString("<=")))
+          if (connected) master ! CloseParquet(combineTimeStamp.head)
+        }
+        combineTimeStamp.clear()
+      }
 
-    case BufferBeat =>
-      if (connected) master ! BufferReport(workerIP, bufferList.currentBufferRate())
+    // this message is sent by master to assigned this worker to run combine service
+    case CombineParquet(fileStamp) =>
+      new CombineService(fileStamp, master, conf).start()
 
+    // master message (send by master to get buffer information)
     case BufferInfo =>
-      master ! BufferReport(workerIP, bufferList.currentBufferRate())
+      if (connected)
+        master! BufferSimpleReport(workerIP, netflowBuff.currUsageRate())
+
+    // scheduler message (only send by itself)
+    case BuffHeatBeat =>
+      if (connected)
+        master! BufferWholeReport(workerIP, netflowBuff.currUsageRate(), netflowBuff.maxQueueNum, netflowBuff.size)
+
+    case AdjustThread =>
+      loadserver.adjustWritersNum(loadserver.curThreadsNum + 1)
+
+    case updateBGP(bgpIds, bgpDatas) =>
+
   }
 
   private def changeMaster(url: String, webUrl: String): Unit = {
@@ -215,7 +255,7 @@ class LoadWorker(
     for (masterAkkaUrl <- masterAkkaUrls) {
       logInfo("[Netflow] Connecting to Load Master " + masterAkkaUrl + "...")
       val actor = context.actorSelection(masterAkkaUrl)
-      actor ! RegisterWorker(workerId, host, port, cores, memory, webUiPort, getWorkerServicePort)
+      actor ! RegisterWorker(workerId, host, port, cores, memory, webUiPort, workerIP, receiverserver.port)
     }
   }
 
@@ -254,7 +294,7 @@ class LoadWorker(
          */
         if (master != null) {
           master ! RegisterWorker(
-            workerId, host, port, cores, memory, webUiPort, getWorkerServicePort)
+            workerId, host, port, cores, memory, webUiPort, receiverserver.port)
         } else {
           // We are retrying the initial registration
           tryRegisterAllMasters()
@@ -285,6 +325,7 @@ class LoadWorker(
     "load-worker-%s-%s-%d".format((new DateTime).toString(createTimeFormat), host, port)
   }
 
+
   // implement the load balance strategy
   private object DefaultLoadBalanceStrategy extends LoadBalanceStrategy with Logging {
 
@@ -292,24 +333,24 @@ class LoadWorker(
     private var lastThreadNum = 0
 
     override def loadBalanceWorker(): Unit = {
-      logInfo("loadBalanceWorker")
-      val currentThreadNum = getCurrentThreadsNum
-      val currentThreadsAverageRate =
-        calculateAverageRate(getCurrentThreadsRate)
+      logInfo("load Balance Worker")
+      val currentThreadNum = loadserver.curThreadsNum
+      val currentThreadsAverageRate = calculateAverageRate(loadserver.curPoolRate)
 
       if (lastThreadNum == 0) {
-        // if it is the first time to load balance, only increase thread
+        // the first time to exec load balance, so we only increase thread number
+        loadserver.adjustWritersNum(currentThreadNum + 1)
+
         lastThreadNum = currentThreadNum
         lastRate = currentThreadsAverageRate
-        adjustResolvingNetFlowThreads(currentThreadNum + 1)
       } else {
         if (currentThreadsAverageRate > lastRate) {
-          adjustResolvingNetFlowThreads(currentThreadNum + 1)
+          loadserver.adjustWritersNum(currentThreadNum + 1)
         } else {
           if (master != null) {
-            master ! BuffersWarn(host)
+            master! BuffersWarn(host)
           } else {
-            adjustResolvingNetFlowThreads(currentThreadNum + 1)
+            loadserver.adjustWritersNum(currentThreadNum + 1)
           }
         }
       }
@@ -317,20 +358,11 @@ class LoadWorker(
 
     private def calculateAverageRate(ratesList: util.ArrayList[Double]): Double = {
       val arrayNum = ratesList.size()
-      val array = new Array[Double](arrayNum)
-      for (i <- 0 until arrayNum)
-        array(i) = ratesList.get(i) // bug !!!!
+      val array = ratesList
+        .toArray(new Array[Double](arrayNum))
 
-      array.sortWith(_ < _)
-      log.debug("current array order is " + array.mkString("<"))
-
-      var sum = 0.0
-      if (array.length > 4) {
-        array(0) = 0 // min value
-        array(arrayNum - 1) = 0 // maxValue
-      }
-      array.foreach(x => sum += x)
-      1.0 * sum / (arrayNum - 2)
+      logDebug(s"current array order is ${array.mkString(" ")} ")
+      1.0 * array.sum / arrayNum
     }
   }
 }

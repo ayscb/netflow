@@ -18,34 +18,17 @@
  */
 package cn.ac.ict.acs.netflow.load.worker
 
+import akka.actor.ActorRef
+
 trait Writer {
   def init()
   def write(rowIter: Iterator[Row])
   def close()
 }
 
-class ParquetWriter extends Writer {
-  def init() = ???
-
-  def write(rowIter: Iterator[Row]) = ???
-
-  def close() = ???
-}
-
 trait WriterWrapper {
   def init()
   def write(rowIter: Iterator[Row], packetTime: Long)
   def close()
-}
-
-class ParquetWriterWrapper extends WriterWrapper {
-
-  var w1: Writer = _
-  var w2: Writer = _
-
-  def init() = ???
-
-  def write(rowIter: Iterator[Row], packetTime: Long) = ???
-
-  def close() = ???
+  def setActorRef(workerRef: ActorRef)
 }

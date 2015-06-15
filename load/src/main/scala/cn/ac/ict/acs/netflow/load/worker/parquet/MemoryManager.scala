@@ -16,15 +16,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.load.util
+package cn.ac.ict.acs.netflow.load.worker.parquet
 
 import java.lang.management.ManagementFactory
 
-import scala.collection.mutable
-
+import cn.ac.ict.acs.netflow.Logging
 import parquet.hadoop.ParquetWriter
 
-import cn.ac.ict.acs.netflow.Logging
+import scala.collection.mutable
 
 /**
  * copy from parquet.hadoop.MemoryManage
@@ -42,11 +41,18 @@ object MemoryManager {
     }
   }
 
-  def apply(memoryPoolRatio: Float,
-    minMemoryAllocation: Long,
-    schema: parquet.schema.MessageType): Unit = {
+  /**
+   *
+   * @param memoryPoolRatio
+   * @param minMemoryAllocation
+   * @param columnsNum  the number of column in current schema
+   */
+  def apply(
+        memoryPoolRatio: Float,
+        minMemoryAllocation: Long,
+        columnsNum: Int): Unit = {
     checkRatio(memoryPoolRatio)
-    new MemoryManager(memoryPoolRatio, minMemoryAllocation, schema)
+    new MemoryManager(memoryPoolRatio, minMemoryAllocation, columnsNum)
   }
 
 }
@@ -54,15 +60,15 @@ object MemoryManager {
 class MemoryManager(
     val memoryPoolRatio: Float,
     val minMemoryAllocation: Long,
-    val schema: parquet.schema.MessageType) extends Logging {
+    val columnsCount : Int) extends Logging {
 
-  def this(schema: parquet.schema.MessageType) =
+  def this(columnsCount : Int) =
     this(MemoryManager.DEFAULT_MEMORY_POOL_RATIO,
-      MemoryManager.DEFAULT_MIN_MEMORY_ALLOCATION, schema)
+      MemoryManager.DEFAULT_MIN_MEMORY_ALLOCATION, columnsCount)
 
   private val totalMemoryPool =
     ManagementFactory.getMemoryMXBean.getHeapMemoryUsage.getMax * memoryPoolRatio.round
-  log.info(s"[ Netflow : Allocated total memory pool is: $totalMemoryPool ]")
+  log.info(s"[Netflow] Allocated total memory pool is: $totalMemoryPool")
 
   private val writerList = new mutable.HashMap[ParquetWriter[_], Long]
 
@@ -101,7 +107,7 @@ class MemoryManager(
     import scala.collection.JavaConversions._
 
     writerList.keySet.foreach(
-      x => maxColCount = Math.max(schema.getColumns.size(), maxColCount))
+      x => maxColCount = Math.max(columnsCount, maxColCount))
 
     writerList.entrySet.foreach(
       entry => {
@@ -129,7 +135,7 @@ class MemoryManager(
 
   def removeWriter(writer: ParquetWriter[_]) = synchronized {
     if (writerList.contains(writer)) writerList.remove(writer)
-    if (!writerList.nonEmpty) updateAllocation()
+    if (writerList.nonEmpty) updateAllocation()
   }
 
   /**

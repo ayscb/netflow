@@ -35,14 +35,16 @@ object TimeUtils {
   val HOUR_PATH_PATTERN = "/yyyy/MM/dd/HH"
   val DAY_PATH_PATTERN = "/yyyy/MM/dd"
 
+  val LOAD_DIR_CREATION_INTERVAL = "netflow.load.dir.creation.interval"
+
+  val systemBasePath = "/netflow"
+
   def newFormat(patternStr: String): DateTimeFormatter = {
     DateTimeFormat.forPattern(patternStr)
   }
 
   def createFormat: DateTimeFormatter = newFormat(CREATE_PATTERN)
   def showFormat: DateTimeFormatter = newFormat(SHOW_PATTERN)
-
-  val LOAD_DIR_CREATION_INTERVAL = "netflow.load.dir.creation.interval"
 
   def loadDirFormat(conf: NetFlowConf): DateTimeFormatter = {
     val interval = loadDirIntervalSec(conf)
@@ -72,7 +74,7 @@ object TimeUtils {
    */
   def getTimeBasePathBySeconds(seconds: Long, conf: NetFlowConf): String = {
     val pathFmt = loadDirFormat(conf)
-    new DateTime(seconds * 1000).toString(pathFmt)
+    systemBasePath.concat(new DateTime(seconds * 1000).toString(pathFmt))
   }
 
   /**
@@ -154,7 +156,7 @@ object TimeUtils {
           } else {
             defaultUnit
           }
-          return defaultUnit.convert(num, unit)
+          defaultUnit.convert(num, unit)
         }
         case _ =>
           throw new NumberFormatException("Failed to parse time string: " + str)
@@ -176,5 +178,4 @@ object TimeUtils {
     "min" -> TimeUnit.MINUTES,
     "h" -> TimeUnit.HOURS,
     "d" -> TimeUnit.DAYS)
-
 }

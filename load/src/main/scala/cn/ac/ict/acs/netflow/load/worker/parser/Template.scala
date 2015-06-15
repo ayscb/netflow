@@ -1,57 +1,48 @@
+/**
+ * Copyright 2015 ICT.
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package cn.ac.ict.acs.netflow.load.worker.parser
 
 import java.nio.ByteBuffer
-import java.util
 
-import cn.ac.ict.acs.netflow.load.util.NetFlowShema
-
-/**
- * Created by ayscb on 15-6-11.
- */
-
-case class TemplateKey(routerIp :Array[Byte], templateId : Int) {
-
-  override def hashCode(): Int = {
-    var hashCode :Int = 0
-    routerIp.foreach(x=> hashCode += x.hashCode())
-    hashCode += templateId.hashCode()
-    hashCode
-  }
-
-  override def equals(obj: scala.Any): Boolean ={
-    if(obj == null) return false
-    if(obj.getClass != getClass) return false
-
-    val tobj = obj.asInstanceOf[TemplateKey]
-    if(tobj.routerIp.length != routerIp.length || tobj.templateId != templateId){
-      return false
-    }
-
-    util.Arrays.equals(tobj.routerIp,routerIp)
-  }
-}
-
+case class TemplateKey(routerIp :Array[Byte], templateId : Int)
 
 class Template(val tmpId: Int, val fieldsCount: Int) {
 
   var rowLength = 0
-  val keyList = new Array[Int](fieldsCount)
-  val valueList = new Array[Int](fieldsCount)
+  val keys = new Array[Int](fieldsCount)
+  val values = new Array[Int](fieldsCount)
 
   /**
-   * update the template, for( v9 )
+   * create a template when this flowset is a template flowset,
+   * only for v9
    * @param data template data
    */
-  def updateTemplate(data: ByteBuffer): Template = {
+  def createTemplate(data: ByteBuffer): Template = {
 
-    for (i <- 0 until fieldsCount){
-      val key = NetFlowShema.mapKey2Clm(data.getShort)
-      if (key != -1) {
-        val valueLen = data.getShort
-        keyList(i) = key
-        valueList(i) = valueLen
-        rowLength += valueLen
-      }
+    var i = 0
+    while(i != fieldsCount){
+      val key = data.getShort
+      val valueLen = data.getShort
+      keys(i) = key
+      values(i) = valueLen
+      rowLength += valueLen
+      i += 1
     }
     this
   }
@@ -64,8 +55,8 @@ class Template(val tmpId: Int, val fieldsCount: Int) {
     assert(key_value.length == fieldsCount)
     var i=0
     key_value.foreach(x=>{
-      keyList(i) = NetFlowShema.mapKey2Clm(x._1)
-      valueList(i) = x._2
+      keys(i) = x._1
+      values(i) = x._2
       i += 1
     })
   }

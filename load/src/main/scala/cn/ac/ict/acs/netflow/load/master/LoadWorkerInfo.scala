@@ -29,12 +29,11 @@ class LoadWorkerInfo(
   val cores: Int,
   val memory: Int,
   val actor: ActorRef,
-  val webUiPort: Int,
-  val tcpPort: Int)
+  val webUiPort: Int)
     extends Serializable {
 
   Utils.checkHost(host, "Expected hostname")
-  assert(port > 0 && tcpPort > 0)
+  assert(port > 0)
 
   @transient var state: WorkerState.Value = _
   @transient var coresUsed: Int = _

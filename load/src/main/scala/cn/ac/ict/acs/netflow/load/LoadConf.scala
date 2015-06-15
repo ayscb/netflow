@@ -25,7 +25,7 @@ object LoadConf {
   val META_FILE = "_metadata"
   val COMMON_META_FILE = "_common_metadata"
   val SUCCESS_FIME = "_SUCCESS"
-  val TEMP_DICTIONARY = "_temporary"
+  val TEMP_DIRECTORY = "_temporary"
 
   // ************************** config **************************************
   // NetflowWriterUtil
@@ -50,5 +50,15 @@ object LoadConf {
   val LOAD_STARTTIME = "netflow.load.startTime"
   val LOAD_ENDTIME = "netflow.load.endTime"
   val LOAD_PATH = "netflow.load.path"
+
+  //ParquetwriterWrapper
+  val CLOSE_INTERVAL = "netflow.close.interval"
+
+  // loadWroker
+  val WRITER_NUMBER = "netflow.writer.number"
+  val QUEUE_MAXPACKAGE_NUM = "netflow.queue.maxPackageNum"        // >=1, default 100000000
+  val QUEUE_WARN_THRESHOLD = "netflow.queue.WarnThreshold"        // [0,100], default 70
+
+  // TimeUtils
 
 }

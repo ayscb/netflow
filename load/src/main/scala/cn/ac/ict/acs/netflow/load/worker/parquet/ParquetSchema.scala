@@ -1,3 +1,21 @@
+/**
+ * Copyright 2015 ICT.
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package cn.ac.ict.acs.netflow.load.worker.parquet
 
 import parquet.schema.PrimitiveType.PrimitiveTypeName._
@@ -158,7 +176,7 @@ object ParquetSchema extends Logging {
   val validNetflow = netflowFields.filter(_ != null)
   val validBgp = bgpFields.filter(_ != null)
 
-  val overallSchema = new MessageType("OverallData", (validHeader ++ validNetflow ++ validBgp): _*)
+  val overallSchema = new MessageType("OverallData", validHeader ++ validNetflow ++ validBgp: _*)
 
   def getPosAndType(ft: FieldType.Value, selfIndex: Int): (Int, Type) = {
 
@@ -184,11 +202,11 @@ object ParquetSchema extends Logging {
 
         case FieldType.NETFLOW =>
           checkSelfNull(netflowFields)
-          (validHeader.size + getNotNulls(netflowFields), netflowFields(selfIndex))
+          (validHeader.length + getNotNulls(netflowFields), netflowFields(selfIndex))
 
         case FieldType.BGP =>
           checkSelfNull(bgpFields)
-          (validHeader.size + validNetflow.size + getNotNulls(bgpFields), bgpFields(selfIndex))
+          (validHeader.length + validNetflow.length + getNotNulls(bgpFields), bgpFields(selfIndex))
       }
 
     } catch {

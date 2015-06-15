@@ -42,11 +42,11 @@ class LoadWorkerSource(val worker: LoadWorker) extends Source {
   }
 
   metricRegistry.register(name("queuedPackets"), new Gauge[Int] {
-    override def getValue: Int = worker.bufferList.size
+    override def getValue: Int = worker.netflowBuff.size
   })
 
   metricRegistry.register(name("queueLoad"), new Gauge[Double] {
-    override def getValue: Double = worker.bufferList.currentBufferRate()
+    override def getValue: Double = worker.netflowBuff.currUsageRate()
   })
 
   metricRegistry.register(name("threadpool", "activeLoaders"), new Gauge[Int] {

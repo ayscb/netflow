@@ -20,6 +20,7 @@ package cn.ac.ict.acs.netflow.load.util
 
 import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicInteger
+import cn.ac.ict.acs.netflow.load.worker.parquet.MemoryManager
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{ PathFilter, FileSystem, Path }
 import parquet.column.ParquetProperties.WriterVersion
@@ -44,7 +45,7 @@ object NetFlowWriterUtil {
           LoadConf.MIN_MEMORY_ALLOCATION, MemoryManager.DEFAULT_MIN_MEMORY_ALLOCATION)
 
       memoryManager =
-        new MemoryManager(maxLoad, minAllocation, writeSupport.getSchema)
+        new MemoryManager(maxLoad, minAllocation, writeSupport.getSchema.getColumns.size())
     }
   }
 
@@ -229,7 +230,7 @@ class NetFlowWriterUtil(val netflowConf: NetFlowConf) extends Logging {
     val numStr = if (num < 10) "0" + num.toString else num.toString
     val filestr = NetFlowWriterUtil.host + "-" + numStr + ".parquet"
 
-    new Path(new Path(basePathTime, LoadConf.TEMP_DICTIONARY), filestr)
+    new Path(new Path(basePathTime, LoadConf.TEMP_DIRECTORY), filestr)
   }
 
   private def initParquetWriter(time: Long): ParquetWriter[NetflowGroup] = {
