@@ -21,7 +21,7 @@ package cn.ac.ict.acs.netflow.load.worker
 
 import java.io.IOException
 import java.net.{ InetSocketAddress, ServerSocket }
-import java.nio.ByteBuffer
+import java.nio.{ByteOrder, ByteBuffer}
 import java.nio.channels._
 
 import scala.collection.mutable
@@ -146,7 +146,7 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Thread 
           if (packetLength < 0) {
             throw new NetFlowException("Invalid packet length")
           }
-          holder.content = ByteBuffer.allocate(packetLength)
+          holder.content = ByteBuffer.allocate(packetLength - 2)
           readPacketFromSocket(sk)
         }
       }
@@ -167,7 +167,7 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Thread 
   }
 
   class PacketHolder {
-    val len: ByteBuffer = ByteBuffer.allocate(2)
+    val len: ByteBuffer = ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN)
     var content: ByteBuffer = _
   }
 }

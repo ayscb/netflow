@@ -191,9 +191,10 @@ class LoadWorker(
         if (combineTimeStamp.head == combineTimeStamp.last) {
           if (connected) master ! CloseParquet(combineTimeStamp.head)
         } else {
-          logWarning(String.format("Current total thread is %d, " +
-            "and all thread's stamp time in a dictionary should be same, but now %s. ",
-            loadserver.curThreadsNum: Int, combineTimeStamp.mkString("<=")))
+          logWarning(s"Current total thread is ${loadserver.curThreadsNum}}, " +
+            s"and all thread's stamp time in a dictionary should be same, " +
+            s"but now ${combineTimeStamp.mkString("<=")}. ")
+
           if (connected) master ! CloseParquet(combineTimeStamp.head)
         }
         combineTimeStamp.clear()
@@ -293,8 +294,7 @@ class LoadWorker(
          * less likely scenario.
          */
         if (master != null) {
-          master ! RegisterWorker(
-            workerId, host, port, cores, memory, webUiPort, receiverserver.port)
+          master ! RegisterWorker(workerId, host, port, cores, memory, webUiPort, workerIP, receiverserver.port)
         } else {
           // We are retrying the initial registration
           tryRegisterAllMasters()
@@ -357,12 +357,13 @@ class LoadWorker(
     }
 
     private def calculateAverageRate(ratesList: util.ArrayList[Double]): Double = {
-      val arrayNum = ratesList.size()
-      val array = ratesList
-        .toArray(new Array[Double](arrayNum))
-
-      logDebug(s"current array order is ${array.mkString(" ")} ")
-      1.0 * array.sum / arrayNum
+      var sum = 1.0
+      var idx = 0
+      while(idx < ratesList.size()){
+        sum += ratesList.get(idx)
+        idx += 1
+      }
+      sum / ratesList.size()
     }
   }
 }
