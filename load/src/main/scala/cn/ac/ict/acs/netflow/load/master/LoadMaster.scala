@@ -466,7 +466,7 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
       // we want to select the same node firstly
       val receiver = if(waitQueue.contains(workerIP)) workerIP else waitQueue.head
 
-      val receiverSocket = receiverToSocket(receiver)
+      val receiverSocket = receiverToSocket(receiver)  // error not found key
       receiverSocket.write(cmd)
       waitQueue.remove(workerIP)
     }
@@ -524,7 +524,10 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
 
               // first, try to assign itself
               if (!workerToPort.contains(receiver)) Thread.sleep(2000)
-              if (workerToPort.contains(receiver)) _workers += receiver
+              if (workerToPort.contains(receiver)) {
+                _workers += receiver
+                workerToReceivers(receiver) += receiver
+              }
               if(_workers.size == workerNum) return
 
 
@@ -533,9 +536,11 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
                 workerToBufferRate.filterNot(x => x._1 == receiver).toList.sortWith(_._2 < _._2)
 
               var oi = 0
-              while (_workers.size != workerNum) {
-                _workers += orderByworkerList(oi)._1
-                oi = (oi + 1) % orderByworkerList.size
+              while (_workers.size != workerNum && oi < orderByworkerList.size){
+                val _worker = orderByworkerList(oi)._1
+                _workers += _worker
+              workerToReceivers(_worker) += receiver
+              oi += 1
               }
             }
 
@@ -588,7 +593,7 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     workerToReceivers.remove(deadworkerIP) match {
 
       case Some(receivers) =>
-        receivers.foreach(receiver => {
+        receivers.foreach(f = receiver => {
           // delete deadworker first
           receiverToWorkers.get(receiver).get -= deadworkerIP
 
@@ -604,10 +609,16 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
             // only one worker to connect this receiver, so we should
             // tell the receiver to connect another worker
 
-            var addWorkers : Array[(String, Int)] = null
+            var addWorkers: Array[(String, Int)] = null
 
             if (availableWorker.head._2 < changeLimit) {
               // we believe that a single worker can deal with this receiver
+
+              workerToPort.get(availableWorker.head._1) match{
+                case Some(a_worker) =>
+                  addWorkers = Array(a_worker)
+                case None => logError(s"${availableWorker.head._1} lost ... current size : ${workerToPort.size}")
+              }
               addWorkers = Array(workerToPort.get(availableWorker.head._1).get)
             } else {
               // a worker can not competent at this job....
@@ -621,7 +632,7 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
                 i += 1
               })
             }
-            notifyReceiver(receiver,Some(addWorkers), Some(Array((deadworkerIP, 0))))
+            notifyReceiver(receiver, Some(addWorkers), Some(Array((deadworkerIP, 0))))
           } else {
             // more than one worker to connect this receiver,
             // so we should adjust whether it's worker buffer available is more than 50% ?

@@ -87,7 +87,7 @@ object V9Parser extends VersionedParser {
     // insert template into templates
     val flowsetId = data.getShort(startPos)
     val flowsetLen = data.getShort(startPos + 2)
-
+ //   println(s"[call V9Parser.getNextFSPos] flowsetID:$flowsetId flowLen:$flowsetLen")
 
     flowsetId match {
       case x if x > 255 =>
@@ -108,6 +108,7 @@ object V9Parser extends VersionedParser {
           val tempKey = new TemplateKey(routerIp,tempId)
           val template = new Template(tempId, tempFields).createTemplate(data)
 
+          val hash = tempKey.hashCode()
           PacketParser.templates.put(tempKey, template)
           curPos = data.position()
         }

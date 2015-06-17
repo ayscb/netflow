@@ -18,19 +18,20 @@
  */
 package cn.ac.ict.acs.netflow.load.worker.parquet
 
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 import org.apache.hadoop.fs.Path
 import parquet.column.ParquetProperties.WriterVersion
 import parquet.hadoop.ParquetWriter
 import parquet.hadoop.metadata.CompressionCodecName
 
-import cn.ac.ict.acs.netflow.NetFlowConf
+import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
 import cn.ac.ict.acs.netflow.load.LoadConf
 import cn.ac.ict.acs.netflow.load.worker.{Row, Writer}
 import cn.ac.ict.acs.netflow.util.{Utils, TimeUtils}
 
 
-class TimelyParquetWriter(file: Path, val conf: NetFlowConf) extends Writer {
+class TimelyParquetWriter(file: Path, val conf: NetFlowConf) extends Writer with Logging{
   import TimelyParquetWriter._
 
   val compression = CompressionCodecName.fromConf(
@@ -62,7 +63,17 @@ class TimelyParquetWriter(file: Path, val conf: NetFlowConf) extends Writer {
   override def init() = {}
 
   override def write(rowIter: Iterator[Row]) = {
-    rowIter.foreach(row=>pw.write(row))
+   // rowIter.foreach(row=>pw.write(row))
+    try{
+      while(rowIter.hasNext){
+        val row = rowIter.next()
+        pw.write(row)
+      }
+    }catch {
+      case e: IOException =>
+        logError(e.getStackTrace.toString)
+        logError(e.getMessage)
+    }
   }
 
   override def close() = {

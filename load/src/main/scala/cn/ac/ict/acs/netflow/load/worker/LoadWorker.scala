@@ -102,7 +102,7 @@ class LoadWorker(
 
   // load data
   val defaultWriterNum = conf.getInt(LoadConf.WRITER_NUMBER, 1)
-  val maxQueueNum = conf.getInt(LoadConf.QUEUE_MAXPACKAGE_NUM, 100000000)
+  val maxQueueNum = conf.getInt(LoadConf.QUEUE_MAXPACKAGE_NUM, 100000)
   val warnThreshold = {
     val threshold = conf.getInt(LoadConf.QUEUE_WARN_THRESHOLD, 70)
     if (0 < threshold && threshold < 100) threshold else 70
@@ -333,24 +333,27 @@ class LoadWorker(
     private var lastThreadNum = 0
 
     override def loadBalanceWorker(): Unit = {
-      logInfo("load Balance Worker")
+      logInfo("$$$$$$$$<<<<<<<>><><><<><><><><><><><><><><><><><$$$$$$$$$$$$$$$$$$$$$$$load Balance Worker")
       val currentThreadNum = loadserver.curThreadsNum
       val currentThreadsAverageRate = calculateAverageRate(loadserver.curPoolRate)
-
+      logWarning("$currentThreadNum  $currentThreadsAverageRate")
       if (lastThreadNum == 0) {
         // the first time to exec load balance, so we only increase thread number
         loadserver.adjustWritersNum(currentThreadNum + 1)
-
+        logWarning("增加一个线程")
         lastThreadNum = currentThreadNum
         lastRate = currentThreadsAverageRate
       } else {
         if (currentThreadsAverageRate > lastRate) {
           loadserver.adjustWritersNum(currentThreadNum + 1)
+          logWarning("增加一个线程")
         } else {
           if (master != null) {
             master! BuffersWarn(host)
+            logWarning("请求master")
           } else {
             loadserver.adjustWritersNum(currentThreadNum + 1)
+            logWarning("增加一个线程")
           }
         }
       }

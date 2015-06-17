@@ -20,7 +20,7 @@ package cn.ac.ict.acs.netflow.load.worker.parser
 
 import java.nio.ByteBuffer
 
-import cn.ac.ict.acs.netflow.load.worker.{Row, MutableRow}
+import cn.ac.ict.acs.netflow.load.worker.{RowHeader, Row, MutableRow}
 
 /**
  * Created by ayscb on 15-6-11.
@@ -48,7 +48,7 @@ import cn.ac.ict.acs.netflow.load.worker.{Row, MutableRow}
  * |           record m field n         |
  * --------------------------------------
  */
-class DataFlowSet(val bb: ByteBuffer) {
+class DataFlowSet(val bb: ByteBuffer, val packetTime: Long, val routerIp: Array[Byte]) {
   private val fsHeaderLen = 4
 
   private var dfsStartPos = 0
@@ -63,13 +63,13 @@ class DataFlowSet(val bb: ByteBuffer) {
   /**
    * Get next data flow set position.
    * @param startPos
-   * @param routerIp
    * @return
    */
-  def getNextDfS(startPos: Int, routerIp: Array[Byte]): Int ={
+  def getNextDfS(startPos: Int): Int ={
     dfsStartPos = startPos
     dfsEndPos = startPos + fsLen
 
+  //  println(s"[getNextDfS] startPos:${dfsStartPos}, endpos: ${dfsEndPos}, fsid:${fsId}")
     val tempKey = new TemplateKey(routerIp, fsId)
     existTmp = PacketParser.templates.containsKey(tempKey)
     if(existTmp){
@@ -82,6 +82,14 @@ class DataFlowSet(val bb: ByteBuffer) {
 
     new Iterator[Row] {
       var curRow = new MutableRow(bb, template)
+      if(routerIp.length == 4){
+        curRow.setHeader(new RowHeader(Array[Any](packetTime, routerIp, null)))
+      }else if(routerIp.length == 16){
+        curRow.setHeader(new RowHeader(Array[Any](packetTime, null, routerIp)))
+      }else{
+        existTmp = false    // skip the package
+      }
+
       var curRowPos : Int = dfsStartPos + fsHeaderLen
 
       def hasNext: Boolean = {

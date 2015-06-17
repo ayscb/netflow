@@ -19,8 +19,22 @@
 package cn.ac.ict.acs.netflow.load.worker.parser
 
 import java.nio.ByteBuffer
+import java.util.concurrent.ConcurrentHashMap
 
-case class TemplateKey(routerIp :Array[Byte], templateId : Int)
+case class TemplateKey(routerIp :Array[Byte], templateId : Int){
+  override def hashCode(): Int = {
+    java.util.Arrays.hashCode(routerIp) + templateId
+  }
+
+  override def equals(obj: scala.Any): Boolean = {
+    if(obj == null) return false
+//    if(this == obj) return true
+    if(getClass != obj.getClass) return false
+    val oj = obj.asInstanceOf[TemplateKey]
+    if(oj.templateId != templateId) return false
+    java.util.Arrays.equals(this.routerIp, oj.routerIp)
+  }
+}
 
 class Template(val tmpId: Int, val fieldsCount: Int) {
 
@@ -61,3 +75,14 @@ class Template(val tmpId: Int, val fieldsCount: Int) {
     })
   }
 }
+
+
+//object test {
+//  def main(args: Array[String]) {
+//    val templates = new ConcurrentHashMap[TemplateKey, Template]
+//    val key = new TemplateKey(Array('1','2','i'),100)
+//    for(i <-0 to 5){
+//      templates.put(key, new Template(10,i))
+//    }
+//  }
+//}

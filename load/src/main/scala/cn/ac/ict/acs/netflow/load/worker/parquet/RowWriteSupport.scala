@@ -78,11 +78,11 @@ class RowWriteSupport extends WriteSupport[Row] with Logging {
 
       if (template.keys(i) == 12) {
         val ipv4_dst_addr = new Array[Byte](4)
-        bb.get(ipv4_dst_addr, curStart, 4)
+        bb.get(ipv4_dst_addr, 0, 4)
         return (ipv4_dst_addr, null)
       } else if (template.keys(i) == 28) {
         val ipv6_dst_addr = new Array[Byte](16)
-        bb.get(ipv6_dst_addr, curStart, 16)
+        bb.get(ipv6_dst_addr, 0, 16)
         return (null, ipv6_dst_addr)
       }
 
@@ -97,15 +97,15 @@ class RowWriteSupport extends WriteSupport[Row] with Logging {
     var curStart = start
     while (i < template.keys.length) {
       writeField(template.keys(i), bb, curStart, template.values(i))
-      i += 1
       curStart += template.values(i)
+      i += 1
     }
   }
 
   private def writeSupplimentFields(ft: FieldType.Value, fields: Array[Any]): Unit = {
 
     val length = ft match {
-      case FieldType.HEADER => validHeader.length
+      case FieldType.HEADER => validHeader.length   // 3 columns
       case FieldType.BGP => validBgp.length
     }
 
@@ -152,7 +152,8 @@ class RowWriteSupport extends WriteSupport[Row] with Logging {
           writer.addInteger(BytesUtil.fieldAsInt(bb, start, length))
         case BINARY | FIXED_LEN_BYTE_ARRAY =>
           val bytes = new Array[Byte](length)
-          bb.get(bytes, start, length)
+          bb.position(start)
+          bb.get(bytes, 0, length)
           writer.addBinary(Binary.fromByteArray(bytes))
       }
     }

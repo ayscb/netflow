@@ -40,15 +40,21 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Thread 
 
   logInfo(s"Initializing Multi-Way Receiver")
   setName("Receiver server Thread")
+  setDaemon(true)
 
   private var selector: Selector = _
 
   private val channels = mutable.HashSet.empty[Channel]
   private val channelToIp = mutable.HashMap.empty[Channel, String]
 
-  var port = 0
+  var _port = 0
+  def port: Int= {
+    while(_port == 0) Thread.sleep(500)
+    _port
+  }
   def collectors: Iterable[String] = channelToIp.values
 
+  private var t_count = 0
   override def run() = {
     val serverSocketChannel = ServerSocketChannel.open()
     serverSocketChannel.configureBlocking(false)
@@ -58,7 +64,7 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Thread 
     val (_, actualPort) =
       Utils.startServiceOnPort(0, startListening(serverSocket), conf, "multi-way receiver")
     logInfo(s"Receiver is listening $actualPort for netflow packets")
-    port = actualPort
+    _port = actualPort
 
     selector = Selector.open()
     serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT)
@@ -134,9 +140,11 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Thread 
         val curContent = holder.content
         channelRead(channel, curContent)
         if (curContent.position == curContent.capacity) {
+          curContent.flip()
           packetBuffer.put(curContent)
           holder.content = null
           holder.len.clear()
+          t_count += 1
         }
       } else if (holder.len.position < 2) { // reading length first
         val lb = holder.len

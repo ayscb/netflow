@@ -28,16 +28,14 @@ import scala.collection.JavaConversions._
 
 import cn.ac.ict.acs.netflow.util.Utils
 
-object NetFlowConf {
-
-}
+object NetFlowConf {}
 
 class NetFlowConf(loadDefaults: Boolean) extends Serializable {
 
   def this() = this(true)
 
   @transient private val settings = new ConcurrentHashMap[String, String]()
-  @transient private val _hadoopConfiguration = newConfiguration()
+  @transient private lazy val _hadoopConfiguration = newConfiguration()
 
   if (loadDefaults) {
     // Load any netflow.* system properties that passed as -D<name>=<value> at start time
@@ -148,6 +146,9 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
         hadoopConf.set(key.substring("netflow.hadoop.".length), value)
       }
     }
+    // test
+    hadoopConf.set("fs.default.name","hdfs://localhost:8020")
+
     val bufferSize = get("netflow.buffer.size", "65536")
     hadoopConf.set("io.file.buffer.size", bufferSize)
 

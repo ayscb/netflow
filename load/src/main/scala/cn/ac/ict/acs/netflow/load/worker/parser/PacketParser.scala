@@ -66,27 +66,29 @@ object PacketParser {
 
     val dataflowSet : Iterator[DataFlowSet] = new Iterator[DataFlowSet]() {
 
-      private val curDFS : DataFlowSet = new DataFlowSet(packet)
+      private val curDFS : DataFlowSet = new DataFlowSet(packet, nfTime, routerIp)
       private var curDFSPos = curPos
 
         override def hasNext: Boolean = {
 
           // TODO we remove the condition "dataFSCount != totalDataFSCount".
           if (curDFSPos == packet.limit()) return false
-          // skip the template flowset
-          curDFSPos = nfParser.getNextFSPos(packet, curDFSPos, routerIp)
-          if (curDFSPos == packet.limit()) return false
+          var lastPos = 0
+
+          while(lastPos != curDFSPos){
+            lastPos = curDFSPos
+            curDFSPos = nfParser.getNextFSPos(packet, curDFSPos, routerIp)
+            if(curDFSPos == packet.limit()) return false
+          }
           true
         }
 
         override def next() = {
-          curDFSPos = curDFS.getNextDfS(curDFSPos, routerIp)
+          curDFSPos = curDFS.getNextDfS(curDFSPos)
           curDFS
         }
       }
 
     (dataflowSet, nfTime)
   }
-
-
 }

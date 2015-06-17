@@ -2,7 +2,7 @@
 # This is useful for setting default environmental settings.
 
 # Overall settings
-netflow.hadoop.fs.default.name             hdfs://localhost:9000
+netflow.hadoop.fs.default.name      hdfs://localhost:8020
 netflow.time.format                 yyyy-MM-dd:HH:mm
 
 # netflow.port.maxRetries           Maximum num of retries when binding to a port before giving up

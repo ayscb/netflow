@@ -61,7 +61,6 @@ object loadTest {
           case e :NetFlowException => // println(e.getMessage)
         }
       }
-
       idx += 1
     }
     println(s" package count: $packageCount  rowCount: $rowCount")

@@ -62,7 +62,6 @@ object loadTestFile {
     data.skip(headerLen - 4)
     if (data.available() >= ipBodyLength) {
       upPackUDP(data, netflowBuffer)
-      1
     } else {
       -1 // unexpected
     }
@@ -78,7 +77,7 @@ object loadTestFile {
   private def upPackUDP(data: DataInputStream, netflowBuffer: ByteBuffer): Int = {
     c = c+1
     data.skipBytes(4)
-    val len = data.readShort()
+    val len = data.readShort() - 8 // except 8 byte's udp header
     data.skipBytes(2)
 
     if(len >= 1480) {
@@ -89,6 +88,7 @@ object loadTestFile {
     }
 
     data.read(netflowBuffer.array(), 0, len)
+    netflowBuffer.limit(len)
      1
   }
   private var udpCount = 0

@@ -103,14 +103,12 @@ final class LoaderService(private val bufferList: WrapBufferQueue, private val c
       }
 
       override def run(): Unit = {
-        logInfo("[Netflow] Start sub Write Parquet %d"
-          .format(Thread.currentThread().getId))
+        logInfo("[Netflow] Start sub Write Parquet %d".format(Thread.currentThread().getId))
 
         writerThreadsQueue.enqueue(Thread.currentThread())
         try{
-          while (Thread.currentThread().isInterrupted) {
+          while (true) {
             val data = bufferList.take // block when this list is empty
-
             if (readRateFlag && !hasRead) {
               // read the current rate, and put the data into queue
               ratesQueue.put(getCurrentRate)
@@ -120,14 +118,21 @@ final class LoaderService(private val bufferList: WrapBufferQueue, private val c
             }
             packageCount += 1
             val (flowSets, packetTime) = parse(data)
-            val rows: Iterator[Row] = flowSets.flatMap(_.getRows)
-            writer.write(rows, packetTime)
+            while (flowSets.hasNext){
+              val dfs: Iterator[Row] = flowSets.next().getRows
+              writer.write(dfs, packetTime)
+            }
           }
         }catch {
-          case e : InterruptedException =>
-            // print ? do nothing
+          case e: InterruptedException =>
+            logError(e.getMessage)
+            e.printStackTrace()
+          case e: Exception =>
+            logError(e.getMessage)
+            e.printStackTrace()
         }finally {
           writer.close()
+          logError("load server is closed!!!")
         }
       }
     }

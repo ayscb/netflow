@@ -33,8 +33,8 @@ class ParquetWriterWrapper(conf: NetFlowConf) extends WriterWrapper {
   private var w1: Writer = _
   private var w2: Writer = _
 
-  private val dicInterValTime = conf.getInt(TimeUtils.LOAD_DIR_CREATION_INTERVAL, 600)
-  private val closeInterval = conf.getInt(LoadConf.CLOSE_INTERVAL, 180) // default 180s
+  private val dicInterValTime = conf.getInt(TimeUtils.LOAD_DIR_CREATION_INTERVAL, 120)
+  private val closeInterval = conf.getInt(LoadConf.CLOSE_INTERVAL, 30) // default 180s
   require(dicInterValTime > closeInterval,
     "closeInterval should be less than dicInterValTime in netflow configure file")
 
@@ -50,13 +50,33 @@ class ParquetWriterWrapper(conf: NetFlowConf) extends WriterWrapper {
 
   override def init(): Unit = {}
 
+  override def write(rowIter: Iterator[Row], packetTime: Long) : Unit = {
+    if(currTimeBoundary == 0){
+      currTimeBoundary = TimeUtils.getCurrentBastTime(packetTime, conf)
+      nextTimeBoundary = currTimeBoundary + dicInterValTime * 1000
+      w1 = TimelyParquetWriter(currTimeBoundary,conf)
+      w1.write(rowIter)
+      return
+    }
+
+    if(packetTime > nextTimeBoundary){
+      w1.close()
+      currTimeBoundary = TimeUtils.getCurrentBastTime(packetTime, conf)
+      nextTimeBoundary = currTimeBoundary + dicInterValTime * 1000
+      w1 = TimelyParquetWriter(currTimeBoundary,conf)
+      w1.write(rowIter)
+      return
+    }
+
+    w1.write(rowIter)
+  }
   /**
    * close current parquet writer automatically
    * when after (currentTime + dicInterValTime + closeInterval)
    * @param rowIter
    * @param packetTime
    */
-  override def write(rowIter: Iterator[Row], packetTime: Long) = {
+  def writes(rowIter: Iterator[Row], packetTime: Long) = {
     if (w1 == null && w2 == null) {
       currTimeBoundary = TimeUtils.getCurrentBastTime(packetTime, conf)
       w1 = TimelyParquetWriter(currTimeBoundary, conf)

@@ -34,7 +34,7 @@ class WrapBufferQueue(
 
   // get the element from queue , block when the queue is empty
   def take = {
-    println("\t\t\t\ttake data :" + bufferQueue.size() + " ---- " + bufferQueue.remainingCapacity())
+ //   println(s"current total size : ${bufferQueue.size()}, remainingCapacity size: ${bufferQueue.remainingCapacity()}, ${bufferQueue.isEmpty}")
     bufferQueue.take()
   }
 
@@ -48,13 +48,13 @@ class WrapBufferQueue(
   }
 
   // get the element from queue , return null when the queue is empty
-  def poll = { bufferQueue.poll() }
-
-  // return false when the queue is full
-  def offer(byteBuffer: ByteBuffer) = {
-    checkThreshold()
-    bufferQueue.offer(byteBuffer)
-  }
+//  def poll = { bufferQueue.poll() }
+//
+//  // return false when the queue is full
+//  def offer(byteBuffer: ByteBuffer) = {
+//    checkThreshold()
+//    bufferQueue.offer(byteBuffer)
+//  }
 
   def currUsageRate(): Double = 1.0 * bufferQueue.size() / maxQueueNum
 
