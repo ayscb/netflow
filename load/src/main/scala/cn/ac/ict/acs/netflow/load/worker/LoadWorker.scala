@@ -101,8 +101,8 @@ class LoadWorker(
   var registrationRetryTimer: Option[Cancellable] = None
 
   // load data
-  val defaultWriterNum = conf.getInt(LoadConf.WRITER_NUMBER, 1)
-  val maxQueueNum = conf.getInt(LoadConf.QUEUE_MAXPACKAGE_NUM, 100000)
+  val defaultWriterNum = conf.getInt(LoadConf.WRITER_NUMBER, 2)
+  val maxQueueNum = conf.getInt(LoadConf.QUEUE_MAXPACKAGE_NUM, 1000000)
   val warnThreshold = {
     val threshold = conf.getInt(LoadConf.QUEUE_WARN_THRESHOLD, 70)
     if (0 < threshold && threshold < 100) threshold else 70
@@ -246,6 +246,7 @@ class LoadWorker(
           context.system.scheduler.schedule(INITIAL_REGISTRATION_RETRY_INTERVAL,
             INITIAL_REGISTRATION_RETRY_INTERVAL, self, ReregisterWithMaster)
         }
+
       case Some(_) =>
         logInfo("[Netflow] Not spawning another attempt to register with the master," +
           " since there is an attempt scheduled already.")
@@ -333,10 +334,9 @@ class LoadWorker(
     private var lastThreadNum = 0
 
     override def loadBalanceWorker(): Unit = {
-      logInfo("$$$$$$$$<<<<<<<>><><><<><><><><><><><><><><><><><$$$$$$$$$$$$$$$$$$$$$$$load Balance Worker")
       val currentThreadNum = loadserver.curThreadsNum
       val currentThreadsAverageRate = calculateAverageRate(loadserver.curPoolRate)
-      logWarning("$currentThreadNum  $currentThreadsAverageRate")
+      logWarning(s"$currentThreadNum  $currentThreadsAverageRate")
       if (lastThreadNum == 0) {
         // the first time to exec load balance, so we only increase thread number
         loadserver.adjustWritersNum(currentThreadNum + 1)

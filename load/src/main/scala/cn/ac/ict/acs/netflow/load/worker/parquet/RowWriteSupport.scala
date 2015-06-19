@@ -20,7 +20,7 @@ package cn.ac.ict.acs.netflow.load.worker.parquet
 
 import java.nio.ByteBuffer
 
-import cn.ac.ict.acs.netflow.load.utils.BytesUtil
+import cn.ac.ict.acs.netflow.load.util.BytesUtil
 import cn.ac.ict.acs.netflow.load.worker.Row
 import cn.ac.ict.acs.netflow.load.worker.bgp.BGPRoutingTable
 import cn.ac.ict.acs.netflow.load.worker.parser.Template

@@ -34,6 +34,6 @@ class LoadMasterSource(val master: LoadMaster) extends Source {
 
   // TODO
   metricRegistry.register(name("aliveReceivers"), new Gauge[Int] {
-    override def getValue: Int = master.receiverToSocket.keySet.size
+    override def getValue: Int = master.loadServer.collector2Socket.keySet.size
   })
 }

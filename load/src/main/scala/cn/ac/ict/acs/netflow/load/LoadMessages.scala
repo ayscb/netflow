@@ -57,7 +57,6 @@ object LoadMessages {
   case class updateBGP(bgpIds: Array[Int], bgpDatas: Array[Array[Byte]])
 
   /** **/
-  case class AddReceiver(receiverIP: String, socketChannel: SocketChannel)
   case class DeleReceiver(receiverIP: String)
   case class DeleWorker(workerIP: String, port: Int)
   case class RequestWorker(receiverIP: String)

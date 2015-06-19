@@ -32,38 +32,25 @@ class WrapBufferQueue(
   private val bufferQueue = new LinkedBlockingQueue[ByteBuffer](maxQueueNum)
   private val warnThresholdNum = ((warnThreshold * 1.0 / 100) * maxQueueNum).asInstanceOf[Int]
 
-  // get the element from queue , block when the queue is empty
-  def take = {
- //   println(s"current total size : ${bufferQueue.size()}, remainingCapacity size: ${bufferQueue.remainingCapacity()}, ${bufferQueue.isEmpty}")
-    bufferQueue.take()
-  }
 
-  def size = bufferQueue.size()
+  // get the element from queue , block when the queue is empty
+  def take = bufferQueue.take()
 
   // put the element to queue, block when the queue is full
   def put(byteBuffer: ByteBuffer) = {
     checkThreshold()
     bufferQueue.put(byteBuffer)
-    //  println("put into data :" + bufferQueue.size() +" ---- " + bufferQueue.remainingCapacity())
   }
 
-  // get the element from queue , return null when the queue is empty
-//  def poll = { bufferQueue.poll() }
-//
-//  // return false when the queue is full
-//  def offer(byteBuffer: ByteBuffer) = {
-//    checkThreshold()
-//    bufferQueue.offer(byteBuffer)
-//  }
+  def size = bufferQueue.size()
 
   def currUsageRate(): Double = 1.0 * bufferQueue.size() / maxQueueNum
 
   private def checkThreshold() = {
-    if (bufferQueue.size() > warnThresholdNum) { // warn
-      loadBalanceStrategyFunc
-    } else if (bufferQueue.remainingCapacity() < 10) {
-      // will block.....
-      sendOverflowMessage
+    if (bufferQueue.remainingCapacity() < 10){
+      sendOverflowMessage()  // will block.....
+    }else if (bufferQueue.size() > warnThresholdNum) { // warn
+      loadBalanceStrategyFunc()
     }
   }
 }
