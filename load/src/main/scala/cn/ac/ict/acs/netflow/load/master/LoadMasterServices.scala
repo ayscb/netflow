@@ -175,13 +175,15 @@ class MasterService(val master: ActorRef, val conf: NetFlowConf)
   private def closeSocketChannel(key: SelectionKey): Unit = {
 
     // When a channel is closed, all keys associated with it are automatically cancelled
+
+
     key.attach(null)
     key.cancel()
-
     val c = key.channel()
+    val collectorIP = getRemoteIp(c.asInstanceOf[SocketChannel])
     c.close()
     channels -= c
-    val collectorIP = getRemoteIp(c.asInstanceOf[SocketChannel])
+
     ipToChannel -= collectorIP
     master! DeleReceiver(collectorIP)
   }

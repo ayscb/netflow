@@ -430,25 +430,21 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
   }
 
   // ***********************************************************************************
-  private def addConnection(worker: String, collector: String): Unit ={
+  private def addConnection(worker: String, collector: String): Unit = {
 
-      workerToCollectors.get(worker) match {
-        case Some(collectors) =>
-          collectors += collector
-          require(collectorToWorkers.get(collector).isDefined,
-              s"The collector2workers should be define as worker2Collector is defined")
-          collectorToWorkers.get(collector).get += worker
+    workerToCollectors.get(worker) match {
+      case Some(collectors) => collectors += collector
+      case None =>
+        val collectors = new ArrayBuffer[String] += collector
+        workerToCollectors(worker) = collectors
+    }
 
-        case None =>
-          val collectors =  new ArrayBuffer[String] += collector
-          workerToCollectors(worker) = collectors
-          collectorToWorkers.get(collector)  match {
-            case Some(_workers) => _workers += worker
-            case None =>
-              val workers = new ArrayBuffer[String] += worker
-              collectorToWorkers(collector) = workers
-          }
-      }
+    collectorToWorkers.get(collector) match {
+      case Some(_workers) => _workers += worker
+      case None =>
+        val workers = new ArrayBuffer[String] += worker
+        collectorToWorkers(collector) = workers
+    }
   }
 
   private def deleConnecton(worker: String, collector: String): Unit ={
@@ -590,8 +586,8 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
 
       case None =>
         logError(s"'deleDeadCollector' method should be called only when the collector is lost," +
-          s"so ,for a determined $collectorIP collector, 'collectorToWorkers' should have only one record" +
-          s"about this collector, but now, it is NONE")
+          s"so ,for a determined $collectorIP collector, 'collectorToWorkers' should have one record at least" +
+          s"about this collector, but now, it is Empty")
     }
   }
 

@@ -48,6 +48,8 @@ class ParquetWriterWrapper(conf: NetFlowConf) extends WriterWrapper {
   // since these two thread are started by time sequence.
   @volatile private var stopOldWriter = false
 
+  override def setActorRef(workerRef: ActorRef): Unit = { workerActor = workerRef }
+
   override def init(): Unit = {}
 
   override def write(rowIter: Iterator[Row], packetTime: Long) : Unit = {
@@ -122,9 +124,6 @@ class ParquetWriterWrapper(conf: NetFlowConf) extends WriterWrapper {
     }
   }
 
-  override def setActorRef(workerRef: ActorRef): Unit = {
-    workerActor = workerRef
-  }
 
   private def getNextWriter(packetTime: Long): Writer = {
     curWriterId = (curWriterId + 1) % 2

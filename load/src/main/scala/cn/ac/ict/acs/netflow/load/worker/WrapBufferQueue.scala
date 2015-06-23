@@ -29,6 +29,8 @@ class WrapBufferQueue(
 
   require(0 < warnThreshold && warnThreshold < 100,  "The Queue warnThreshold should be in (0,100).")
 
+  private var hasCall = false
+
   private val bufferQueue = new LinkedBlockingQueue[ByteBuffer](maxQueueNum)
   private val warnThresholdNum = ((warnThreshold * 1.0 / 100) * maxQueueNum).asInstanceOf[Int]
 
@@ -49,8 +51,10 @@ class WrapBufferQueue(
   private def checkThreshold() = {
     if (bufferQueue.remainingCapacity() < 10){
       sendOverflowMessage()  // will block.....
-    }else if (bufferQueue.size() > warnThresholdNum) { // warn
+      hasCall = false       // reset
+    }else if (!hasCall && bufferQueue.size() > warnThresholdNum) { // warn
       loadBalanceStrategyFunc()
+      hasCall = true
     }
   }
 }

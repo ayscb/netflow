@@ -35,9 +35,10 @@ final class LoaderService(private val bufferList: WrapBufferQueue, private val c
   private val writerThreadPool = ThreadUtils.newDaemonCachedThreadPool("parquetWriterPool")
   private val writerThreadsQueue = new scala.collection.mutable.Queue[Thread]
 
-  private val ratesQueue = new java.util.concurrent.LinkedBlockingQueue[Double]()
+  private val ratesQueue = new java.util.concurrent.ConcurrentLinkedQueue[Double]()
 
   @volatile private var readRateFlag = false
+  @volatile private val threadNum = new java.util.concurrent.atomic.AtomicInteger()
 
   def initParquetWriterPool(threadNum: Int) = {
     for (i <- 0 until threadNum) {
@@ -72,9 +73,17 @@ final class LoaderService(private val bufferList: WrapBufferQueue, private val c
   def curPoolRate: util.ArrayList[Double] = {
     readRateFlag = true
     val currentThreadsNum = writerThreadsQueue.size
-    while (ratesQueue.size() != currentThreadsNum) { Thread.sleep(1) } // get all threads rates
+    var maxTimes = 10
+    while(threadNum.get() != currentThreadsNum) { Thread.sleep(500)}
+//    while (ratesQueue.size() != currentThreadsNum && maxTimes != 0) {
+//      Thread.sleep(10 * maxTimes * 10)
+//      maxTimes += 1
+//    } // get all threads rates
     val list = new util.ArrayList[Double]()
-    ratesQueue.drainTo(list)
+    val iter = ratesQueue.iterator()
+    while(iter.hasNext){
+      list.add(iter.next())
+    }
     ratesQueue.clear()
     readRateFlag = false
     list
@@ -87,6 +96,8 @@ final class LoaderService(private val bufferList: WrapBufferQueue, private val c
   private def newWriter: Runnable = {
 
     val writer = new Runnable() {
+      threadNum.incrementAndGet()
+
       private var hasRead = false
       // et true after call method 'getCurrentRate'
       private var startTime = 0L
@@ -111,7 +122,7 @@ final class LoaderService(private val bufferList: WrapBufferQueue, private val c
             val data = bufferList.take // block when this list is empty
             if (readRateFlag && !hasRead) {
               // read the current rate, and put the data into queue
-              ratesQueue.put(getCurrentRate)
+              ratesQueue.add(getCurrentRate)
               hasRead = true
             } else if (!readRateFlag & hasRead) {
               hasRead = false
