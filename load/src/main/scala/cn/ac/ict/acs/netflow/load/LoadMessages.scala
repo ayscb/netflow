@@ -20,39 +20,60 @@ package cn.ac.ict.acs.netflow.load
 
 object LoadMessages {
 
-  case class CacheInfo(workId: String, used: Int, remain: Int)
-
+  /**
+   * load balance message
+   */
   // worker(LoadBalanceStrategy) to master
-  case class BuffersWarn(workerHost: String)
-  case class BufferOverFlow(workerHost: String)
-  case class BufferReport(workerHost: String, rate: Int)
+  case class BuffersWarn(workerIP: String)
+  case class BufferOverFlow(workerIP: String)
+  case class BufferSimpleReport(workerIP: String, usageRate: Double)
+  case class BufferWholeReport(workerIP: String, usageRate: Double, maxSize: Int, curSize: Int)
 
-  // worker to worker
-  object BufferBeat
+  // Master to worker [ to get buffer simple info ]
+  case object BufferInfo
+
+  // worker to worker [ to regular whole report ]
+  case object BuffHeatBeat
+
+  // master to worker to adjust current worker thread
+  case object AdjustThread
+
+  /**
+   * combine message
+   */
+  // worker to master
+  case class CombineFinished(status: CombineStatus.Value)
+
+  // Master to worker [to tell worker to combine the parquets]
+  case class CombineParquet(fileStamp: Long)
+
+  // worker's loadPool to worker
+  // [to tell worker current thread has been written, and should be combine]
 
   // worker to master
-  case object CombineFinished
+  // [to tell master combine this directory]
+  // TODO: Rename this to `ParquetWriterClosed`
+  case class CloseParquet(fileStamp: Long)
 
+  /**
+   * bgp message
+   */
   // fet the BGPs from BGP drivers( or Internet etc.)
   case object getBGP
 
   // Master to Worker
-  case class updateBGP(
-    bgpIds: Array[Int],
-    bgpDatas: Array[Array[Byte]])
+  case class updateBGP(bgpIds: Array[Int], bgpDatas: Array[Array[Byte]])
 
-  // Master to worker to update the
-  // case class updateDestWorker( host : String, port : Int)
+  /**
+   * receiver message
+   */
+  case class DeleReceiver(receiverIP: String)
+  case class DeleWorker(workerIP: String, port: Int)
+  case class RequestWorker(receiverIP: String)
 
-  // Master to worker to tell worker to combine the parquets
-  case object CombineParquet
+}
 
-  // Master to worker to get buffer info
-  case object BufferInfo
-
-  // master to worker
-
-  // only when the collector's number is 1 who is connected with the worker we want to adjust
-  case object AdjustThread
-
+object CombineStatus extends Enumeration {
+  type CombineStatus = Value
+  val FINISH, DIRECTORY_NOT_EXIST, UNKNOWN_DIRECTORY, IO_EXCEPTION, PARTIAL_FINISH = Value
 }

@@ -27,47 +27,36 @@ class WrapBufferQueue(
     val loadBalanceStrategyFunc: () => Unit,
     val sendOverflowMessage: () => Unit) {
 
-  require(0 < warnThreshold && warnThreshold < 100,
-    message = " The Queue warnThreshold should be in (0,100) ")
+  require(0 < warnThreshold && warnThreshold < 100, "The Queue warnThreshold should be in (0,100).")
 
   private val bufferQueue = new LinkedBlockingQueue[ByteBuffer](maxQueueNum)
-  // private val bufferQueue = new SynchronousQueue[ByteBuffer]()
   private val warnThresholdNum = ((warnThreshold * 1.0 / 100) * maxQueueNum).asInstanceOf[Int]
 
-  // get the element from queue , block when the queue is empty
-  def take = {
-    println("\t\t\t\ttake data :" + bufferQueue.size() + " ---- " + bufferQueue.remainingCapacity())
-    bufferQueue.take()
-  }
+  private val halfNum = 0.5 * maxQueueNum
+  private var hasCall = false
 
-  def size = bufferQueue.size()
+  // get the element from queue , block when the queue is empty
+  def take = bufferQueue.take()
 
   // put the element to queue, block when the queue is full
   def put(byteBuffer: ByteBuffer) = {
     checkThreshold()
     bufferQueue.put(byteBuffer)
-    //  println("put into data :" + bufferQueue.size() +" ---- " + bufferQueue.remainingCapacity())
   }
 
-  // get the element from queue , return null when the queue is empty
-  def poll = { bufferQueue.poll() }
+  def size = bufferQueue.size()
 
-  // return false when the queue is full
-  def offer(byteBuffer: ByteBuffer) = {
-    checkThreshold()
-    bufferQueue.offer(byteBuffer)
-  }
-
-  def currentBufferRate(): Int = {
-    (1.0 * bufferQueue.size() / maxQueueNum).asInstanceOf[Int]
-  }
+  def currUsageRate(): Double = 1.0 * bufferQueue.size() / maxQueueNum
 
   private def checkThreshold() = {
-    if (bufferQueue.size() > warnThresholdNum) { // warn
-      loadBalanceStrategyFunc
-    } else if (bufferQueue.remainingCapacity() < 10) {
-      // will block.....
-      sendOverflowMessage
+    if (bufferQueue.remainingCapacity() < 10) {
+      sendOverflowMessage() // will block.....
+      hasCall = false // reset
+    } else if (!hasCall && bufferQueue.size() > warnThresholdNum) { // warn
+      loadBalanceStrategyFunc()
+      hasCall = true
+    } else if (bufferQueue.size() < halfNum) {
+      hasCall = false
     }
   }
 }

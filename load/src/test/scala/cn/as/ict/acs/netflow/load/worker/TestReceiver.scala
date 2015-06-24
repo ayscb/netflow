@@ -16,24 +16,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.load.master
+package cn.as.ict.acs.netflow.load.worker
 
-import com.codahale.metrics.{ Gauge, MetricRegistry }
+class TestReceiver {
 
-import cn.ac.ict.acs.netflow.metrics.source.Source
-
-class LoadMasterSource(val master: LoadMaster) extends Source {
-  override val metricRegistry = new MetricRegistry()
-  override val sourceName = "loadmaster"
-
-  import MetricRegistry._
-
-  metricRegistry.register(name("aliveLoadWorkers"), new Gauge[Int] {
-    override def getValue: Int = master.workers.count(_.state == WorkerState.ALIVE)
-  })
-
-  // TODO
-  metricRegistry.register(name("aliveReceivers"), new Gauge[Int] {
-    override def getValue: Int = master.loadServer.collector2Socket.keySet.size
-  })
 }

@@ -25,7 +25,7 @@ object LoadConf {
   val META_FILE = "_metadata"
   val COMMON_META_FILE = "_common_metadata"
   val SUCCESS_FIME = "_SUCCESS"
-  val TEMP_DICTIONARY = "_temporary"
+  val TEMP_DIRECTORY = "_temporary"
 
   // ************************** config **************************************
   // NetflowWriterUtil
@@ -45,10 +45,15 @@ object LoadConf {
   val ZOOKEEPER_DIR = "netflow.deploy.zookeeper.dir"
   val RECOVERY_DIR = "netflow.deploy.recoveryDirectory"
 
-  val LOAD_INTERVAL = "netflow.load.interval"
-  val LOAD_DATARATE = "netflow.load.dataRate"
-  val LOAD_STARTTIME = "netflow.load.startTime"
-  val LOAD_ENDTIME = "netflow.load.endTime"
-  val LOAD_PATH = "netflow.load.path"
+  // ParquetwriterWrapper
+  val LOAD_DIR_CREATION_INTERVAL = "netflow.load.dir.creation.interval"
+  val CLOSE_DELAY = "netflow.close.delay"
+
+  // loadWroker
+  val WRITER_NUMBER = "netflow.writer.number"
+  val QUEUE_MAXPACKAGE_NUM = "netflow.queue.maxPackageNum" // >=1, default 100000000
+  val QUEUE_WARN_THRESHOLD = "netflow.queue.WarnThreshold" // [0,100], default 70
+
+  val UNSORTED_PACKETS_DIR = "netflow.load.unsorted.dir"
 
 }

@@ -51,7 +51,7 @@ private[netflow] trait ActorLogReceive {
         log.debug(s"[actor] received message $o from ${self.sender}")
       }
       val start = System.nanoTime
-      _receiveWithLogging.apply(o)
+      _receiveWithLogging.apply(o)    // error
       val timeTaken = (System.nanoTime - start).toDouble / 1000000
       if (log.isDebugEnabled) {
         log.debug(s"[actor] handled message ($timeTaken ms) $o from ${self.sender}")

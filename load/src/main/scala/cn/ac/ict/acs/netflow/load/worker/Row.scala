@@ -16,37 +16,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.util
+package cn.ac.ict.acs.netflow.load.worker
 
-import java.util.concurrent.TimeUnit
+import java.nio.ByteBuffer
 
-import org.scalatest.{ Matchers, FunSuite }
+import cn.ac.ict.acs.netflow.load.worker.parser.Template
 
-import cn.ac.ict.acs.netflow.util.TimeUtils._
+// time: Long, routerIpv4: Array[Byte], routerIpv6: Array[Byte]
+class RowHeader(val fields: Array[Any])
 
-class TimeUtilsSuite extends FunSuite with Matchers {
-
-  test("invalid suffix") {
-    intercept[NumberFormatException] {
-      parseTimeString("10fake", TimeUnit.SECONDS)
-    }
-  }
-
-  test("default suffix") {
-    assert(parseTimeString("10", TimeUnit.SECONDS) === 10)
-  }
-
-  test("convert to upper unit") {
-    assert(parseTimeString("10ms", TimeUnit.SECONDS) === 0)
-  }
-
-  test("convert to lower unit") {
-    assert(parseTimeString("10s", TimeUnit.MILLISECONDS) === 10000)
-  }
-
-  test("Not a string") {
-    intercept[NumberFormatException] {
-      parseTimeString("badtime", TimeUnit.SECONDS)
-    }
+abstract class Row {
+  def header: RowHeader
+  def bb: ByteBuffer
+  def startPos: Int
+  def template: Template
+  final def length: Int = {
+    require(template != null)
+    template.rowLength
   }
 }
+
+class MutableRow(val bb: ByteBuffer, val template: Template) extends Row {
+  var header: RowHeader = _
+  var startPos: Int = _
+
+  def setHeader(rowheader: RowHeader): Unit = {
+    header = rowheader
+  }
+  //  def length: Int = {
+  //    require(template != null)
+  //    template.rowLength
+  //  }
+
+  /**
+   * a new row appears
+   * @param start
+   */
+  def update(start: Int): Unit = {
+    this.startPos = start
+  }
+}
+

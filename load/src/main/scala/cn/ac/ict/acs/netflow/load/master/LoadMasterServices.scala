@@ -19,223 +19,193 @@
 package cn.ac.ict.acs.netflow.load.master
 
 import java.io.IOException
-import java.net.InetSocketAddress
-import java.nio.ByteBuffer
-import java.nio.channels.{ ServerSocketChannel, SelectionKey, Selector, SocketChannel }
+import java.net.{ ServerSocket, InetSocketAddress }
+import java.nio.{ ByteOrder, ByteBuffer }
+import java.nio.channels._
 
-import cn.ac.ict.acs.netflow.load.master.CommandSet.CommandMode
+import akka.actor.ActorRef
+import cn.ac.ict.acs.netflow.load.LoadMessages.{ DeleReceiver, RequestWorker, DeleWorker }
+import cn.ac.ict.acs.netflow.{ NetFlowException, Logging, NetFlowConf }
 import cn.ac.ict.acs.netflow.util.Utils
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable
 
-trait MasterService {
-  self: LoadMaster =>
+class MasterService(val master: ActorRef, val conf: NetFlowConf)
+    extends Thread with Logging {
 
   // get the tcp thread runner
-  private var Service: Thread = null
-  private var ActualPort: Int = 0
+  private var actualPort: Int = 0
+  private var selector: Selector = _
 
-  def StopThread() = if (Service != null) Service.interrupt()
-  def getActualPort = ActualPort
+  // contain all socket include serverSocketChannel and all SocketChannel
+  private val channels = mutable.HashSet.empty[Channel]
 
-  def startMasterService() = {
-    val receiverPort = conf.getInt("netflow.receiver.port", 10012)
-    val t = Utils.startServiceOnPort(receiverPort, doStartRunner, conf, "Receiver-Master")
-    Service = t._1
-    ActualPort = t._2
+  // contain its ip str and channel
+  private val ipToChannel = mutable.HashMap.empty[String, SocketChannel]
+
+  def getActualPort: Int = {
+    val retryTimes = 4
+    var i = 0
+    while (i != retryTimes) {
+      if (actualPort != 0) return actualPort
+      Thread.sleep(i * 500)
+      i += 1
+    }
+    actualPort
   }
 
-  private def doStartRunner(Port: Int): (Thread, Int) = {
-    val thread =
-      new Thread("Receiver-Master-Service") {
+  def collector2Socket = ipToChannel
 
-        logInfo(s"[Netflow] The Service for Receiver is ready to start ")
-        private val selector = Selector.open()
+  override def run(): Unit = {
+    val serverSocketChannel = ServerSocketChannel.open()
+    serverSocketChannel.configureBlocking(false)
+    val serverSocket = serverSocketChannel.socket()
+    channels += serverSocketChannel
 
-        override def run(): Unit = {
-          logInfo(s"[Netflow] The Service for Receiver is running on port $Port ")
+    val port = conf.getInt("netflow.receiver.port", 10012)
 
-          // start service socket
-          val serverSocket = java.nio.channels.ServerSocketChannel.open()
-          serverSocket.configureBlocking(false)
-          serverSocket.socket().bind(new InetSocketAddress(Port))
-          serverSocket.register(selector, SelectionKey.OP_ACCEPT)
+    val service =
+      Utils.startServiceOnPort(port, startListening(serverSocket), conf, "Collector Server")
+    actualPort = service._2
 
-          while (!Thread.interrupted()) {
-            if (selector.select() != 0) {
-              val iter = selector.selectedKeys().iterator()
-              while (iter.hasNext) {
-                val key = iter.next()
-                iter.remove()
-                if (key.isAcceptable) {
-                  acceptConnection(key)
-                } else if (key.isReadable) {
-                  readConnection(key)
-                } else if (key.isWritable) {
-                  // writeConnection(key)
-                } else if (key.isValid) {
-                  printf("valid")
-                } else if (key.isConnectable) {
-                  printf("isConnectable")
-                }
-              }
+    logInfo(s"Collector Server is listening $actualPort for connecting collector")
+
+    selector = Selector.open()
+    serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT)
+
+    try {
+      while (!this.isInterrupted) {
+        try {
+          // Blocking until channel of interest appears
+          selector.select()
+
+          val iter = selector.selectedKeys().iterator()
+          while (iter.hasNext) {
+            val key = iter.next()
+            if (key.isAcceptable) {
+              registerChannel(key)
+            } else if (key.isReadable) {
+              readPacketFromSocket(key)
             }
+            iter.remove()
           }
-          selector.close()
-          logInfo(s"[Netflow] The Service for Receiver is closed. ")
-        }
-
-        /* deal with connection from remote */
-        private def acceptConnection(key: SelectionKey): Unit = {
-          // connect socket
-          val socketChannel = key.channel().asInstanceOf[ServerSocketChannel].accept()
-          socketChannel.configureBlocking(false)
-          socketChannel.register(selector, SelectionKey.OP_READ)
-
-          // save the remote ip
-          val remoteIP = socketChannel.getRemoteAddress.asInstanceOf[InetSocketAddress]
-            .getAddress.getHostAddress
-          registerReceiverStruct(remoteIP, socketChannel)
-
-          logInfo(s"[Netflow] The receiver Service accepts a connection from $remoteIP.receiver ")
-        }
-
-        // deal with the read connection request
-        private def readConnection(key: SelectionKey): Unit = {
-          val channel = key.channel().asInstanceOf[SocketChannel]
-          val remoteHost = channel.getRemoteAddress.asInstanceOf[InetSocketAddress]
-            .getAddress.getHostAddress
-
-          logInfo(s"[Netflow] The $remoteHost receiver is request to master.")
-
-          val reqBuff = CommandSet.getReqBuffer
-          try {
-            val count = channel.read(reqBuff)
-            if (count > 0) {
-              reqBuff.flip()
-              if (CommandSet.isReqWorkerList(reqBuff)) {
-
-                CommandSet.isReqWorkerListAndReport(reqBuff) match {
-                  case Some(result) =>
-                    if (workerToPort.contains(result._1)) {
-                      if (workerToPort(result._1)._2 == result._2) {
-                        workerToPort -= result._1
-                        workerToBufferRate -= result._1
-                        workerToReceivers -= result._1
-                        receiverToWorkers(remoteHost) -= result._1
-                      }
-                    }
-                  case None =>
-                }
-
-                // get worker ips
-                assignWorker(remoteHost) match {
-                  case Some(data: Array[(String, Int)]) =>
-                    val cmd = CommandSet.responseReceiver(Some(data), None)
-                    channel.write(cmd)
-
-                  // channel.write(CommandSet.responseReceiver(CommandMode.add, data))
-                  case None =>
-                    // No available worker to assigned
-                    waitQueue += (remoteHost -> channel)
-                }
-              }
-              channel.register(selector, SelectionKey.OP_READ)
-
-            } else if (count == -1) {
-              // close socket
-              channel.shutdownInput()
-              receiverToSocket -= remoteHost
-              receiverToWorkers -= remoteHost
-              workerToReceivers.foreach(x => {
-                x._2 -= remoteHost
-              })
-              key.cancel()
-              logInfo(s"[Netflow] The $remoteHost receiver is closed")
-            }
-          } catch {
-            case e: IOException =>
-              logWarning("s[Netflow] The connect is closed." + e.getMessage)
-              receiverToSocket -= remoteHost
-              receiverToWorkers -= remoteHost
-              workerToReceivers.foreach(x => {
-                x._2 -= remoteHost
-              })
-              key.cancel()
-          }
-        }
-
-        // the method is called only by first connection for receiverIP
-        private def registerReceiverStruct(receiverIP: String, socketChannel: SocketChannel) = {
-          if (receiverToSocket.contains(receiverIP)) {
-            logError(s"[Netflow] The receiver $receiverIP should not exist in receiverToSocket !")
-          }
-          if (receiverToWorkers.contains(receiverIP)) {
-            logError(s"[Netflow] The receiver $receiverIP should not exist in receiverToWorkers !")
-          }
-
-          receiverToSocket += (receiverIP -> socketChannel)
-          receiverToWorkers += (receiverIP -> new ArrayBuffer[String]())
-        }
-
-        // called when a receiver ask for worker's info
-        private def assignWorker(receiver: String, workerNum: Int = 1):
-          Option[Array[(String, Int)]] = {
-
-          receiverToWorkers.get(receiver) match {
-            case None =>
-              logError(s"[ Netflow ] The node $receiver should be registed! ")
-              None
-            case Some(workers) =>
-              if (workers.size == 0) {
-                // the first time to assign worker
-
-                if (workerToPort.size == 0) {
-                  logWarning(s"[Netflow] There is no available worker to run in cluster.")
-                  return None
-                }
-
-                // first, try to assign itself
-                if (!workerToPort.contains(receiver)) Thread.sleep(2000)
-                if (workerToPort.contains(receiver)) {
-                  workers += receiver
-                }
-
-                // if needs more than one worker
-                if (workers.size != workerNum) {
-
-                  val orderByworkerList = workerToBufferRate.filterNot(x => x._1 == receiver)
-                    .toList.sortWith(_._2 < _._2)
-
-                  var oi = 0
-                  while (workers.size != workerNum) {
-                    val host = orderByworkerList(oi)._1
-                    workers += host
-                    oi = (oi + 1) % orderByworkerList.size
-                  }
-                }
-              }
-
-              val workerList = new Array[(String, Int)](workerNum)
-              for (i <- 0 until workers.size) {
-                workerList(i) = workerToPort.get(workers(i)).get
-              }
-              Some(workerList)
-          }
+        } catch {
+          case e: InterruptedException =>
+            logInfo(s"Collector Server is stopped. ")
+            throw new InterruptedException
+          case e: IOException =>
+          // TODO
         }
       }
+    } finally {
+      // When a selector is closed, all channels registered with that selector are deregistered,
+      // and the associated keys are invalidated(cancelled)
+      logWarning("collector server terminated")
+      selector.close()
+      channels.foreach(_.close())
+    }
+  }
 
-    thread.start()
-    (thread, Port)
+  private def startListening(serverSocket: ServerSocket): (Int) => (Any, Int) = { tryPort =>
+    if (tryPort == 0) {
+      serverSocket.bind(null)
+    } else {
+      serverSocket.bind(new InetSocketAddress(tryPort))
+    }
+    (null, serverSocket.getLocalPort)
+  }
+
+  private def getRemoteIp(socketChannel: SocketChannel): String = {
+    socketChannel.getRemoteAddress.asInstanceOf[InetSocketAddress]
+      .getAddress.getHostAddress
+  }
+
+  /** Accept remote connection */
+  private def registerChannel(sk: SelectionKey): Unit = {
+    // connect socket
+    val socketChannel: SocketChannel = sk.channel().asInstanceOf[ServerSocketChannel].accept()
+    socketChannel.configureBlocking(false)
+    socketChannel.register(selector, SelectionKey.OP_READ).attach(new PacketHolder)
+
+    val _remoteIP = getRemoteIp(socketChannel)
+    channels += socketChannel
+    ipToChannel(_remoteIP) = socketChannel
+    logInfo(s"Open connection from ${_remoteIP}.")
+  }
+
+  /** Read at most 1 packet from the connection */
+  private def readPacketFromSocket(sk: SelectionKey): Unit = {
+    def channelRead(channel: SocketChannel, buffer: ByteBuffer): Unit = {
+      if (channel.read(buffer) < 0) throw new NetFlowException("Channel closed")
+    }
+
+    val channel = sk.channel().asInstanceOf[SocketChannel]
+    val holder = sk.attachment().asInstanceOf[PacketHolder]
+
+    try {
+      if (holder.content != null) {
+        // reading packet
+        val curContent = holder.content
+        channelRead(channel, curContent)
+        if (!curContent.hasRemaining) {
+          dealWithCommand(channel, curContent)
+          holder.content = null
+          holder.len.clear()
+        }
+      } else if (holder.len.position < 2) {
+        // reading length first
+        val lb = holder.len
+        channelRead(channel, lb)
+        if (lb.position == 2) {
+          val packetLength = lb.getShort(0)
+          if (packetLength < 0) {
+            throw new NetFlowException("Invalid packet length")
+          }
+          holder.content = ByteBuffer.allocate(packetLength - 2)
+          readPacketFromSocket(sk)
+        }
+      }
+    } catch {
+      case e: NetFlowException =>
+        logWarning(s"Error occurs while reading packets: ${e.getMessage}")
+        closeSocketChannel(sk)
+      case e: Exception => logError(e.getMessage)
+    }
+  }
+
+  private def closeSocketChannel(key: SelectionKey): Unit = {
+
+    // When a channel is closed, all keys associated with it are automatically cancelled
+    key.attach(null)
+    key.cancel()
+    val c = key.channel()
+    val collectorIP = getRemoteIp(c.asInstanceOf[SocketChannel])
+    c.close()
+    channels -= c
+
+    ipToChannel -= collectorIP
+    master ! DeleReceiver(collectorIP)
+  }
+
+  private def dealWithCommand(curChannel: SocketChannel, data: ByteBuffer): Unit = {
+    if (CommandSet.isReqWorkerList(data)) {
+
+      // delete dead worker
+      CommandSet.getDeadWorker(data) match {
+        case Some(result) => master ! DeleWorker(result._1, result._2)
+        case None =>
+      }
+      master ! RequestWorker(getRemoteIp(curChannel))
+    }
+  }
+
+  private class PacketHolder {
+    val len: ByteBuffer = ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN)
+    var content: ByteBuffer = _
   }
 }
 
 object CommandSet {
-
-  object CommandMode extends Enumeration {
-    type Mode = Value
-    val add, delete = Value
-  }
 
   /* the command struct that connect with receiver */
   object CommandStruct {
@@ -250,56 +220,19 @@ object CommandSet {
     val delim = "&"
   }
 
-  import CommandMode._
-
   private val req_buffer = ByteBuffer.allocate(1500)
   private val res_buffer = ByteBuffer.allocate(1500)
 
   private val sb = new StringBuilder
-  /**
-   *
-   * @param mode
-   * + add new ips
-   * - delete exist ips
-   * @param ipAdds
-   * @return
-   * if the ipAdds is available, return ips
-   * else return "null"
-   */
-  def responseReceiver(mode: Mode, ipAdds: Array[(String, Int)]): ByteBuffer = {
-    res_buffer.clear()
-    sb.clear()
-    if (mode == add) {
-      // $$+1&12.1.1.1:123&112.12.13.14:123&
-      sb.append(CommandStruct.res_prefix).append("+")
-        .append(ipAdds.length).append(CommandStruct.delim)
-
-      ipAdds.map(ip_port => {
-        sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
-      })
-
-    } else if (mode == delete) {
-      sb.append(CommandStruct.res_prefix).append("-")
-        .append(ipAdds.length).append(CommandStruct.delim)
-
-      ipAdds.map(ip_port => {
-        sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
-      })
-    }
-    res_buffer.put(sb.toString().getBytes)
-    res_buffer.flip()
-    res_buffer
-  }
 
   /**
    *    $$+2&1.2.3.4:1000&2.2.2.2:1234&
    *    $$-1&3.4.5.6:1000&
    *    $$-1&3.4.5.6:1000&+2&1.2.3.4:1000&2.2.2.2:1234&
-   * @param addIpAdds
-   * @param deleIpAdds
    * @return
    */
-  def responseReceiver(addIpAdds: Option[Array[(String, Int)]],
+  def responseReceiver(
+    addIpAdds: Option[Array[(String, Int)]],
     deleIpAdds: Option[Array[(String, Int)]]): ByteBuffer = {
     res_buffer.clear()
     sb.clear()
@@ -332,7 +265,7 @@ object CommandSet {
     data.array.startsWith(CommandStruct.req_workerlist)
   }
 
-  def isReqWorkerListAndReport(data: ByteBuffer): Option[(String, Int)] = {
+  def getDeadWorker(data: ByteBuffer): Option[(String, Int)] = {
     if (data.limit() == CommandStruct.req_workerlist.length) {
       None
     } else {

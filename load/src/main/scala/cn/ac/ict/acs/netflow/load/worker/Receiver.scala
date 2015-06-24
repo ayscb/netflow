@@ -21,7 +21,7 @@ package cn.ac.ict.acs.netflow.load.worker
 
 import java.io.IOException
 import java.net.{ InetSocketAddress, ServerSocket }
-import java.nio.ByteBuffer
+import java.nio.{ ByteOrder, ByteBuffer }
 import java.nio.channels._
 
 import scala.collection.mutable
@@ -36,16 +36,25 @@ import cn.ac.ict.acs.netflow.{ NetFlowException, Logging, NetFlowConf }
  *
  * TODO thread restart?
  */
-class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Runnable with Logging {
+class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Thread with Logging {
 
   logInfo(s"Initializing Multi-Way Receiver")
+  setName("Receiver server Thread")
+  setDaemon(true)
+
   private var selector: Selector = _
 
-  val channels = mutable.HashSet.empty[Channel]
-  val channelToIp = mutable.HashMap.empty[Channel, String]
+  private val channels = mutable.HashSet.empty[Channel]
+  private val channelToIp = mutable.HashMap.empty[Channel, String]
 
-  def collectors = channelToIp.values
+  var _port = 0
+  def port: Int = {
+    while (_port == 0) Thread.sleep(500)
+    _port
+  }
+  def collectors: Iterable[String] = channelToIp.values
 
+  private var t_count = 0
   override def run() = {
     val serverSocketChannel = ServerSocketChannel.open()
     serverSocketChannel.configureBlocking(false)
@@ -55,6 +64,7 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Runnabl
     val (_, actualPort) =
       Utils.startServiceOnPort(0, startListening(serverSocket), conf, "multi-way receiver")
     logInfo(s"Receiver is listening $actualPort for netflow packets")
+    _port = actualPort
 
     selector = Selector.open()
     serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT)
@@ -77,7 +87,7 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Runnabl
           }
         } catch {
           case e: IOException =>
-            // TODO
+          // TODO
         }
       }
     } finally {
@@ -130,9 +140,11 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Runnabl
         val curContent = holder.content
         channelRead(channel, curContent)
         if (curContent.position == curContent.capacity) {
+          curContent.flip()
           packetBuffer.put(curContent)
           holder.content = null
           holder.len.clear()
+          t_count += 1
         }
       } else if (holder.len.position < 2) { // reading length first
         val lb = holder.len
@@ -142,7 +154,7 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Runnabl
           if (packetLength < 0) {
             throw new NetFlowException("Invalid packet length")
           }
-          holder.content = ByteBuffer.allocate(packetLength)
+          holder.content = ByteBuffer.allocate(packetLength - 2)
           readPacketFromSocket(sk)
         }
       }
@@ -163,7 +175,7 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Runnabl
   }
 
   class PacketHolder {
-    val len: ByteBuffer = ByteBuffer.allocate(2)
+    val len: ByteBuffer = ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN)
     var content: ByteBuffer = _
   }
 }

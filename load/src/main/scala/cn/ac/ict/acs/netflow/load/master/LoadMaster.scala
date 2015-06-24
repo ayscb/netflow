@@ -18,14 +18,10 @@
  */
 package cn.ac.ict.acs.netflow.load.master
 
-import java.net.InetAddress
-import java.nio.channels.SocketChannel
-
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.util.Random
 
 import akka.actor._
 import akka.pattern.ask
@@ -33,18 +29,12 @@ import akka.remote.RemotingLifecycleEvent
 import akka.serialization.SerializationExtension
 
 import cn.ac.ict.acs.netflow._
-import cn.ac.ict.acs.netflow.load.LoadMessages
-import cn.ac.ict.acs.netflow.load.master.CommandSet.CommandMode
-import cn.ac.ict.acs.netflow.load.master.CommandSet.CommandMode.Mode
+import cn.ac.ict.acs.netflow.load.{ CombineStatus, LoadMessages }
 import cn.ac.ict.acs.netflow.util._
 import cn.ac.ict.acs.netflow.ha.{ LeaderElectionAgent, MonarchyLeaderAgent, LeaderElectable }
 
-class LoadMaster(
-  masterHost: String,
-  masterPort: Int,
-  webUiPort: Int,
-  val conf: NetFlowConf)
-    extends Actor with ActorLogReceive with MasterService with LeaderElectable with Logging {
+class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: NetFlowConf)
+    extends Actor with ActorLogReceive with LeaderElectable with Logging {
 
   import DeployMessages._
   import LoadMasterMessages._
@@ -75,25 +65,31 @@ class LoadMaster(
   var persistenceEngine: MasterPersistenceEngine = _
   var leaderElectionAgent: LeaderElectionAgent = _
 
+  // load master service
+  val loadServer = new MasterService(self, conf)
+
+  /**
+   * about balance
+   */
   // workerIP => (IP,port)
-  val workerToPort = new mutable.HashMap[String, (String, Int)]()
-  // receiver => socketChannel
-  val receiverToSocket = new mutable.HashMap[String, SocketChannel]()
-  // worker : receiver => 1 : n
-  val workerToReceivers = new mutable.HashMap[String, ArrayBuffer[String]]()
-  // receiver : worker => 1 : n
-  val receiverToWorkers = new mutable.HashMap[String, ArrayBuffer[String]]()
+  @transient val workerToPort = new mutable.HashMap[String, (String, Int)]()
   // worker : buffer used rate[0,100]
-  val workerToBufferRate = new mutable.HashMap[String, Int]()
-  private val changeLimit = 50
-  private val warnLimit = 70
-  private val receiverConnectMaxLimit = 3
-  // should be < worker's number
+  @transient val workerToBufferRate = new mutable.HashMap[String, Double]()
+  // worker : receiver => 1 : n
+  @transient val workerToCollectors = new mutable.HashMap[String, ArrayBuffer[String]]()
+
+  // receiver : worker => 1 : n
+  @transient val collectorToWorkers = new mutable.HashMap[String, ArrayBuffer[String]]()
+
+  private val halfLimit = 0.5
+  private val warnLimit = 0.7
+
+  // combine parquet
   private var combineParquetFinished: Boolean = false
 
-  // when there is no worker registers in cluster ,
+  // when there is no worker registers in cluster,
   // we put the whole request receiver into waitQueue
-  val waitQueue = new mutable.HashMap[String, SocketChannel]()
+  val waitQueue = new mutable.HashSet[String]()
 
   override def preStart(): Unit = {
     logInfo(s"[Netflow] Starting NetFlow LoadMaster at $loadMasterUrl")
@@ -120,11 +116,7 @@ class LoadMaster(
     leaderElectionAgent = leaderElectionAgent_
 
     // start the receiver master service
-    startMasterService()
-
-    // start the combine scheduler
-    val interval = TimeUtils.loadDirIntervalSec(conf)
-    context.system.scheduler.schedule(0.millis, interval.seconds, self, NeedToCombineParquet)
+    loadServer.start()
   }
 
   override def preRestart(reason: Throwable, message: Option[Any]) {
@@ -156,8 +148,7 @@ class LoadMaster(
       System.exit(0)
     }
 
-    // include loadworker, receiver
-    case RegisterWorker(id, workHost, workPort, cores, memory, webUiPort, tcpPort) => {
+    case RegisterWorker(id, workHost, workPort, cores, memory, webUiPort, workerIP, tcpPort) => {
       logInfo("Registering %s %s:%d with %d cores, %s RAM".format(
         id, workHost, workPort, cores, Utils.megabytesToString(memory)))
 
@@ -166,14 +157,13 @@ class LoadMaster(
       } else if (idToWorker.contains(id)) {
         sender ! RegisterWorkerFailed("Duplicate worker ID")
       } else {
-        val worker = new LoadWorkerInfo(id, workHost, workPort,
-          cores, memory, sender, webUiPort, tcpPort)
+        val worker = new LoadWorkerInfo(id, workHost, workPort, cores, memory, sender(),
+          webUiPort, workerIP, tcpPort)
         if (registerWorker(worker)) {
           persistenceEngine.addWorker(worker)
           sender ! RegisteredWorker(loadMasterUrl, loadMasterWebUIUrl)
 
-          val workerIP = InetAddress.getByName(workHost).getHostAddress
-          registerWorkerStructor(workerIP, tcpPort)
+          pushBGPToWorker(sender())
         } else {
           val workerAddress = worker.actor.path.address
           logWarning("Worker registration failed. Attempted to re-register worker at same " +
@@ -205,22 +195,40 @@ class LoadMaster(
     case BoundPortsRequest =>
       sender ! BoundPortsResponse(masterPort, webUiPort)
 
-    // when receive this message, that means only by increasing worker's writer thread do not
-    case BuffersWarn(workerHost) =>
-      adjustCollectorByBuffer(workerHost, sender())
+    // message about buffer
+    case BuffersWarn(workerIp) =>
+      adjustCollectorByBuffer(workerIp, sender())
 
-    case BufferOverFlow(workerHost) =>
-      adjustCollectorByBuffer(workerHost, sender())
+    case BufferOverFlow(workerIp) =>
+      adjustCollectorByBuffer(workerIp, sender())
 
-    case BufferReport(workerHost, rate) =>
-      workerToBufferRate.update(workerHost, rate)
+    case BufferSimpleReport(workerIp, usageRate) =>
+      workerToBufferRate.update(workerIp, usageRate)
 
+    case BufferWholeReport(workerIp, usageRate, maxSize, curSize) =>
+      workerToBufferRate.update(workerIp, usageRate)
+    // TODO save another information (maxSize, curSize)
+
+    // message about combine
     // deal with the combine parquet
-    case NeedToCombineParquet => combineParquet()
+    case CloseParquet(fileStamp) =>
+      combineParquet(fileStamp)
 
-    case CombineFinished => combineParquetFinished = true
+    case CombineFinished(status) =>
+      dealWithCombineMessage(status)
 
+    // message about receiver
+    case DeleReceiver(receiverIP) =>
+      deleDeadCollector(receiverIP)
+
+    case DeleWorker(workerIP, port) =>
+      deleDeadWorker(workerIP, port, notify = false)
+
+    case RequestWorker(receiverIP) =>
+      assignWorker(receiverIP)
   }
+
+  // **********************************************************************************
 
   private def registerWorker(worker: LoadWorkerInfo): Boolean = {
     // There may be one or more refs to dead workers on this same node (with different ID's),
@@ -247,6 +255,10 @@ class LoadMaster(
     workers += worker
     idToWorker(worker.id) = worker
     addressToWorker(workerAddress) = worker
+
+    // add
+    deleDeadWorker(worker.ip, notify = true)
+    addNewWorker(worker.ip, worker.tcpPort)
     true
   }
 
@@ -259,15 +271,15 @@ class LoadMaster(
 
     // we should tell all the receivers who connected with this
     // dead worker to connect with living worker
-    adjustCollectorByDeadworker(worker.host)
+    deleDeadWorker(worker.ip, worker.tcpPort, notify = true)
 
     // redo combine thread on anther worker node ?
-    dealWithCombineError()
+    dealWithCombineError(worker)
   }
 
-  // **********************************************************************************
-
-  /** Check for, and remove, any timed-out workers */
+  /**
+   *  Check for, and remove, any timed-out workers
+   */
   private def timeOutDeadWorkers() {
     // Copy the workers into an array so we don't modify the hashset while iterating through it
     val currentTime = System.currentTimeMillis()
@@ -285,11 +297,38 @@ class LoadMaster(
     }
   }
 
-  private def combineParquet(): Unit = {
-    if (idToWorker.size == 0) return
-    val rdmId = Random.nextInt(idToWorker.size) // assign alive worker
-    val workInfo = idToWorker.toList(rdmId)._2
-    workInfo.actor ! CombineParquet // tell it to combine the parquets
+  // *********************************************************************************
+  // only for combine server, since we can not get the exact load worker threads number
+  // in current time base, so we put the task to load worker by listening HDFS directory
+  private var curCombieWorker: LoadWorkerInfo = _
+  private var fileTimeStamp: Long = 0
+  private var nextCombIdx = 0
+
+  private def combineParquet(fileStamp: Long): Unit = {
+    fileTimeStamp = fileStamp
+    sendCombMessage()
+  }
+
+  private def dealWithCombineMessage(status: CombineStatus.Value): Unit = {
+    status match {
+      case CombineStatus.FINISH =>
+        combineParquetFinished = true
+        logInfo(s"Combine the file ${load.getPathByTime(fileTimeStamp, conf)} completely")
+
+      case CombineStatus.PARTIAL_FINISH =>
+        combineParquetFinished = true
+        logInfo(s"Combine partial files in directory ${load.getPathByTime(fileTimeStamp, conf)}")
+
+      case CombineStatus.DIRECTORY_NOT_EXIST =>
+        logWarning(s"Combine directory ${load.getPathByTime(fileTimeStamp, conf)} failed, " +
+          s"for there is no such directory.")
+
+      case CombineStatus.UNKNOWN_DIRECTORY =>
+        logWarning(s"Combine directory ${load.getPathByTime(fileTimeStamp, conf)} failed, " +
+          s"for the directory structure is not parquet structure.")
+
+      case _ => logError(s"Combine error, cannot combine this directory")
+    }
   }
 
   /**
@@ -297,293 +336,439 @@ class LoadMaster(
    * the worker which is running combine thread
    * id dead ,so we should redo the combine rhread on another worker node
    */
-  private def dealWithCombineError(): Unit = {
-    if (!combineParquetFinished) {
-      combineParquet()
+  private def dealWithCombineError(deadworker: LoadWorkerInfo): Unit = {
+    if (!combineParquetFinished && deadworker == curCombieWorker) {
+      sendCombMessage()
     }
   }
 
-  // called after a worker registered successfully, record workerToUdpPort & workerToCollectors
-  private def registerWorkerStructor(workerIP: String, workerPort: Int): Unit = {
-    workerToPort += (workerIP -> (workerIP, workerPort))
-    workerToReceivers += (workerIP -> new ArrayBuffer[String])
-    workerToBufferRate += (workerIP -> 0)
-    assignWorkerToWaittingReceiver(workerIP)
+  private def sendCombMessage(): Unit = {
+    nextCombIdx = (nextCombIdx + 1) % idToWorker.size
+    curCombieWorker = idToWorker.toList(nextCombIdx)._2
+    curCombieWorker.actor ! CombineParquet(fileTimeStamp) // tell it to combine the parquets
+  }
+  // ------------------------------------------------------------------
+  // only for bgp table
+  private val bgpTable = new scala.collection.mutable.HashMap[Int, Array[Byte]]
+  private def updateBGP(bgpIds: Array[Int], bgpDatas: Array[Array[Byte]]): Unit = {
+
+    if (bgpTable.isEmpty) {
+      idToWorker.valuesIterator
+        .foreach(_.actor ! updateBGP(bgpIds, bgpDatas))
+
+      var idx = 0
+      while (idx != bgpIds.length) {
+        bgpTable(bgpIds(idx)) = bgpDatas(idx)
+        idx += 1
+      }
+      return
+    }
+
+    // update exist table
+    val _bgpIds = new ArrayBuffer[Int]
+    val _bgpDatas = new ArrayBuffer[Array[Byte]]
+
+    var idx = 0
+    while (idx != bgpIds.length) {
+      if (bgpTable.contains(bgpIds(idx))) {
+        val value = bgpTable.get(bgpIds(idx)).get
+        if (!(value sameElements bgpDatas(idx))) {
+          _bgpIds += bgpIds(idx)
+          _bgpDatas += bgpDatas(idx)
+          bgpTable(bgpIds(idx)) = bgpDatas(idx)
+        }
+      } else {
+        _bgpIds += bgpIds(idx)
+        _bgpDatas += bgpDatas(idx)
+        bgpTable(bgpIds(idx)) = bgpDatas(idx)
+      }
+      idx += 1
+    }
+    idToWorker.valuesIterator
+      .foreach(_.actor ! updateBGP(_bgpIds.toArray[Int], _bgpDatas.toArray[Array[Byte]]))
+
   }
 
-  // when a worker registered in master, run this function
-  private def assignWorkerToWaittingReceiver(workerIP: String): Unit = synchronized {
-    if (waitQueue.nonEmpty) {
-      val cmd = CommandSet.responseReceiver(CommandMode.add, Array(workerToPort.get(workerIP).get))
+  private def pushBGPToWorker(workerActor: ActorRef): Unit = {
+    if (bgpTable.isEmpty) return
 
-      waitQueue.remove(workerIP) match {
-        case Some(receiver) =>
-          receiver.write(cmd)
-        case None =>
-          val key = waitQueue.keys.head
-          val receiver = waitQueue.remove(key).get
-          receiver.write(cmd)
+    val bgpIds = new Array[Int](bgpTable.size)
+    val bgpDatas = new Array[Array[Byte]](bgpTable.size)
+    var idx = 0
+    bgpTable.foreach(record => {
+      bgpIds(idx) = record._1
+      bgpDatas(idx) = record._2
+      idx += 1
+    })
+    workerActor ! updateBGP(bgpIds, bgpDatas)
+  }
+
+  // ***********************************************************************************
+  private def addConnection(worker: String, collector: String): Unit = {
+
+    workerToCollectors.get(worker) match {
+      case Some(collectors) => collectors += collector
+      case None =>
+        val collectors = new ArrayBuffer[String] += collector
+        workerToCollectors(worker) = collectors
+    }
+
+    collectorToWorkers.get(collector) match {
+      case Some(_workers) => _workers += worker
+      case None =>
+        val workers = new ArrayBuffer[String] += worker
+        collectorToWorkers(collector) = workers
+    }
+  }
+
+  private def deleConnecton(worker: String, collector: String): Unit = {
+    workerToCollectors.get(worker) match {
+      case Some(collectors) =>
+        val idx = collectors.indexOf(collector)
+        if (idx == -1) {
+          // has deleted
+          require(collectorToWorkers.get(collector).isEmpty
+            || collectorToWorkers.get(collector).get.indexOf(worker) == -1,
+            s" Since worker2collector does not contain $worker -> $collector," +
+              s"collector2worker should not contain $collector -> $worker")
+        } else {
+          collectors.remove(idx)
+          require(collectorToWorkers.get(collector).isDefined,
+            s"Since worker2collector contains $worker -> $collector," +
+              s"so collector2workers should also contain $collector -> $worker")
+          collectorToWorkers.get(collector).get -= worker
+        }
+
+      case None =>
+        require(collectorToWorkers.get(collector).isEmpty ||
+          !collectorToWorkers.get(collector).get.contains(worker),
+          s" Since worker2collector does not contain $worker -> $collector," +
+            s"collector2worker should not contain $collector -> $worker")
+    }
+  }
+
+  // -----------------------------------------------------------------------------------
+  // deal with worker
+
+  // called after a worker registered successfully, record workerToUdpPort & workerToCollectors
+  private def addNewWorker(workerIP: String, workerPort: Int): Unit = {
+    workerToPort += (workerIP -> (workerIP, workerPort))
+    workerToBufferRate += (workerIP -> 0)
+    _assignWorkerToWaitingCollector()
+
+    // when a worker registered in master, select a receiver to connect with this worker
+    def _assignWorkerToWaitingCollector(): Unit = {
+      // selected this current new worker ip
+      val cmd = CommandSet.responseReceiver(Some(Array(workerToPort.get(workerIP).get)), None)
+
+      while (true) {
+        try {
+          if (waitQueue.nonEmpty) {
+            val collectorIP = if (waitQueue.contains(workerIP)) workerIP else waitQueue.head
+
+            loadServer.collector2Socket.get(collectorIP) match {
+              case Some(socket) =>
+                if (socket.isConnected) {
+                  socket.write(cmd)
+                  waitQueue.remove(collectorIP)
+                  addConnection(workerIP, collectorIP)
+                  return
+                } else {
+                  waitQueue.remove(collectorIP)
+                  throw new NetFlowException(s"the $collectorIP's socket is closed!")
+                }
+
+              case None =>
+                waitQueue.remove(collectorIP)
+                throw new NetFlowException(s"There is no $collectorIP collector!")
+            }
+          } else {
+            logInfo("There is no receiver waiting for worker.")
+            return
+          }
+        } catch {
+          case e: NetFlowException =>
+            logWarning(e.getMessage)
+        }
       }
     }
   }
 
-  // *********************************************************************
+  // Called when the heartbeat is timeout (heartbeat mechanism based)
+  // Or called when a receiver request worker list who also assigns a dead worker
+  private def deleDeadWorker(workerIP: String, port: Int = 0, notify: Boolean = false): Unit = {
 
-  private def getAllWorkerBufferRate(): Unit = {
+    def _delete(workerIP: String): Unit = {
+      workerToCollectors.remove(workerIP) match {
+        case Some(collectors) =>
+          collectors.foreach(collector => {
+            collectorToWorkers(collector) -= workerIP
+            if (notify) {
+              require(workerToPort.get(workerIP).isDefined,
+                s"Now worker2Port should exist deadWorker $workerIP")
+              val ip_port = workerToPort.get(workerIP).get
+              notifyReceiver(collector, None, Some(Array(ip_port)))
+            }
+          })
+        case None =>
+          logInfo(s"The $workerIP worker has been deleted.")
+      }
+
+      workerToPort -= workerIP
+      workerToBufferRate -= workerIP
+    }
+
+    // Since a single worker only has one receiver Server,
+    // so 'workerToPort' should at most contain one record about this 'workerIP'.
+    workerToPort.get(workerIP) match {
+      case Some(deadWorker) =>
+        if (port == 0) { // ignore port
+          _delete(workerIP)
+        } else {
+          if (deadWorker.equals((workerIP, port))) {
+            _delete(workerIP)
+          } else {
+            logInfo(s"Expect delete $workerIP:$port worker," +
+              s"but now this worker is ${deadWorker._1}:${deadWorker._2}." +
+              s"So there mast has something wrong if the load worker does not reboot.")
+          }
+        }
+
+      case None =>
+        logInfo(s"The $workerIP:$port worker has been deleted or does not existed.")
+    }
+  }
+
+  // ***********************************************************************************
+  // deal with receiver
+
+  // called when a master receives a message about Delete dead collector
+  private def deleDeadCollector(collectorIP: String): Unit = {
+    // If the collector is down, the flag can been caught by socketChannel.
+    // For workers which is connected with this collector, they also know this flag,
+    // so here, we only delete related Struction.
+    waitQueue -= collectorIP
+
+    collectorToWorkers.remove(collectorIP) match {
+      case Some(relatedWorkers) =>
+        relatedWorkers.foreach(_worker => {
+          val _collector = workerToCollectors.get(_worker)
+          require(_collector.isDefined &&
+            _collector.get.contains(collectorIP),
+            s"Since collector2workers contain ${collectorIP} -> ${_worker}, " +
+              s"So worker2Collectors should contain ${_worker}, but now is NONE.")
+          _collector.get -= collectorIP
+        })
+
+      case None =>
+        logError(s"'deleDeadCollector' method should be called only when the collector is lost," +
+          s"so ,for a determined $collectorIP collector, " +
+          s"'collectorToWorkers' should have one record at least" +
+          s"about this collector, but now, it is Empty")
+    }
+  }
+
+  private def selectSuitableWorkers(collector: String,
+                                    expectWorkerNum: Int): Option[Array[String]] = {
+
+    val availableWorkers = collectorToWorkers.get(collector) match {
+      case Some(_workers) =>
+        workerToBufferRate.filterNot(x => _workers.contains(x._1)).toList.sortWith(_._2 < _._2)
+      case None =>
+        workerToBufferRate.toList.sortWith(_._2 < _._2)
+    }
+
+    if (availableWorkers.isEmpty) return None
+
+    val actualLen = Math.min(expectWorkerNum, availableWorkers.length)
+    val result = new Array[String](actualLen)
+    for (i <- 0 until actualLen) {
+      result(i) = availableWorkers(i)._1
+    }
+    Some(result)
+  }
+
+  // called when a receiver ask for worker's info
+  private def assignWorker(collector: String, workerNum: Int = 1): Unit = {
+
+    loadServer.collector2Socket.get(collector) match {
+      case Some(socket) =>
+        if (!socket.isConnected) return
+
+        selectSuitableWorkers(collector, workerNum) match {
+          case Some(workers: Array[String]) =>
+
+            val ip_port = new ArrayBuffer[(String, Int)](workers.length)
+
+            workers.foreach(x =>
+              workerToPort.get(x) match {
+                case Some(_worker) =>
+                  ip_port += _worker
+                  addConnection(_worker._1, collector)
+
+                case None =>
+                  logError(s"Worker is lost? worker2Port does not contain $x " +
+                    s"but worker2Rate does contain?")
+                  return
+              })
+
+            val cmd = CommandSet.responseReceiver(Some(ip_port.toArray[(String, Int)]), None)
+            socket.write(cmd)
+
+          case None =>
+            waitQueue += collector
+            logWarning(s"[Netflow] There is no available worker to run in cluster.")
+        }
+      case None =>
+        logWarning(s"[Netflow] The $collector Collector is not a effective collector.")
+    }
+  }
+
+  // ***********************************************************************************
+  // deal with balance
+
+  private def updateWorkersBufferRate() = {
     idToWorker.values.foreach(x => x.actor ! BufferInfo)
   }
 
   // notify receiver to change worker
-  private def notifyReceiver(
-    mode: Mode,
-    receiverHost: String,
-    newHost: Array[(String, Int)]): Boolean = {
-    val res = CommandSet.responseReceiver(mode, newHost)
-    receiverToSocket.get(receiverHost) match {
+  private def notifyReceiver(receiverHost: String,
+    addWorker: Option[Array[(String, Int)]],
+    deleWorker: Option[Array[(String, Int)]]): Unit = {
+
+    val res = CommandSet.responseReceiver(addWorker, deleWorker)
+
+    loadServer.collector2Socket.get(receiverHost) match {
       case None =>
-        logError("[Netflow] receiver lost!")
-        false
+        logError(s"[Netflow] There is no $receiverHost Receiver in 'collector2Socket'," +
+          s"so something must be wrong.")
+
       case Some(socket) =>
         if (socket.isConnected) {
           socket.write(res)
-          true
         } else {
           logError(s"[Netfow] Can not connect with $receiverHost receiver")
-          false
         }
     }
   }
 
-  // private val changeLimit = 50
-  // private val warnLimit = 70
-  //  private val receiverConnectMaxLimit = 3   // should be < worker's number
-
-  private def adjustCollectorByDeadworker(deadworker: String): Unit = {
-    getAllWorkerBufferRate()
-
-    workerToPort -= deadworker
-    workerToBufferRate -= deadworker
-
-    workerToReceivers.remove(deadworker) match {
-      case Some(receivers) =>
-        receivers.foreach(receiver => {
-          // delete deadworker first
-          receiverToWorkers.get(receiver).get -= deadworker
-
-          val workers = receiverToWorkers.get(receiver).get
-          if (workers.nonEmpty) {
-            // only one worker to connect this receiver, so we should
-            // tell the receiver to connect another worker
-            val availableWorker = workerToBufferRate.toList.sortWith(_._2 < _._2)
-            if (availableWorker.size == 0) {
-              logError("[Netflow]No available worker to worker.")
-              return
-            }
-            // delete the bad connection
-            notifyReceiver(CommandMode.delete, receiver, Array((deadworker, 0)))
-            if (availableWorker.head._2 < changeLimit) {
-              // we may believe that a worker is competent at this job!
-              notifyReceiver(CommandMode.add, receiver,
-                Array(workerToPort.get(availableWorker.head._1).get))
-            } else {
-              // a worker can not competent at this job....
-              val maxNum = math.min(receiverConnectMaxLimit, availableWorker.size)
-              val newAvailableWorkers = new Array[(String, Int)](maxNum)
-              var i = 0
-              availableWorker.take(maxNum).foreach(x => {
-                newAvailableWorkers(i) = workerToPort.get(x._1).get
-                i += 1
-              })
-              notifyReceiver(CommandMode.add, receiver, newAvailableWorkers)
-            }
-          } else {
-            // more than one worker to connect this receiver,
-            // so we should adjust whether it's worker buffer available is more than 50% ?
-            val availableWorker = workerToBufferRate.toList.sortWith(_._2 < _._2)
-
-            val connectedWorker = availableWorker.filter(x => workers.contains(x._1))
-            if (connectedWorker.last._2 < changeLimit) {
-              // all connection's worker buffer < 50
-              notifyReceiver(CommandMode.delete, receiver, Array((deadworker, 0)))
-            } else {
-              val dicConnectWorker = availableWorker.filterNot(x => workers.contains(x._1))
-              notifyReceiver(CommandMode.delete, receiver, Array((deadworker, 0)))
-              notifyReceiver(CommandMode.add, receiver,
-                Array(workerToPort.get(dicConnectWorker.head._1).get))
-            }
-          }
-        })
-
-      case None =>
-        logError("The worker %s should be connect with at lest one receiver, but now empty"
-          .format(deadworker))
-    }
-  }
-
-  // Called when a worker need to reduce receiver number
+  // Called when a worker need to adjust receiver number
   // leave the receiver co-located with worker to be the last one to remove
-  private def adjustCollectorByBuffer(workerHost: String, workerActor: ActorRef): Unit = {
-    getAllWorkerBufferRate()
+  private def adjustCollectorByBuffer(workerIP: String, workerActor: ActorRef): Unit = {
+    updateWorkersBufferRate()
 
-    // tell the receivers who connects with this worker to connect another worker
-    workerToReceivers.get(workerHost) match {
-      case Some(receiverList) =>
-        if (receiverList.size == 0) {
-          logError(s"[Netflow] The $workerHost load worker's receiver should not be empty.")
-          return
-        }
+    def underHalfRateStrategy(
+      availableWorkers: List[(String, Double)],
+      collector: String): Unit = {
+      // when there is a available worker who's rate is under buffer rate,
+      // we believe that this worker in enough to deal with this work.
+      require(availableWorkers.head._2 <= 0.5)
+      val assignedWorker = availableWorkers.head._1
+      addConnection(assignedWorker, collector)
+      require(workerToPort.contains(assignedWorker),
+        s"work2Rate contains $assignedWorker, " +
+          s"so worker2Port should always contains $assignedWorker")
+      val addWorker = Array(workerToPort(assignedWorker))
+      notifyReceiver(collector, Some(addWorker), None)
+    }
 
-        logInfo(
-          String.format(
-            "[Netflow] %s load worker has %d receivers (%s) to connect with.",
-            workerHost, receiverList.size: Integer, receiverList.mkString(" ")))
+    def underWarnRateStrategy(
+      availableWorkers: List[(String, Double)],
+      collector: String): Unit = {
+      val adjustSize = Math.min(availableWorkers.size, workerToPort.size / 2)
+      for (i <- 0 until adjustSize) {
+        val worker = availableWorkers(i)._1
+        addConnection(worker, collector)
+        require(workerToPort.contains(worker),
+          s"work2Rate contains $worker, " +
+            s"so worker2Port should always contains $worker")
+        val addWorker = Array(workerToPort(worker))
+        notifyReceiver(collector, Some(addWorker), None)
+      }
+    }
 
-        if (receiverList.size == 1) {
-          // we can not adjust the receiver
-          val receiver = receiverList.head
-          val workers = receiverToWorkers.get(receiver).get
+    def selectStrategy(availableWorkers: List[(String, Double)], collector: String): Unit = {
+      availableWorkers.head._2 match {
+        case x if x <= halfLimit =>
+          underHalfRateStrategy(availableWorkers, collector)
+        case x if x <= warnLimit =>
+          underWarnRateStrategy(availableWorkers, collector)
+        case x => logError(s"Too heavy!")
+      }
+    }
 
-          logInfo(String.format(
-            "[Netflow] The load worker only has one receiver %s," +
-              "and this receiver is connecting with %d workers(%s).",
-            receiver, workers.size: Integer, workers.mkString(" ")))
+    // deal with the situation that only one collector connect with this worker
+    def dealWithSingleConnection(collector: String): Boolean = {
+      // now, our strategy is split the writing stream on this collector
+      val availableWorkers: List[(String, Double)] =
+        workerToBufferRate.filterNot(x => x._1 == workerIP).toList.sortWith(_._2 < _._2)
+      if (availableWorkers.isEmpty) {
+        logInfo(String.format(
+          "[Netflow] Total worker number is %d (%s)," +
+            "which are used by %s (%s) receiver," +
+            """so there is no available worker to adjust.""" +
+            "Only to increase worker's thread.",
+          workerToPort.size: Integer,
+          workerToPort.keys.mkString(" "),
+          collector,
+          workers.mkString(" ")))
 
-          val availableWorkers = workerToBufferRate.filterNot(x => workers.contains(x))
-            .toList.sortWith(_._2 < _._2)
+        workerActor ! AdjustThread
+        return false
+      }
 
-          if (availableWorkers.size == 0) {
-            logInfo(String.format(
-              "[Netflow] Total worker number is %d (%s)," +
-                "which are used by %s (%s) receiver," +
-                "so there is no available worker to adjust." +
-                "Only to increase worker's thread.",
-              workerToPort.size: Integer,
-              workerToPort.map(x => x._1).mkString(" "),
-              receiver,
-              workers.mkString(" ")))
-            workerActor ! AdjustThread
-          } else {
+      // add new node to current collector which is select from availableWorkers
+      selectStrategy(availableWorkers, collector)
+      true
+    }
 
-            var idx = 0
-            var flag = true
-            while (availableWorkers(idx)._2 < changeLimit && flag) {
-              val targetWorker = availableWorkers(idx)._1
-              val targetReceiverlist =
-                workerToReceivers.get(targetWorker).get
+    // deal with the situation that only more than one collector connect with this worker
+    def dealWithMutilConnection(collectors: ArrayBuffer[String]): Unit = {
 
-              logInfo(String.format(
-                "[Netflow] Target %d worker is %s and its buffer rate is %d. " +
-                  "Its connecting receiver is %s.",
-                idx: Integer, targetWorker, availableWorkers(idx)._2: Integer,
-                targetReceiverlist.mkString(" ")))
+      // first add new connection with that collector
+      // who only connected with this worker
+      val orderedcollectors = collectorToWorkers.filter(x => collectors.contains(x))
+        .toList.sortWith(_._2.size < _._2.size)
+      if (orderedcollectors.head._2.size == 1) {
+        // only has one connection with worker
+        // split this collector's stream to mutil-workers
+        val availableWorkers = workerToBufferRate.filterNot(x => x._1 == workerIP)
+          .toList.sortWith(_._2 < _._2)
 
-              if (!targetReceiverlist.contains(receiver)) {
-                notifyReceiver(CommandMode.add, receiver, Array(workerToPort.get(targetWorker).get))
-                workerToReceivers.get(targetWorker).get += receiver
-                receiverToWorkers.get(receiver).get += targetWorker
+        selectStrategy(availableWorkers, orderedcollectors.head._1)
+      } else {
+        // all collectors which is connected with this worker
+        val avgRate = new ArrayBuffer[(String, Double)](collectors.length)
+        collectors.foreach(coll => {
+          require(collectorToWorkers.get(coll).isDefined,
+            s" $coll should connectwith $workerIP")
 
-                flag = false
-                logInfo(String.format(
-                  "[Netflow] As currnet receiver is not in target worker's receivering," +
-                    "So we notify %s receiver to add %s worker",
-                  receiver, targetWorker))
-              } else {
-                idx += 1
-                logInfo(String.format(
-                  "[Netflow] As current receiver is in target worker's receiver list," +
-                    "So we should find another worker."))
-              }
-            }
+          val workers = collectorToWorkers.get(coll).get
+          val workersRate = workerToBufferRate.filter(x => workers.contains(x))
+          var sum = 0.0
+          workersRate.foreach(rate => sum += rate._2)
+          avgRate += ((coll, sum / workers.size))
+        })
+        val orderedAvg = avgRate.sortWith(_._2 > _._2)
 
-            logInfo(String.format(
-              "[Netflow] Current idx = %d, total available worker is %d.",
-              idx: Integer, availableWorkers.size: Integer))
+        val expectCollector = orderedAvg.head._1
+        val expectWorkers = collectorToWorkers.get(expectCollector).get
+        val availableWorkers = workerToBufferRate.filterNot(x => expectWorkers.contains(x))
+          .toList.sortWith(_._2 < _._2)
 
-            if (flag) {
-              // there is no available worker to meet the
-              val maxNum = math.min(availableWorkers.size, receiverConnectMaxLimit)
-              val targetWorker = new ArrayBuffer[(String, Int)](maxNum)
+        selectStrategy(availableWorkers, expectCollector)
+      }
+    }
 
-              var rate = availableWorkers(idx)._2
-              var i = 0
-              while (rate < warnLimit && i != maxNum) {
-                val work = availableWorkers(i)
-                targetWorker += workerToPort.get(work._1).get
-                i += 1
-                rate = availableWorkers(i)._2
-                logInfo(String.format(
-                  "[Netflow] Current available worker is %s and its buffer rate is %d.",
-                  work, work._2: Integer))
-              }
-
-              // all worker's buffer are > 70
-              if (targetWorker.size == 0) {
-                logInfo(String.format(
-                  "[Netflow] There is no buffer rate that < 70."))
-
-                for (i <- 0 until maxNum) {
-                  targetWorker += workerToPort.get(availableWorkers(i)._1).get
-                }
-              }
-              notifyReceiver(CommandMode.add, receiver, targetWorker.toArray)
-              targetWorker.foreach(x => {
-                workerToReceivers.get(x._1).get += receiver
-                receiverToWorkers.get(receiver).get += x._1
-              })
-            }
-          }
+    workerToCollectors.get(workerIP) match {
+      case Some(colls) =>
+        if (colls.size == 1) {
+          dealWithSingleConnection(colls.head)
         } else {
-          // more than one receiver
-          val availableWorkerList: List[(String, Int)] =
-            workerToBufferRate.filterNot(x => x._1 == workerHost).toList.sortWith(_._2 < _._2)
-          if (availableWorkerList.size == 0) {
-            logWarning("[Netflow] Threr is no available worker to used. ")
-            workerActor ! AdjustThread
-          }
-
-          var idx = 0
-          var flag = true
-          while (availableWorkerList(idx)._2 < changeLimit && flag) {
-            val targetWorker = availableWorkerList(idx)._1
-            val targetReceiverlist =
-              workerToReceivers.get(targetWorker).get
-                .filterNot(x => receiverList.contains(x))
-            if (targetReceiverlist.size != 0) {
-              // we find a receiver to meet our needs
-              val targetReceiver = targetReceiverlist.head
-              notifyReceiver(CommandMode.delete, targetReceiver,
-                Array(workerToPort.get(workerHost).get))
-              notifyReceiver(CommandMode.add, targetReceiver,
-                Array(workerToPort.get(targetWorker).get))
-
-              workerToReceivers.get(workerHost).get -= targetReceiver
-              workerToReceivers.get(targetWorker).get += targetReceiver
-              receiverToWorkers.get(targetReceiver).get -= workerHost
-              receiverToWorkers.get(targetReceiver).get += targetWorker
-              flag = false
-            } else {
-              idx += 1
-            }
-          }
-
-          if (flag) {
-            // that is the availableWorkerList > 50
-            receiverList.foreach(r => {
-              val _workerList = receiverToWorkers.get(r).get
-              val _availableWorkerList =
-                workerToBufferRate.filterNot(x => _workerList.contains(x))
-                  .toList.sortWith(_._2 < _._2)
-              if (_availableWorkerList.size != 0) {
-                val _targetWorker = _availableWorkerList.head._1
-                notifyReceiver(CommandMode.add, r, Array(workerToPort.get(_targetWorker).get))
-                workerToReceivers.get(_targetWorker).get += r
-                receiverToWorkers.get(r).get += _targetWorker
-              }
-            })
-          }
+          dealWithMutilConnection(colls)
         }
-      case None =>
-        logError(s"the worker $workerHost is not running? there are no receivers to connect with? ")
+
+      case None => logError(s"worker2Collectors should not be null! ")
     }
   }
 

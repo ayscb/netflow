@@ -16,24 +16,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.load.master
+package cn.as.ict.acs.netflow.load.worker
 
-import com.codahale.metrics.{ Gauge, MetricRegistry }
+import java.nio.ByteBuffer
 
-import cn.ac.ict.acs.netflow.metrics.source.Source
+import cn.ac.ict.acs.netflow.load.worker.WrapBufferQueue
+import org.scalatest.FunSuite
 
-class LoadMasterSource(val master: LoadMaster) extends Source {
-  override val metricRegistry = new MetricRegistry()
-  override val sourceName = "loadmaster"
+class TestWarpBufferQueue extends FunSuite {
 
-  import MetricRegistry._
+  def loadBalanceStrategyFunc(): Unit = {
+    println("loadBalanceStrategyFunc")
+  }
 
-  metricRegistry.register(name("aliveLoadWorkers"), new Gauge[Int] {
-    override def getValue: Int = master.workers.count(_.state == WorkerState.ALIVE)
-  })
+  def sendOver(): Unit = {
+    println("sendOver")
+  }
 
-  // TODO
-  metricRegistry.register(name("aliveReceivers"), new Gauge[Int] {
-    override def getValue: Int = master.loadServer.collector2Socket.keySet.size
-  })
+  test("test fun call") {
+    val warper = new WrapBufferQueue(100, 70, loadBalanceStrategyFunc, sendOver)
+    for (i <- 0 until 70) {
+      assert(warper.size == i)
+      warper.put(ByteBuffer.allocate(10))
+    }
+
+    for (i <- 70 until 100) {
+      assert(warper.size == i)
+      warper.put(ByteBuffer.allocate(10))
+    }
+  }
 }

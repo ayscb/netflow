@@ -46,10 +46,11 @@ object DeployMessages {
       cores: Int,
       memory: Int,
       webUiPort: Int,
-      udpPort:Int)
+      workerIP: String,                      
+      tcpPort:Int)
     extends DeployMessage {
     Utils.checkHost(host, "Required hostname")
-    assert (port > 0 && udpPort > 0)
+    assert (port > 0 && tcpPort > 0)
   }
 
   case class Heartbeat(workerId: String) extends DeployMessage
@@ -78,6 +79,5 @@ object DeployMessages {
   case class RegisterWorkerFailed(message: String) extends DeployMessage
 
   case class ReconnectWorker(masterUrl: String) extends DeployMessage
-
 
 }

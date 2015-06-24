@@ -16,24 +16,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.load.master
+package cn.ac.ict.acs.netflow.load.worker.bgp
 
-import com.codahale.metrics.{ Gauge, MetricRegistry }
+object BGPRoutingTable {
 
-import cn.ac.ict.acs.netflow.metrics.source.Source
+  type DST_ADDR = (Array[Byte], Array[Byte])
 
-class LoadMasterSource(val master: LoadMaster) extends Source {
-  override val metricRegistry = new MetricRegistry()
-  override val sourceName = "loadmaster"
+  def search(dst_addr: DST_ADDR): BGPTuple = {
+    new BGPTuple(Array(
+      "192.168.1.1",
+      Array[Byte](1, 2, 3, 4), null,
+      Array[Byte](1, 2, 3, 4), null,
+      "as_path", "community", "adjacent_as", "self_as"))
+  }
 
-  import MetricRegistry._
+  def update(tuple: BGPTuple): Unit = ???
 
-  metricRegistry.register(name("aliveLoadWorkers"), new Gauge[Int] {
-    override def getValue: Int = master.workers.count(_.state == WorkerState.ALIVE)
-  })
-
-  // TODO
-  metricRegistry.register(name("aliveReceivers"), new Gauge[Int] {
-    override def getValue: Int = master.loadServer.collector2Socket.keySet.size
-  })
 }
+
+case class BGPTuple(fields: Array[Any])

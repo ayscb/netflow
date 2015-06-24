@@ -16,25 +16,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ac.ict.acs.netflow.load.util
+package cn.as.ict.acs.netflow.load
 
-/**
- * two level index struct, x,y,a,b for example
- *
- * first index store the x.y full offset , so there should be 65536 value in sequence array
- * second index store the a full offset, so there should be 256 index in sequence arrays
- *
- */
-class BGPStruct {
-  class Data {}
-  case class firstInfo(dataInfo: Data, morePrefix: Boolean, secondIndex: Option[secondInfo])
-  case class secondInfo(dataInfo: Data, morePrefix: Boolean, trieIndex: Option[trieTree])
-  case class trieTree()
-
-  // store x.y
-  val firstIndex = new Array[firstInfo](65536)
-
-  // store a
-  val secondIndex = new Array[secondInfo](256)
+class test {
 
 }

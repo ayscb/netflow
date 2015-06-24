@@ -27,7 +27,4 @@ object LoadMasterMessages {
   // Actor System to Master
   case object CheckForWorkerTimeOut extends LoadMasterMessage
 
-  // Master to Master ( schedule )
-  case object NeedToCombineParquet extends LoadMasterMessage
-
 }

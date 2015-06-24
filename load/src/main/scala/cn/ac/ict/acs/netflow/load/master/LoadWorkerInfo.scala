@@ -30,6 +30,7 @@ class LoadWorkerInfo(
   val memory: Int,
   val actor: ActorRef,
   val webUiPort: Int,
+  val ip: String,
   val tcpPort: Int)
     extends Serializable {
 
