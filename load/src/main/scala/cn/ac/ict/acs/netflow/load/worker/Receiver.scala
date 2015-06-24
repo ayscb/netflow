@@ -21,7 +21,7 @@ package cn.ac.ict.acs.netflow.load.worker
 
 import java.io.IOException
 import java.net.{ InetSocketAddress, ServerSocket }
-import java.nio.{ByteOrder, ByteBuffer}
+import java.nio.{ ByteOrder, ByteBuffer }
 import java.nio.channels._
 
 import scala.collection.mutable
@@ -48,8 +48,8 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Thread 
   private val channelToIp = mutable.HashMap.empty[Channel, String]
 
   var _port = 0
-  def port: Int= {
-    while(_port == 0) Thread.sleep(500)
+  def port: Int = {
+    while (_port == 0) Thread.sleep(500)
     _port
   }
   def collectors: Iterable[String] = channelToIp.values
@@ -87,7 +87,7 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Thread 
           }
         } catch {
           case e: IOException =>
-            // TODO
+          // TODO
         }
       }
     } finally {

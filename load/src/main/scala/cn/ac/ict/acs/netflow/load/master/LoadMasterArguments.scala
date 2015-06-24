@@ -19,7 +19,7 @@
 package cn.ac.ict.acs.netflow.load.master
 
 import cn.ac.ict.acs.netflow.NetFlowConf
-import cn.ac.ict.acs.netflow.util.{IntParam, Utils}
+import cn.ac.ict.acs.netflow.util.{ IntParam, Utils }
 
 class LoadMasterArguments(args: Array[String], conf: NetFlowConf) {
   var host = Utils.localHostName()

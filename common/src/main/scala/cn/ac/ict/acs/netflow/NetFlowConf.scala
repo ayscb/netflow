@@ -28,14 +28,16 @@ import scala.collection.JavaConversions._
 
 import cn.ac.ict.acs.netflow.util.Utils
 
-object NetFlowConf {}
+object NetFlowConf {
+
+}
 
 class NetFlowConf(loadDefaults: Boolean) extends Serializable {
 
   def this() = this(true)
 
   @transient private val settings = new ConcurrentHashMap[String, String]()
-  @transient private lazy val _hadoopConfiguration = newConfiguration()
+  @transient private val _hadoopConfiguration = newConfiguration()
 
   if (loadDefaults) {
     // Load any netflow.* system properties that passed as -D<name>=<value> at start time

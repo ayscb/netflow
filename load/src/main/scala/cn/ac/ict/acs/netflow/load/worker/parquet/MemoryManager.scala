@@ -48,9 +48,9 @@ object MemoryManager {
    * @param columnsNum  the number of column in current schema
    */
   def apply(
-        memoryPoolRatio: Float,
-        minMemoryAllocation: Long,
-        columnsNum: Int): Unit = {
+    memoryPoolRatio: Float,
+    minMemoryAllocation: Long,
+    columnsNum: Int): Unit = {
     checkRatio(memoryPoolRatio)
     new MemoryManager(memoryPoolRatio, minMemoryAllocation, columnsNum)
   }
@@ -60,9 +60,9 @@ object MemoryManager {
 class MemoryManager(
     val memoryPoolRatio: Float,
     val minMemoryAllocation: Long,
-    val columnsCount : Int) extends Logging {
+    val columnsCount: Int) extends Logging {
 
-  def this(columnsCount : Int) =
+  def this(columnsCount: Int) =
     this(MemoryManager.DEFAULT_MEMORY_POOL_RATIO,
       MemoryManager.DEFAULT_MIN_MEMORY_ALLOCATION, columnsCount)
 

@@ -105,7 +105,7 @@ class RowWriteSupport extends WriteSupport[Row] with Logging {
   private def writeSupplimentFields(ft: FieldType.Value, fields: Array[Any]): Unit = {
 
     val length = ft match {
-      case FieldType.HEADER => validHeader.length   // 3 columns
+      case FieldType.HEADER => validHeader.length // 3 columns
       case FieldType.BGP => validBgp.length
     }
 

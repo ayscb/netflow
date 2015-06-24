@@ -35,86 +35,12 @@ object TimeUtils {
   val HOUR_PATH_PATTERN = "/yyyy/MM/dd/HH"
   val DAY_PATH_PATTERN = "/yyyy/MM/dd"
 
-  val LOAD_DIR_CREATION_INTERVAL = "netflow.load.dir.creation.interval"
-
-  val systemBasePath = "/netflow"
-
   def newFormat(patternStr: String): DateTimeFormatter = {
     DateTimeFormat.forPattern(patternStr)
   }
 
   def createFormat: DateTimeFormatter = newFormat(CREATE_PATTERN)
   def showFormat: DateTimeFormatter = newFormat(SHOW_PATTERN)
-
-  def loadDirFormat(conf: NetFlowConf): DateTimeFormatter = {
-    val interval = loadDirIntervalSec(conf)
-
-    val fmtStr = if (interval < 60) { // less than 1 min
-      SECOND_PATH_PATTERN
-    } else if (interval < 60 * 60) { // less than 1 hour
-      MINUTE_PATH_PATTERN
-    } else if (interval < 60 * 60 * 24) { // less than 1 day
-      HOUR_PATH_PATTERN
-    } else {
-      DAY_PATH_PATTERN
-    }
-    newFormat(fmtStr)
-  }
-
-  def loadDirIntervalSec(conf: NetFlowConf): Long = {
-    val interval = conf.get(LOAD_DIR_CREATION_INTERVAL, "10min")
-    timeStringAsSec(interval)
-  }
-
-  /**
-   * get the file path as "2015/02/21/03/23"
-   * @param conf
-   * @param seconds since epoch
-   * @return
-   */
-  def getTimeBasePathBySeconds(seconds: Long, conf: NetFlowConf): String = {
-    val pathFmt = loadDirFormat(conf)
-    systemBasePath.concat(new DateTime(seconds * 1000).toString(pathFmt))
-  }
-
-  /**
-   * get next interval time.
-   * Suppose the dictionary interval time is 10 min ,
-   * when the time is  1:12 , the method will return 1:00
-   * @param conf
-   * @param second
-   * @return
-   */
-  def getPreviousBaseTime(second: Long, conf: NetFlowConf): Long = {
-    val interval = loadDirIntervalSec(conf)
-    second / interval * interval - interval
-  }
-
-  /**
-   * get current interval time .
-   * if the dictionary interval time is 10 min ,
-   * if the time is  1:12 , the method will return 1:10
-   * @param conf
-   * @param second
-   * @return
-   */
-  def getCurrentBastTime(second: Long, conf: NetFlowConf): Long = {
-    val interval = loadDirIntervalSec(conf)
-    second / interval * interval
-  }
-
-  /**
-   * get next interval time .
-   * if the dictionary interval time is 10 min ,
-   * if the time is  1:12 , the method will return 1:20
-   * @param conf
-   * @param second
-   * @return
-   */
-  def getNextBaseTime(second: Long, conf: NetFlowConf): Long = {
-    val interval = loadDirIntervalSec(conf)
-    second / interval * interval + interval
-  }
 
   /**
    * Convert str as seconds

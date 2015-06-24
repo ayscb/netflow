@@ -20,8 +20,6 @@ package cn.ac.ict.acs.netflow.util
 
 import java.util.concurrent.TimeUnit
 
-import cn.ac.ict.acs.netflow.NetFlowConf
-import org.joda.time.DateTime
 import org.scalatest.{ Matchers, FunSuite }
 
 import cn.ac.ict.acs.netflow.util.TimeUtils._
@@ -51,12 +49,4 @@ class TimeUtilsSuite extends FunSuite with Matchers {
       parseTimeString("badtime", TimeUnit.SECONDS)
     }
   }
-
-  test("generate path") {
-    val t1 = DateTime.parse("2015-10-11,12:32:11", showFormat)
-    assertResult("/2015/10/11/12/32") {
-      getTimeBasePathBySeconds(t1.getMillis / 1000, new NetFlowConf)
-    }
-  }
-
 }

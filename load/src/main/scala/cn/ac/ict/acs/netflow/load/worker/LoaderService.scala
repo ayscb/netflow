@@ -20,25 +20,26 @@ package cn.ac.ict.acs.netflow.load.worker
 
 import java.util
 
+import akka.actor.ActorRef
 import cn.ac.ict.acs.netflow.load.worker.parser.PacketParser._
-import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
+import cn.ac.ict.acs.netflow.{ Logging, NetFlowConf }
 import cn.ac.ict.acs.netflow.load.worker.parquet.ParquetWriterWrapper
 import cn.ac.ict.acs.netflow.util.ThreadUtils
+import scala.collection._
+final class LoaderService(
+    private val workerActor: ActorRef,
+    private val bufferList: WrapBufferQueue,
+    private val conf: NetFlowConf) extends Logging {
 
-/**
- * Created by ayscb on 15-6-11.
- */
-final class LoaderService(private val bufferList: WrapBufferQueue, private val conf: NetFlowConf)
-  extends  Logging{
-
-  // get ResolvingNetflow threads
   private val writerThreadPool = ThreadUtils.newDaemonCachedThreadPool("parquetWriterPool")
-  private val writerThreadsQueue = new scala.collection.mutable.Queue[Thread]
+  // private val writerThreadsQueue = new scala.collection.mutable.Queue[Thread]
 
-  private val ratesQueue = new java.util.concurrent.ConcurrentLinkedQueue[Double]()
+  private val writeThreadRate = new mutable.HashMap[Thread, Double]()
+  private val RateCount = new java.util.concurrent.atomic.AtomicInteger()
+
+  //  private val ratesQueue = new java.util.concurrent.ConcurrentLinkedQueue[Double]()
 
   @volatile private var readRateFlag = false
-  @volatile private val threadNum = new java.util.concurrent.atomic.AtomicInteger()
 
   def initParquetWriterPool(threadNum: Int) = {
     for (i <- 0 until threadNum) {
@@ -46,46 +47,53 @@ final class LoaderService(private val bufferList: WrapBufferQueue, private val c
     }
   }
 
-  def curThreadsNum: Int = writerThreadsQueue.size
+  //  def curThreadsNum: Int = writerThreadsQueue.size
+  def curThreadsNum: Int = writeThreadRate.size
 
   def adjustWritersNum(newThreadNum: Int) = {
-    val currThreadNum = writerThreadsQueue.size
-    logInfo(s"[Netflow] Current total resolving thread number is $currThreadNum, " +
+
+    val _curThreadsNum = curThreadsNum
+    // val currThreadNum = writerThreadsQueue.size
+    logInfo(s"[Netflow] Current total resolving thread number is ${_curThreadsNum}, " +
       s" and will be adjust to $newThreadNum ")
 
-    if (newThreadNum > currThreadNum) {
+    if (newThreadNum > _curThreadsNum) {
       // increase threads
-      for (i <- 0 until (newThreadNum - currThreadNum))
+      for (i <- 0 until (newThreadNum - _curThreadsNum))
         writerThreadPool.submit(newWriter)
     } else {
-      // decrease threads
-      writerThreadsQueue.take(currThreadNum - newThreadNum).foreach(_.interrupt())
+      writeThreadRate.synchronized({
+        writeThreadRate.keySet.take(_curThreadsNum - newThreadNum)
+          .foreach(thread => {
+            writeThreadRate -= thread
+            thread.interrupt()
+          })
+      })
     }
   }
 
   def stopAllWriterThreads() = {
     logInfo((" current threads number is %d, all " +
-      "threads will be stopped").format(writerThreadsQueue.size))
-    writerThreadsQueue.foreach(_.interrupt())
+      "threads will be stopped").format(curThreadsNum))
+    writeThreadRate.synchronized({
+      writeThreadRate.keySet.foreach(_.interrupt())
+      writeThreadRate.clear()
+    })
     writerThreadPool.shutdown()
   }
 
   def curPoolRate: util.ArrayList[Double] = {
     readRateFlag = true
-    val currentThreadsNum = writerThreadsQueue.size
-    var maxTimes = 10
-    while(threadNum.get() != currentThreadsNum) { Thread.sleep(500)}
-//    while (ratesQueue.size() != currentThreadsNum && maxTimes != 0) {
-//      Thread.sleep(10 * maxTimes * 10)
-//      maxTimes += 1
-//    } // get all threads rates
+    // get all threads rates
+    while (RateCount.get() != curThreadsNum) { Thread.sleep(1000) }
+
     val list = new util.ArrayList[Double]()
-    val iter = ratesQueue.iterator()
-    while(iter.hasNext){
-      list.add(iter.next())
-    }
-    ratesQueue.clear()
+    writeThreadRate.synchronized({
+      writeThreadRate.valuesIterator.foreach(list.add)
+      writeThreadRate.keysIterator.foreach(writeThreadRate(_) = 0.0)
+    })
     readRateFlag = false
+    RateCount.set(0)
     list
   }
 
@@ -96,15 +104,11 @@ final class LoaderService(private val bufferList: WrapBufferQueue, private val c
   private def newWriter: Runnable = {
 
     val writer = new Runnable() {
-      threadNum.incrementAndGet()
-
-      private var hasRead = false
-      // et true after call method 'getCurrentRate'
       private var startTime = 0L
       private var packageCount = 0
 
       // write data to parquet
-      private val writer = new ParquetWriterWrapper(conf)
+      private val writer = new ParquetWriterWrapper(workerActor, conf)
 
       private def getCurrentRate: Double = {
         val rate = 1.0 * packageCount / (System.currentTimeMillis() - startTime)
@@ -114,34 +118,32 @@ final class LoaderService(private val bufferList: WrapBufferQueue, private val c
       }
 
       override def run(): Unit = {
-        logInfo("[Netflow] Start sub Write Parquet %d".format(Thread.currentThread().getId))
+        logInfo("[Netflow] Start sub Write Parquet %d"
+          .format(Thread.currentThread().getId))
 
-        writerThreadsQueue.enqueue(Thread.currentThread())
-        try{
+        writeThreadRate(Thread.currentThread()) = 0.0
+        try {
           while (true) {
             val data = bufferList.take // block when this list is empty
-            if (readRateFlag && !hasRead) {
-              // read the current rate, and put the data into queue
-              ratesQueue.add(getCurrentRate)
-              hasRead = true
-            } else if (!readRateFlag & hasRead) {
-              hasRead = false
+            if (readRateFlag && writeThreadRate(Thread.currentThread()) == 0.0) {
+              writeThreadRate(Thread.currentThread()) = getCurrentRate
+              RateCount.incrementAndGet()
             }
             packageCount += 1
             val (flowSets, packetTime) = parse(data)
-            while (flowSets.hasNext){
+            while (flowSets.hasNext) {
               val dfs: Iterator[Row] = flowSets.next().getRows
               writer.write(dfs, packetTime)
             }
           }
-        }catch {
+        } catch {
           case e: InterruptedException =>
             logError(e.getMessage)
             e.printStackTrace()
           case e: Exception =>
             logError(e.getMessage)
             e.printStackTrace()
-        }finally {
+        } finally {
           writer.close()
           logError("load server is closed!!!")
         }

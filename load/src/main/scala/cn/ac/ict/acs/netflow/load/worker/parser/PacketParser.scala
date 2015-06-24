@@ -35,7 +35,7 @@ object PacketParser {
    * @param packet
    * @return (Iterator[FlowSet] , PacketTime)
    */
-  //def parse(packet: ByteBuffer): (Iterator[DataFlowSet], Long) = {
+  // def parse(packet: ByteBuffer): (Iterator[DataFlowSet], Long) = {
   def parse(packet: ByteBuffer): (Iterator[DataFlowSet], Long) = {
 
     // 1. router ip
@@ -64,30 +64,30 @@ object PacketParser {
     // 2. skip to netflow body position
     curPos = nfParser.getBodyPos(packet, curPos)
 
-    val dataflowSet : Iterator[DataFlowSet] = new Iterator[DataFlowSet]() {
+    val dataflowSet: Iterator[DataFlowSet] = new Iterator[DataFlowSet]() {
 
-      private val curDFS : DataFlowSet = new DataFlowSet(packet, nfTime, routerIp)
+      private val curDFS: DataFlowSet = new DataFlowSet(packet, nfTime, routerIp)
       private var curDFSPos = curPos
 
-        override def hasNext: Boolean = {
+      override def hasNext: Boolean = {
 
-          // TODO we remove the condition "dataFSCount != totalDataFSCount".
+        // TODO we remove the condition "dataFSCount != totalDataFSCount".
+        if (curDFSPos == packet.limit()) return false
+        var lastPos = 0
+
+        while (lastPos != curDFSPos) {
+          lastPos = curDFSPos
+          curDFSPos = nfParser.getNextFSPos(packet, curDFSPos, routerIp)
           if (curDFSPos == packet.limit()) return false
-          var lastPos = 0
-
-          while(lastPos != curDFSPos){
-            lastPos = curDFSPos
-            curDFSPos = nfParser.getNextFSPos(packet, curDFSPos, routerIp)
-            if(curDFSPos == packet.limit()) return false
-          }
-          true
         }
-
-        override def next() = {
-          curDFSPos = curDFS.getNextDfS(curDFSPos)
-          curDFS
-        }
+        true
       }
+
+      override def next() = {
+        curDFSPos = curDFS.getNextDfS(curDFSPos)
+        curDFS
+      }
+    }
 
     (dataflowSet, nfTime)
   }

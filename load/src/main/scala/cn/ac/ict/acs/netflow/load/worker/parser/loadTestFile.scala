@@ -1,6 +1,24 @@
+/**
+ * Copyright 2015 ICT.
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package cn.ac.ict.acs.netflow.load.worker.parser
 
-import java.io.{DataInputStream, DataOutputStream, FileInputStream, FileOutputStream}
+import java.io.{ DataInputStream, DataOutputStream, FileInputStream, FileOutputStream }
 import java.nio.ByteBuffer
 import java.util
 
@@ -17,7 +35,9 @@ object loadTestFile {
   private var count = 0
 
   private var c = 0
-  def findNextRecord(data: DataInputStream, ResuseArray: Array[Byte], netflowBuffer: ByteBuffer): Int = {
+  def findNextRecord(data: DataInputStream,
+                     ResuseArray: Array[Byte],
+                     netflowBuffer: ByteBuffer): Int = {
     val macLength = 64 // min mac length
     var find = false
     while (!find) {
@@ -75,51 +95,51 @@ object loadTestFile {
   // -----------------------------------------
 
   private def upPackUDP(data: DataInputStream, netflowBuffer: ByteBuffer): Int = {
-    c = c+1
+    c = c + 1
     data.skipBytes(4)
     val len = data.readShort() - 8 // except 8 byte's udp header
     data.skipBytes(2)
 
-    if(len >= 1480) {
+    if (len >= 1480) {
       udpCount += 1
-      println( c + " " + len)
+      println(c + " " + len)
       data.skipBytes(1480)
       return -1
     }
 
     data.read(netflowBuffer.array(), 0, len)
     netflowBuffer.limit(len)
-     1
+    1
   }
   private var udpCount = 0
   private def upPackNetflow(data: ByteBuffer): Unit = {
 
     // header 4B * 5 =20
     // FlowSet 2Byte
-    if(data.getShort(0) != 9){
+    if (data.getShort(0) != 9) {
       udpCount += 1
       println(s"$udpCount---> not netflow package")
 
       return
     }
-    val no = data.getShort(20+ data.position())
-    if( no < 256 ){
+    val no = data.getShort(20 + data.position())
+    if (no < 256) {
       count += 1
-    //  println(s"current templeate index $count")
+      //  println(s"current templeate index $count")
       writeTemp.writeShort(data.limit())
-      writeTemp.write(data.array(),data.position(),data.remaining())
-    }else{
+      writeTemp.write(data.array(), data.position(), data.remaining())
+    } else {
       count += 1
       val length = data.getShort(20 + data.position() + 2) // sizeof(FlowSet) = 2Byte
-      if( length ==  data.limit() - data.position() -20){
+      if (length == data.limit() - data.position() - 20) {
         // only has data flowset
         writeData.writeShort(data.limit())
-        writeData.write(data.array(),data.position(),data.remaining())
-      }else{
+        writeData.write(data.array(), data.position(), data.remaining())
+      } else {
         // maybe has template dataSet
         writeCom.writeShort(data.limit())
-        writeCom.write(data.array(),data.position(),data.remaining())
-  //      println(s"com --> $count")
+        writeCom.write(data.array(), data.position(), data.remaining())
+        //      println(s"com --> $count")
       }
     }
   }
@@ -129,13 +149,12 @@ object loadTestFile {
     val reuse: Array[Byte] = new Array[Byte](6)
     val netflowDataBuffer = ByteBuffer.allocate(1600) // receive the udp package
 
-    while( data.available() > 0){
-      if(findNextRecord(data, reuse, netflowDataBuffer) == 1){
+    while (data.available() > 0) {
+      if (findNextRecord(data, reuse, netflowDataBuffer) == 1) {
         upPackNetflow(netflowDataBuffer)
         netflowDataBuffer.clear()
       }
     }
-
 
     writeData.flush()
     writeData.close()

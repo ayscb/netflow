@@ -18,20 +18,19 @@
  */
 package cn.ac.ict.acs.netflow.load.worker.parquet
 
-import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 import org.apache.hadoop.fs.Path
 import parquet.column.ParquetProperties.WriterVersion
 import parquet.hadoop.ParquetWriter
 import parquet.hadoop.metadata.CompressionCodecName
 
-import cn.ac.ict.acs.netflow.{Logging, NetFlowConf}
+import cn.ac.ict.acs.netflow.NetFlowConf
+import cn.ac.ict.acs.netflow.load
 import cn.ac.ict.acs.netflow.load.LoadConf
-import cn.ac.ict.acs.netflow.load.worker.{Row, Writer}
-import cn.ac.ict.acs.netflow.util.{Utils, TimeUtils}
+import cn.ac.ict.acs.netflow.load.worker.{ Row, Writer }
+import cn.ac.ict.acs.netflow.util.Utils
 
-
-class TimelyParquetWriter(file: Path, val conf: NetFlowConf) extends Writer with Logging{
+class TimelyParquetWriter(val timeBase: Long, val conf: NetFlowConf) extends Writer {
   import TimelyParquetWriter._
 
   val compression = CompressionCodecName.fromConf(
@@ -50,35 +49,42 @@ class TimelyParquetWriter(file: Path, val conf: NetFlowConf) extends Writer with
     conf.get(LoadConf.WRITER_VERSION, WriterVersion.PARQUET_1_0.toString))
   val memoryManageEnable =
     conf.getBoolean(LoadConf.ENABLE_MEMORYMANAGER, defaultValue = false)
+  lazy val maxLoad =
+    conf.getFloat(LoadConf.MEMORY_POOL_RATIO, MemoryManager.DEFAULT_MEMORY_POOL_RATIO)
+  lazy val minAllocation =
+    conf.getLong(
+      LoadConf.MIN_MEMORY_ALLOCATION, MemoryManager.DEFAULT_MIN_MEMORY_ALLOCATION)
 
-  val pw = new ParquetWriter[Row](file,
+  val outputFile: Path = {
+    val basePath = if (timeBase > 0) {
+      load.getPathByTime(timeBase, conf)
+    } else {
+      // we are a writer collecting unsorted packets
+      load.systemBasePath + "/" + conf.get(LoadConf.UNSORTED_PACKETS_DIR, "unsorted")
+    }
+    val fileName = "%s-%02d-%d.parquet".
+      format(Utils.localHostName(), fileId.getAndIncrement(), System.currentTimeMillis())
+    new Path(new Path(basePath, LoadConf.TEMP_DIRECTORY), fileName)
+  }
+
+  val pw = new ParquetWriter[Row](outputFile,
     new RowWriteSupport, compression, blockSize, pageSize,
     dictionaryPageSize, enableDictionary, validating,
     writerVersion, conf.hadoopConfiguration)
 
-  if(memoryManageEnable){
-    registerInMemManager(pw, blockSize, conf)
+  if (memoryManageEnable) {
+    registerInMemManager(pw, blockSize, maxLoad, minAllocation)
   }
 
   override def init() = {}
 
   override def write(rowIter: Iterator[Row]) = {
-   // rowIter.foreach(row=>pw.write(row))
-    try{
-      while(rowIter.hasNext){
-        val row = rowIter.next()
-        pw.write(row)
-      }
-    }catch {
-      case e: IOException =>
-        logError(e.getStackTrace.toString)
-        logError(e.getMessage)
-    }
+    rowIter.foreach(row => pw.write(row))
   }
 
   override def close() = {
     pw.close()
-    if(memoryManageEnable){
+    if (memoryManageEnable) {
       removeFromMemManager(pw)
     }
   }
@@ -86,40 +92,22 @@ class TimelyParquetWriter(file: Path, val conf: NetFlowConf) extends Writer with
 
 object TimelyParquetWriter {
 
+  private val fileId = new AtomicInteger(0)
   private var memoryManager: MemoryManager = _
 
-  private def registerInMemManager(pw: ParquetWriter[_], blockSize: Int, conf: NetFlowConf) = {
+  private def registerInMemManager(pw: ParquetWriter[_], blockSize: Int,
+    maxLoad: Float, minAllocation: Long) = {
+
     if (memoryManager == null) {
+      val columnsNum = ParquetSchema.overallSchema.getFieldCount
       synchronized {
-        val maxLoad =
-          conf.getFloat(LoadConf.MEMORY_POOL_RATIO, MemoryManager.DEFAULT_MEMORY_POOL_RATIO)
-
-        val minAllocation =
-          conf.getLong(
-            LoadConf.MIN_MEMORY_ALLOCATION, MemoryManager.DEFAULT_MIN_MEMORY_ALLOCATION)
-
-        val columnsNum = ParquetSchema.overallSchema.getColumns.size()
         memoryManager = new MemoryManager(maxLoad, minAllocation, columnsNum)
       }
-      memoryManager.addWriter(pw,blockSize)
+      memoryManager.addWriter(pw, blockSize)
     }
   }
 
-  private def removeFromMemManager(pw: ParquetWriter[_] ): Unit ={
+  private def removeFromMemManager(pw: ParquetWriter[_]): Unit = {
     memoryManager.removeWriter(pw)
-  }
-
-  private val fileId = new AtomicInteger(0)
-  private def getFilePath(time: Long, conf: NetFlowConf): Path = {
-    val basePathTime = TimeUtils.getTimeBasePathBySeconds(time, conf)
-    val fileName ="%s-%02d-%d.parquet"
-      .format(Utils.localHostName(), fileId.getAndIncrement(), System.currentTimeMillis())
-    new Path(new Path(basePathTime, LoadConf.TEMP_DIRECTORY), fileName)
-  }
-
-  def apply(timeInMillis: Long, conf: NetFlowConf): TimelyParquetWriter ={
-    val file =
-      if (timeInMillis != 0) getFilePath(timeInMillis, conf) else new Path("/XXXXXX")
-    new TimelyParquetWriter(file,conf)
   }
 }

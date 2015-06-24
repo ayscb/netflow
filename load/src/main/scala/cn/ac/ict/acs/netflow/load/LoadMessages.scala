@@ -18,11 +18,11 @@
  */
 package cn.ac.ict.acs.netflow.load
 
-import java.nio.channels.SocketChannel
-
 object LoadMessages {
 
-  /** load balance message **/
+  /**
+   * load balance message
+   */
   // worker(LoadBalanceStrategy) to master
   case class BuffersWarn(workerIP: String)
   case class BufferOverFlow(workerIP: String)
@@ -38,32 +38,42 @@ object LoadMessages {
   // master to worker to adjust current worker thread
   case object AdjustThread
 
-  /** combine message **/
+  /**
+   * combine message
+   */
   // worker to master
-  case class CombineFinished(status :CombineStatus.Value)
+  case class CombineFinished(status: CombineStatus.Value)
 
   // Master to worker [to tell worker to combine the parquets]
   case class CombineParquet(fileStamp: Long)
 
-  // worker's loadPool to worker [to tell worker current thread has been written, and should be combine]
-  // worker to master [to tell master combine this directory]
+  // worker's loadPool to worker
+  // [to tell worker current thread has been written, and should be combine]
+
+  // worker to master
+  // [to tell master combine this directory]
+  // TODO: Rename this to `ParquetWriterClosed`
   case class CloseParquet(fileStamp: Long)
 
-  /** bgp message **/
+  /**
+   * bgp message
+   */
   // fet the BGPs from BGP drivers( or Internet etc.)
   case object getBGP
 
   // Master to Worker
   case class updateBGP(bgpIds: Array[Int], bgpDatas: Array[Array[Byte]])
 
-  /** **/
+  /**
+   * receiver message
+   */
   case class DeleReceiver(receiverIP: String)
   case class DeleWorker(workerIP: String, port: Int)
   case class RequestWorker(receiverIP: String)
 
 }
 
-object CombineStatus extends Enumeration{
+object CombineStatus extends Enumeration {
   type CombineStatus = Value
-  val FINISH, DIRECTORY_NOT_EXIST, UNKNOWN_DIRECTORY, IO_EXCEPTION, WAIT_TIMEOUT = Value
+  val FINISH, DIRECTORY_NOT_EXIST, UNKNOWN_DIRECTORY, IO_EXCEPTION, PARTIAL_FINISH = Value
 }

@@ -26,7 +26,7 @@ import akka.remote.{ DisassociatedEvent, RemotingLifecycleEvent }
 
 import org.joda.time.DateTime
 import cn.ac.ict.acs.netflow._
-import cn.ac.ict.acs.netflow.load.{LoadConf, LoadMessages}
+import cn.ac.ict.acs.netflow.load.{ LoadConf, LoadMessages }
 import cn.ac.ict.acs.netflow.load.master.LoadMaster
 import cn.ac.ict.acs.netflow.util._
 
@@ -112,15 +112,15 @@ class LoadWorker(
   val netflowBuff =
     new WrapBufferQueue(maxQueueNum, warnThreshold,
       DefaultLoadBalanceStrategy.loadBalanceWorker,
-      () => master! BufferOverFlow)
+      () => master ! BufferOverFlow)
 
   // load Service
-  val loadserver = new LoaderService(netflowBuff, conf)
+  val loadserver = new LoaderService(self, netflowBuff, conf)
 
   // receiver Service
   val receiverserver = new Receiver(netflowBuff, conf)
 
-  /** whole load thread's current combine file timestamp **/
+  // whole load thread's current combine file timestamp
   val combineTimeStamp = new ArrayBuffer[Long]()
 
   val workerIP = InetAddress.getLocalHost.getHostAddress
@@ -177,7 +177,7 @@ class LoadWorker(
       changeMaster(masterUrl, masterWebUrl)
 
     case SendHeartbeat =>
-      if (connected)  master ! Heartbeat(workerId)
+      if (connected) master ! Heartbeat(workerId)
 
     case x: DisassociatedEvent if x.remoteAddress == masterAddress =>
       logInfo(s"[Netflow] $x Disassociated !")
@@ -206,13 +206,17 @@ class LoadWorker(
 
     // master message (send by master to get buffer information)
     case BufferInfo =>
-      if (connected)
-        master! BufferSimpleReport(workerIP, netflowBuff.currUsageRate())
+      if (connected){
+        master ! BufferSimpleReport(workerIP, netflowBuff.currUsageRate())
+      }
+
 
     // scheduler message (only send by itself)
     case BuffHeatBeat =>
-      if (connected)
-        master! BufferWholeReport(workerIP, netflowBuff.currUsageRate(), netflowBuff.maxQueueNum, netflowBuff.size)
+      if (connected){
+        master ! BufferWholeReport(workerIP, netflowBuff.currUsageRate(),
+          netflowBuff.maxQueueNum, netflowBuff.size)
+      }
 
     case AdjustThread =>
       loadserver.adjustWritersNum(loadserver.curThreadsNum + 1)
@@ -246,7 +250,6 @@ class LoadWorker(
           context.system.scheduler.schedule(INITIAL_REGISTRATION_RETRY_INTERVAL,
             INITIAL_REGISTRATION_RETRY_INTERVAL, self, ReregisterWithMaster)
         }
-
       case Some(_) =>
         logInfo("[Netflow] Not spawning another attempt to register with the master," +
           " since there is an attempt scheduled already.")
@@ -257,7 +260,8 @@ class LoadWorker(
     for (masterAkkaUrl <- masterAkkaUrls) {
       logInfo("[Netflow] Connecting to Load Master " + masterAkkaUrl + "...")
       val actor = context.actorSelection(masterAkkaUrl)
-      actor ! RegisterWorker(workerId, host, port, cores, memory, webUiPort, workerIP, receiverserver.port)
+      actor ! RegisterWorker(workerId, host, port, cores, memory,
+        webUiPort, workerIP, receiverserver.port)
     }
   }
 
@@ -295,7 +299,8 @@ class LoadWorker(
          * less likely scenario.
          */
         if (master != null) {
-          master ! RegisterWorker(workerId, host, port, cores, memory, webUiPort, workerIP, receiverserver.port)
+          master ! RegisterWorker(workerId, host, port, cores, memory, webUiPort,
+            workerIP, receiverserver.port)
         } else {
           // We are retrying the initial registration
           tryRegisterAllMasters()
@@ -326,34 +331,39 @@ class LoadWorker(
     "load-worker-%s-%s-%d".format((new DateTime).toString(createTimeFormat), host, port)
   }
 
-
   // implement the load balance strategy
   private object DefaultLoadBalanceStrategy extends LoadBalanceStrategy with Logging {
 
     private var lastRate = 0.0
     private var lastThreadNum = 0
+    private val maxLoadThreadsNum = cores / 2
 
     override def loadBalanceWorker(): Unit = {
       val currentThreadNum = loadserver.curThreadsNum
       val currentThreadsAverageRate = calculateAverageRate(loadserver.curPoolRate)
-      logWarning(s"$currentThreadNum  $currentThreadsAverageRate")
+
+      logInfo(s"current threads num is $currentThreadNum, " +
+        s"and current threads rate is  $currentThreadsAverageRate. ")
+
       if (lastThreadNum == 0) {
         // the first time to exec load balance, so we only increase thread number
         loadserver.adjustWritersNum(currentThreadNum + 1)
-        logWarning("增加一个线程")
+        logWarning("add a new thread")
         lastThreadNum = currentThreadNum
         lastRate = currentThreadsAverageRate
       } else {
+        if (currentThreadNum == maxLoadThreadsNum) {
+          if (master != null) master ! BuffersWarn(host)
+          return
+        }
+
         if (currentThreadsAverageRate > lastRate) {
           loadserver.adjustWritersNum(currentThreadNum + 1)
-          logWarning("增加一个线程")
+          logWarning("add a new thread")
         } else {
           if (master != null) {
-            master! BuffersWarn(host)
-            logWarning("请求master")
-          } else {
-            loadserver.adjustWritersNum(currentThreadNum + 1)
-            logWarning("增加一个线程")
+            master ! BuffersWarn(host)
+            logWarning("request with master")
           }
         }
       }
@@ -362,7 +372,7 @@ class LoadWorker(
     private def calculateAverageRate(ratesList: util.ArrayList[Double]): Double = {
       var sum = 1.0
       var idx = 0
-      while(idx < ratesList.size()){
+      while (idx < ratesList.size()) {
         sum += ratesList.get(idx)
         idx += 1
       }

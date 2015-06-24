@@ -37,7 +37,7 @@ object ParquetSchema extends Logging {
   bgpFields(0) = new PrimitiveType(OPTIONAL, BINARY, "router_prefix")
   bgpFields(1) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 4, "router_ipv4")
   bgpFields(2) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 16, "router_ipv6")
-  bgpFields(3) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 4,  "next_hop_ipv4")
+  bgpFields(3) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 4, "next_hop_ipv4")
   bgpFields(4) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 16, "next_hop_ipv6")
   bgpFields(5) = new PrimitiveType(OPTIONAL, BINARY, "as_path")
   bgpFields(6) = new PrimitiveType(OPTIONAL, BINARY, "community")
@@ -83,7 +83,7 @@ object ParquetSchema extends Logging {
   netflowFields(30) = new PrimitiveType(OPTIONAL, INT32, "ipv6_dst_mask")
 
   // 31-40
-  netflowFields(31) = new PrimitiveType(OPTIONAL, INT32, "ipv6_flow_label") // in ipv6 only use 20bit
+  netflowFields(31) = new PrimitiveType(OPTIONAL, INT32, "ipv6_flow_label") // ipv6 only use 20bit
   netflowFields(32) = new PrimitiveType(OPTIONAL, INT32, "icmp_type")
   netflowFields(33) = new PrimitiveType(OPTIONAL, INT32, "mul_igmp_type")
   netflowFields(34) = new PrimitiveType(OPTIONAL, INT64, "sampling_interval")
@@ -101,7 +101,8 @@ object ParquetSchema extends Logging {
   netflowFields(44) = new PrimitiveType(OPTIONAL, INT64, "ipv4_src_prefix")
   netflowFields(45) = new PrimitiveType(OPTIONAL, INT64, "ipv4_dst_prefix")
   netflowFields(46) = new PrimitiveType(OPTIONAL, INT32, "mpls_top_label_type")
-  netflowFields(47) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 4, "mpls_top_label_ip_addr") // ????
+  netflowFields(47) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 4,
+    "mpls_top_label_ip_addr")
   netflowFields(48) = new PrimitiveType(OPTIONAL, INT32, "flow_sampler_id")
   netflowFields(49) = new PrimitiveType(OPTIONAL, INT32, "flow_sampler_mode")
   netflowFields(50) = new PrimitiveType(OPTIONAL, INT64, "flow_sampler_random_interval")

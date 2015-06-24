@@ -21,17 +21,17 @@ package cn.ac.ict.acs.netflow.load.worker.parser
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
 
-case class TemplateKey(routerIp :Array[Byte], templateId : Int){
+case class TemplateKey(routerIp: Array[Byte], templateId: Int) {
   override def hashCode(): Int = {
     java.util.Arrays.hashCode(routerIp) + templateId
   }
 
   override def equals(obj: scala.Any): Boolean = {
-    if(obj == null) return false
-//    if(this == obj) return true
-    if(getClass != obj.getClass) return false
+    if (obj == null) return false
+    //    if(this == obj) return true
+    if (getClass != obj.getClass) return false
     val oj = obj.asInstanceOf[TemplateKey]
-    if(oj.templateId != templateId) return false
+    if (oj.templateId != templateId) return false
     java.util.Arrays.equals(this.routerIp, oj.routerIp)
   }
 }
@@ -50,7 +50,7 @@ class Template(val tmpId: Int, val fieldsCount: Int) {
   def createTemplate(data: ByteBuffer): Template = {
 
     var i = 0
-    while(i != fieldsCount){
+    while (i != fieldsCount) {
       val key = data.getShort
       val valueLen = data.getShort
       keys(i) = key
@@ -65,24 +65,13 @@ class Template(val tmpId: Int, val fieldsCount: Int) {
    * create a single template for v5 v7
    * @param key_value
    */
-  def createTemplate(key_value :(Int,Int)*): Unit ={
+  def createTemplate(key_value: (Int, Int)*): Unit = {
     assert(key_value.length == fieldsCount)
-    var i=0
-    key_value.foreach(x=>{
+    var i = 0
+    key_value.foreach(x => {
       keys(i) = x._1
       values(i) = x._2
       i += 1
     })
   }
 }
-
-
-//object test {
-//  def main(args: Array[String]) {
-//    val templates = new ConcurrentHashMap[TemplateKey, Template]
-//    val key = new TemplateKey(Array('1','2','i'),100)
-//    for(i <-0 to 5){
-//      templates.put(key, new Template(10,i))
-//    }
-//  }
-//}

@@ -18,46 +18,46 @@
  */
 package cn.ac.ict.acs.netflow.load.worker
 
-import java.io.{IOException, FileNotFoundException}
+import java.io.{ IOException, FileNotFoundException }
 
-import _root_.parquet.hadoop.{ParquetFileWriter, ParquetFileReader}
-import org.apache.hadoop.fs.{PathFilter, Path, FileSystem}
+import _root_.parquet.hadoop.{ ParquetFileWriter, ParquetFileReader }
 
-import akka.actor.{ActorSelection, ActorRef}
+import akka.actor.ActorSelection
 
-import cn.ac.ict.acs.netflow.load.{CombineStatus, LoadConf}
+import org.apache.hadoop.fs.{ PathFilter, Path, FileSystem }
+
+import cn.ac.ict.acs.netflow.load
+import cn.ac.ict.acs.netflow.load.{ CombineStatus, LoadConf }
 import cn.ac.ict.acs.netflow.load.LoadMessages.CombineFinished
-import cn.ac.ict.acs.netflow.{NetFlowException, NetFlowConf, Logging}
-import cn.ac.ict.acs.netflow.util.TimeUtils
+import cn.ac.ict.acs.netflow.{ NetFlowException, NetFlowConf, Logging }
 
 /**
  * Combine the parquet directory
  * Created by ayscb on 15-6-15.
  */
 class CombineService(val timestamp: Long, val master: ActorSelection, val conf: NetFlowConf)
-  extends Thread with Logging {
-
+    extends Thread with Logging {
 
   object ParquetState extends Enumeration {
     type ParquetState = Value
     val FINISH, FAIL, WAIT = Value
   }
 
-  val dirPathStr = TimeUtils getTimeBasePathBySeconds(timestamp, conf)
+  private val dirPathStr = load.getPathByTime(timestamp, conf)
   setName(s"Combine server on directory $dirPathStr ")
 
   override def run(): Unit = {
     logInfo(s"Combine server begins to combine $dirPathStr ...")
     val fs = FileSystem.get(conf.hadoopConfiguration)
     val fPath = new Path(dirPathStr)
-    if (!validDirectory(fs, fPath)) return
+    if (!validDirectory(fs, fPath)) return // has send the message to master
 
     val maxRetryNum = 4
     var curTry = 0
-    while(maxRetryNum == curTry) {
+    while (maxRetryNum == curTry) {
       combineFiles(fs, fPath) match {
         case ParquetState.WAIT =>
-          Thread.sleep(3000 + curTry * 30000)
+          Thread.sleep(60000 + curTry * 30000)
           curTry += 1
         case ParquetState.FINISH =>
           master ! CombineFinished(CombineStatus.FINISH)
@@ -68,8 +68,12 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
       }
     }
 
-    if(maxRetryNum == curTry){
-      master ! CombineFinished(CombineStatus.WAIT_TIMEOUT)
+    if (maxRetryNum == curTry) {
+      // delete the template's file.
+      // Since we believe there
+      mergeParquetFiles(fs, fPath)
+      finishCombine(fs, fPath)
+      master ! CombineFinished(CombineStatus.PARTIAL_FINISH)
     }
   }
 
@@ -83,13 +87,15 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
 
     try {
       if (!fs.exists(dirPath)) {
-        logError("[ parquet ] The path %s does not exist in Hadoop ".format(dirPath.toUri.toString))
+        logError("[ parquet ] The path %s does not exist in Hadoop "
+          .format(dirPath.toUri.toString))
         master ! CombineFinished(CombineStatus.DIRECTORY_NOT_EXIST)
         return false
       }
 
       if (!fs.isDirectory(dirPath)) {
-        logError("[ parquet ] The path %s should be directory in Hadoop ".format(dirPath.toUri.toString))
+        logError("[ parquet ] The path %s should be directory in Hadoop "
+          .format(dirPath.toUri.toString))
         master ! CombineFinished(CombineStatus.UNKNOWN_DIRECTORY)
         return false
       }
@@ -112,7 +118,8 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
 
     } catch {
       case e: FileNotFoundException =>
-        logWarning("[ parquet ] The path %s does not exist in Hadoop ".format(dirPath.toUri.toString))
+        logWarning("[ parquet ] The path %s does not exist in Hadoop "
+          .format(dirPath.toUri.toString))
         master ! CombineFinished(CombineStatus.DIRECTORY_NOT_EXIST)
         false
       case e: IOException =>
@@ -181,7 +188,6 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
     }
   }
 
-
   /**
    * merge all parquet files in to output path
    * @param fs hadoop file system
@@ -191,7 +197,8 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
 
     try {
       val outputStatus = fs.getFileStatus(fPath)
-      val footers = ParquetFileReader.readAllFootersInParallel(conf.hadoopConfiguration, outputStatus)
+      val footers =
+        ParquetFileReader.readAllFootersInParallel(conf.hadoopConfiguration, outputStatus)
       ParquetFileWriter.writeMetadataFile(conf.hadoopConfiguration, fPath, footers)
 
       // write _success File
@@ -200,7 +207,8 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
 
     } catch {
       case e: IOException =>
-        log.warn(s"{ NetFlow : Could not write summary file for %s, error message %s. ".format(fPath, e.getMessage))
+        log.warn(s"{ NetFlow : Could not write summary file for %s, error message %s. "
+          .format(fPath, e.getMessage))
         fs.listStatus(fPath, new PathFilter {
           override def accept(path: Path): Boolean = {
             path.getName.startsWith("_")
@@ -211,7 +219,8 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
   }
 
   /**
-   * Delete the _temporary directory and write a success file to stand for finish combine process
+   * Delete the _temporary directory and write a success file
+   * to stand for finish combine process
    * @param fs hadoop file system
    * @param fPath  directory path
    */
@@ -220,8 +229,8 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
 
     // delete empty tempDir
     if (fs.exists(tempDir)) {
-      require(fs.listStatus(tempDir).isEmpty, "The %s /_temporary should be empty, but now it has %d elements. "
-        .format(fPath.toUri.toString, fs.listStatus(tempDir).size))
+      logInfo(s"The ${fPath.toUri.toString}/_temporary's file size" +
+        s" ${fs.listStatus(tempDir).size}}.")
 
       fs.delete(tempDir, true)
       logInfo("[ Parquet ] Combine %s's parquets finished, Delete the %s ".
@@ -233,6 +242,5 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
     fs.close()
   }
 }
-
 
 

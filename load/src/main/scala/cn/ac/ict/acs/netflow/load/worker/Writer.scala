@@ -18,17 +18,15 @@
  */
 package cn.ac.ict.acs.netflow.load.worker
 
-import akka.actor.ActorRef
-
 trait Writer {
-  def init()
-  def write(rowIter: Iterator[Row])
-  def close()
+  def timeBase(): Long
+  def init(): Unit
+  def write(rowIter: Iterator[Row]): Unit
+  def close(): Unit
 }
 
 trait WriterWrapper {
   def init()
   def write(rowIter: Iterator[Row], packetTime: Long)
   def close()
-  def setActorRef(workerRef: ActorRef)
 }

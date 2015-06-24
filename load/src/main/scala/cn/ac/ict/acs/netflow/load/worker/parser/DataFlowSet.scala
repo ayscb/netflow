@@ -20,7 +20,7 @@ package cn.ac.ict.acs.netflow.load.worker.parser
 
 import java.nio.ByteBuffer
 
-import cn.ac.ict.acs.netflow.load.worker.{RowHeader, Row, MutableRow}
+import cn.ac.ict.acs.netflow.load.worker.{ RowHeader, Row, MutableRow }
 
 /**
  * Created by ayscb on 15-6-11.
@@ -55,7 +55,7 @@ class DataFlowSet(val bb: ByteBuffer, val packetTime: Long, val routerIp: Array[
   private var dfsEndPos = 0
   private var existTmp: Boolean = _
 
-  private var template : Template = _
+  private var template: Template = _
   private def fsId = bb.getShort(dfsStartPos)
   private def fsLen = bb.getShort(dfsStartPos + 2)
   private def fsBodyLen = fsLen - fsHeaderLen
@@ -65,14 +65,14 @@ class DataFlowSet(val bb: ByteBuffer, val packetTime: Long, val routerIp: Array[
    * @param startPos
    * @return
    */
-  def getNextDfS(startPos: Int): Int ={
+  def getNextDfS(startPos: Int): Int = {
     dfsStartPos = startPos
     dfsEndPos = startPos + fsLen
 
-  //  println(s"[getNextDfS] startPos:${dfsStartPos}, endpos: ${dfsEndPos}, fsid:${fsId}")
+    //  println(s"[getNextDfS] startPos:${dfsStartPos}, endpos: ${dfsEndPos}, fsid:${fsId}")
     val tempKey = new TemplateKey(routerIp, fsId)
     existTmp = PacketParser.templates.containsKey(tempKey)
-    if(existTmp){
+    if (existTmp) {
       template = PacketParser.templates.get(tempKey)
     }
     dfsEndPos
@@ -82,19 +82,19 @@ class DataFlowSet(val bb: ByteBuffer, val packetTime: Long, val routerIp: Array[
 
     new Iterator[Row] {
       var curRow = new MutableRow(bb, template)
-      if(routerIp.length == 4){
+      if (routerIp.length == 4) {
         curRow.setHeader(new RowHeader(Array[Any](packetTime, routerIp, null)))
-      }else if(routerIp.length == 16){
+      } else if (routerIp.length == 16) {
         curRow.setHeader(new RowHeader(Array[Any](packetTime, null, routerIp)))
-      }else{
-        existTmp = false    // skip the package
+      } else {
+        existTmp = false // skip the package
       }
 
-      var curRowPos : Int = dfsStartPos + fsHeaderLen
+      var curRowPos: Int = dfsStartPos + fsHeaderLen
 
       def hasNext: Boolean = {
-        if(!existTmp) return false
-        if(curRowPos == dfsEndPos) return false
+        if (!existTmp) return false
+        if (curRowPos == dfsEndPos) return false
         true
       }
 

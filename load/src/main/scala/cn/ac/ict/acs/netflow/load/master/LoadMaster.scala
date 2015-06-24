@@ -18,14 +18,10 @@
  */
 package cn.ac.ict.acs.netflow.load.master
 
-import java.net.InetAddress
-import java.nio.channels.SocketChannel
-
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.util.Random
 
 import akka.actor._
 import akka.pattern.ask
@@ -33,12 +29,12 @@ import akka.remote.RemotingLifecycleEvent
 import akka.serialization.SerializationExtension
 
 import cn.ac.ict.acs.netflow._
-import cn.ac.ict.acs.netflow.load.{CombineStatus, LoadMessages}
+import cn.ac.ict.acs.netflow.load.{ CombineStatus, LoadMessages }
 import cn.ac.ict.acs.netflow.util._
 import cn.ac.ict.acs.netflow.ha.{ LeaderElectionAgent, MonarchyLeaderAgent, LeaderElectable }
 
 class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: NetFlowConf)
-  extends Actor with ActorLogReceive with LeaderElectable with Logging {
+    extends Actor with ActorLogReceive with LeaderElectable with Logging {
 
   import DeployMessages._
   import LoadMasterMessages._
@@ -72,7 +68,9 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
   // load master service
   val loadServer = new MasterService(self, conf)
 
-  /** about balance **/
+  /**
+   * about balance
+   */
   // workerIP => (IP,port)
   @transient val workerToPort = new mutable.HashMap[String, (String, Int)]()
   // worker : buffer used rate[0,100]
@@ -83,13 +81,10 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
   // receiver : worker => 1 : n
   @transient val collectorToWorkers = new mutable.HashMap[String, ArrayBuffer[String]]()
 
-  // receiver => socketChannel
-  //val receiverToSocket = new mutable.HashMap[String, SocketChannel]()
-
   private val halfLimit = 0.5
   private val warnLimit = 0.7
 
-  /** combine parquet **/
+  // combine parquet
   private var combineParquetFinished: Boolean = false
 
   // when there is no worker registers in cluster,
@@ -153,8 +148,6 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
       System.exit(0)
     }
 
-    /** message about maintaining the worker **/
-    // include loadworker, receiver
     case RegisterWorker(id, workHost, workPort, cores, memory, webUiPort, workerIP, tcpPort) => {
       logInfo("Registering %s %s:%d with %d cores, %s RAM".format(
         id, workHost, workPort, cores, Utils.megabytesToString(memory)))
@@ -164,7 +157,8 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
       } else if (idToWorker.contains(id)) {
         sender ! RegisterWorkerFailed("Duplicate worker ID")
       } else {
-        val worker = new LoadWorkerInfo(id, workHost, workPort, cores, memory, sender(), webUiPort, workerIP, tcpPort)
+        val worker = new LoadWorkerInfo(id, workHost, workPort, cores, memory, sender(),
+          webUiPort, workerIP, tcpPort)
         if (registerWorker(worker)) {
           persistenceEngine.addWorker(worker)
           sender ! RegisteredWorker(loadMasterUrl, loadMasterWebUIUrl)
@@ -201,7 +195,7 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     case BoundPortsRequest =>
       sender ! BoundPortsResponse(masterPort, webUiPort)
 
-      /** message about buffer **/
+    // message about buffer
     case BuffersWarn(workerIp) =>
       adjustCollectorByBuffer(workerIp, sender())
 
@@ -213,9 +207,9 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
 
     case BufferWholeReport(workerIp, usageRate, maxSize, curSize) =>
       workerToBufferRate.update(workerIp, usageRate)
-      // TODO save another information (maxSize, curSize)
+    // TODO save another information (maxSize, curSize)
 
-    /** message about combine **/
+    // message about combine
     // deal with the combine parquet
     case CloseParquet(fileStamp) =>
       combineParquet(fileStamp)
@@ -223,7 +217,7 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     case CombineFinished(status) =>
       dealWithCombineMessage(status)
 
-      /** message about receiver **/
+    // message about receiver
     case DeleReceiver(receiverIP) =>
       deleDeadCollector(receiverIP)
 
@@ -283,7 +277,9 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     dealWithCombineError(worker)
   }
 
-  /** Check for, and remove, any timed-out workers */
+  /**
+   *  Check for, and remove, any timed-out workers
+   */
   private def timeOutDeadWorkers() {
     // Copy the workers into an array so we don't modify the hashset while iterating through it
     val currentTime = System.currentTimeMillis()
@@ -302,61 +298,36 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
   }
 
   // *********************************************************************************
-  // only for combine server
-  private var curComWorkerNum = 0
-  private var currentCombieWorker: LoadWorkerInfo = _
-  private var combineTime = new ArrayBuffer[Long]()
-  private var curComidx = 0
+  // only for combine server, since we can not get the exact load worker threads number
+  // in current time base, so we put the task to load worker by listening HDFS directory
+  private var curCombieWorker: LoadWorkerInfo = _
+  private var fileTimeStamp: Long = 0
+  private var nextCombIdx = 0
 
   private def combineParquet(fileStamp: Long): Unit = {
-    if(workerToPort.isEmpty) return
-
-    curComWorkerNum match {
-      case 0 =>
-        val set = new mutable.HashSet[String]()
-        collectorToWorkers.foreach(receiver=>{
-          receiver._2.foreach(worker=>{
-            set += worker
-          })
-        })
-        curComWorkerNum = set.size
-        combineTime.clear()
-        combineTime += fileStamp
-
-      case x if x == combineTime.size =>
-        val ordered = combineTime.sortWith(_ < _)
-        if(ordered.head != ordered.last){
-          logError(s"Combine file stamp should be same, but know %s".format(ordered.mkString("<")))
-          curComidx = x-1
-        }
-
-        val rdmId = Random.nextInt(idToWorker.size) // assign alive worker
-        currentCombieWorker = idToWorker.toList(rdmId)._2
-        currentCombieWorker.actor ! CombineParquet(combineTime(curComidx)) // tell it to combine the parquets
-
-      case _ =>
-        combineTime += fileStamp
-    }
+    fileTimeStamp = fileStamp
+    sendCombMessage()
   }
 
-  private def dealWithCombineMessage(status :CombineStatus.Value): Unit ={
+  private def dealWithCombineMessage(status: CombineStatus.Value): Unit = {
     status match {
       case CombineStatus.FINISH =>
-        curComWorkerNum = 0
-        combineTime.clear()
-        curComidx = 0
         combineParquetFinished = true
+        logInfo(s"Combine the file ${load.getPathByTime(fileTimeStamp, conf)} completely")
 
-      case _ =>
-        if(curComidx != 0) {
-          logWarning(s"Combine error, will try another timestamp.")
-          curComidx -= 1
-          val rdmId = Random.nextInt(idToWorker.size) // assign alive worker
-          currentCombieWorker = idToWorker.toList(rdmId)._2
-          currentCombieWorker.actor ! CombineParquet(combineTime(curComidx)) // tell it to combine the parquets
-        }else{
-          logError(s"Combine error, cannot combine this directory")
-        }
+      case CombineStatus.PARTIAL_FINISH =>
+        combineParquetFinished = true
+        logInfo(s"Combine partial files in directory ${load.getPathByTime(fileTimeStamp, conf)}")
+
+      case CombineStatus.DIRECTORY_NOT_EXIST =>
+        logWarning(s"Combine directory ${load.getPathByTime(fileTimeStamp, conf)} failed, " +
+          s"for there is no such directory.")
+
+      case CombineStatus.UNKNOWN_DIRECTORY =>
+        logWarning(s"Combine directory ${load.getPathByTime(fileTimeStamp, conf)} failed, " +
+          s"for the directory structure is not parquet structure.")
+
+      case _ => logError(s"Combine error, cannot combine this directory")
     }
   }
 
@@ -366,24 +337,27 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
    * id dead ,so we should redo the combine rhread on another worker node
    */
   private def dealWithCombineError(deadworker: LoadWorkerInfo): Unit = {
-    if (!combineParquetFinished && deadworker == currentCombieWorker) {
-      val rdmId = Random.nextInt(idToWorker.size) // assign alive worker
-      currentCombieWorker = idToWorker.toList(rdmId)._2
-      currentCombieWorker.actor ! CombineParquet(combineTime(curComidx)) // tell it to combine the parquets
+    if (!combineParquetFinished && deadworker == curCombieWorker) {
+      sendCombMessage()
     }
   }
 
-  // ***********************************************************************************
+  private def sendCombMessage(): Unit = {
+    nextCombIdx = (nextCombIdx + 1) % idToWorker.size
+    curCombieWorker = idToWorker.toList(nextCombIdx)._2
+    curCombieWorker.actor ! CombineParquet(fileTimeStamp) // tell it to combine the parquets
+  }
+  // ------------------------------------------------------------------
   // only for bgp table
   private val bgpTable = new scala.collection.mutable.HashMap[Int, Array[Byte]]
-  private def updateBGP(bgpIds: Array[Int], bgpDatas: Array[Array[Byte]]): Unit ={
+  private def updateBGP(bgpIds: Array[Int], bgpDatas: Array[Array[Byte]]): Unit = {
 
-    if(bgpTable.isEmpty){
+    if (bgpTable.isEmpty) {
       idToWorker.valuesIterator
-        .foreach(_.actor! updateBGP(bgpIds, bgpDatas))
+        .foreach(_.actor ! updateBGP(bgpIds, bgpDatas))
 
       var idx = 0
-      while(idx != bgpIds.length){
+      while (idx != bgpIds.length) {
         bgpTable(bgpIds(idx)) = bgpDatas(idx)
         idx += 1
       }
@@ -395,15 +369,15 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     val _bgpDatas = new ArrayBuffer[Array[Byte]]
 
     var idx = 0
-    while(idx != bgpIds.length){
-      if(bgpTable.contains(bgpIds(idx))){
+    while (idx != bgpIds.length) {
+      if (bgpTable.contains(bgpIds(idx))) {
         val value = bgpTable.get(bgpIds(idx)).get
-        if(!(value sameElements bgpDatas(idx))){
+        if (!(value sameElements bgpDatas(idx))) {
           _bgpIds += bgpIds(idx)
           _bgpDatas += bgpDatas(idx)
           bgpTable(bgpIds(idx)) = bgpDatas(idx)
         }
-      }else{
+      } else {
         _bgpIds += bgpIds(idx)
         _bgpDatas += bgpDatas(idx)
         bgpTable(bgpIds(idx)) = bgpDatas(idx)
@@ -411,7 +385,7 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
       idx += 1
     }
     idToWorker.valuesIterator
-      .foreach(_.actor! updateBGP(_bgpIds.toArray[Int],_bgpDatas.toArray[Array[Byte]]))
+      .foreach(_.actor ! updateBGP(_bgpIds.toArray[Int], _bgpDatas.toArray[Array[Byte]]))
 
   }
 
@@ -447,17 +421,17 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     }
   }
 
-  private def deleConnecton(worker: String, collector: String): Unit ={
+  private def deleConnecton(worker: String, collector: String): Unit = {
     workerToCollectors.get(worker) match {
       case Some(collectors) =>
         val idx = collectors.indexOf(collector)
-        if(idx == -1){
+        if (idx == -1) {
           // has deleted
           require(collectorToWorkers.get(collector).isEmpty
             || collectorToWorkers.get(collector).get.indexOf(worker) == -1,
             s" Since worker2collector does not contain $worker -> $collector," +
               s"collector2worker should not contain $collector -> $worker")
-        }else{
+        } else {
           collectors.remove(idx)
           require(collectorToWorkers.get(collector).isDefined,
             s"Since worker2collector contains $worker -> $collector," +
@@ -467,13 +441,15 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
 
       case None =>
         require(collectorToWorkers.get(collector).isEmpty ||
-        !collectorToWorkers.get(collector).get.contains(worker),
+          !collectorToWorkers.get(collector).get.contains(worker),
           s" Since worker2collector does not contain $worker -> $collector," +
-          s"collector2worker should not contain $collector -> $worker")
+            s"collector2worker should not contain $collector -> $worker")
     }
   }
 
-  /** deal with worker **/
+  // -----------------------------------------------------------------------------------
+  // deal with worker
+
   // called after a worker registered successfully, record workerToUdpPort & workerToCollectors
   private def addNewWorker(workerIP: String, workerPort: Int): Unit = {
     workerToPort += (workerIP -> (workerIP, workerPort))
@@ -522,18 +498,18 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
   // Or called when a receiver request worker list who also assigns a dead worker
   private def deleDeadWorker(workerIP: String, port: Int = 0, notify: Boolean = false): Unit = {
 
-    def _delete(workerIP: String): Unit ={
+    def _delete(workerIP: String): Unit = {
       workerToCollectors.remove(workerIP) match {
         case Some(collectors) =>
-          collectors.foreach(collector=> {
+          collectors.foreach(collector => {
             collectorToWorkers(collector) -= workerIP
-            if(notify) {
-              require(workerToPort.get(workerIP).isDefined
-                ,s"Now worker2Port should exist deadWorker $workerIP")
+            if (notify) {
+              require(workerToPort.get(workerIP).isDefined,
+                s"Now worker2Port should exist deadWorker $workerIP")
               val ip_port = workerToPort.get(workerIP).get
               notifyReceiver(collector, None, Some(Array(ip_port)))
             }
-          } )
+          })
         case None =>
           logInfo(s"The $workerIP worker has been deleted.")
       }
@@ -546,12 +522,12 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     // so 'workerToPort' should at most contain one record about this 'workerIP'.
     workerToPort.get(workerIP) match {
       case Some(deadWorker) =>
-        if(port == 0){  // ignore port
+        if (port == 0) { // ignore port
           _delete(workerIP)
-        }else{
-          if(deadWorker.equals((workerIP, port))){
+        } else {
+          if (deadWorker.equals((workerIP, port))) {
             _delete(workerIP)
-          }else{
+          } else {
             logInfo(s"Expect delete $workerIP:$port worker," +
               s"but now this worker is ${deadWorker._1}:${deadWorker._2}." +
               s"So there mast has something wrong if the load worker does not reboot.")
@@ -563,11 +539,11 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     }
   }
 
-
   // ***********************************************************************************
-  /** deal with receiver **/
+  // deal with receiver
+
   // called when a master receives a message about Delete dead collector
-  private def deleDeadCollector(collectorIP: String): Unit ={
+  private def deleDeadCollector(collectorIP: String): Unit = {
     // If the collector is down, the flag can been caught by socketChannel.
     // For workers which is connected with this collector, they also know this flag,
     // so here, we only delete related Struction.
@@ -575,36 +551,38 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
 
     collectorToWorkers.remove(collectorIP) match {
       case Some(relatedWorkers) =>
-        relatedWorkers.foreach(_worker=>{
+        relatedWorkers.foreach(_worker => {
           val _collector = workerToCollectors.get(_worker)
           require(_collector.isDefined &&
             _collector.get.contains(collectorIP),
             s"Since collector2workers contain ${collectorIP} -> ${_worker}, " +
-            s"So worker2Collectors should contain ${_worker}, but now is NONE.")
+              s"So worker2Collectors should contain ${_worker}, but now is NONE.")
           _collector.get -= collectorIP
-          })
+        })
 
       case None =>
         logError(s"'deleDeadCollector' method should be called only when the collector is lost," +
-          s"so ,for a determined $collectorIP collector, 'collectorToWorkers' should have one record at least" +
+          s"so ,for a determined $collectorIP collector, " +
+          s"'collectorToWorkers' should have one record at least" +
           s"about this collector, but now, it is Empty")
     }
   }
 
-  private def selectSuitableWorkers(collector: String, expectWorkerNum: Int): Option[Array[String]] = {
+  private def selectSuitableWorkers(collector: String,
+                                    expectWorkerNum: Int): Option[Array[String]] = {
 
-    val availableWorkers  = collectorToWorkers.get(collector) match {
-          case Some(_workers) =>
-            workerToBufferRate.filterNot(x => _workers.contains(x._1)).toList.sortWith(_._2 < _._2)
-          case None =>
-            workerToBufferRate.toList.sortWith(_._2 < _._2)
-        }
+    val availableWorkers = collectorToWorkers.get(collector) match {
+      case Some(_workers) =>
+        workerToBufferRate.filterNot(x => _workers.contains(x._1)).toList.sortWith(_._2 < _._2)
+      case None =>
+        workerToBufferRate.toList.sortWith(_._2 < _._2)
+    }
 
-    if(availableWorkers.isEmpty) return None
+    if (availableWorkers.isEmpty) return None
 
     val actualLen = Math.min(expectWorkerNum, availableWorkers.length)
     val result = new Array[String](actualLen)
-    for(i <- 0 until actualLen){
+    for (i <- 0 until actualLen) {
       result(i) = availableWorkers(i)._1
     }
     Some(result)
@@ -615,27 +593,27 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
 
     loadServer.collector2Socket.get(collector) match {
       case Some(socket) =>
-        if(!socket.isConnected) return
+        if (!socket.isConnected) return
 
         selectSuitableWorkers(collector, workerNum) match {
           case Some(workers: Array[String]) =>
 
             val ip_port = new ArrayBuffer[(String, Int)](workers.length)
 
-            workers.foreach(x=>
+            workers.foreach(x =>
               workerToPort.get(x) match {
                 case Some(_worker) =>
                   ip_port += _worker
                   addConnection(_worker._1, collector)
 
                 case None =>
-                  logError(s"Worker is lost? worker2Port does not contain $x but worker2Rate does contain?")
+                  logError(s"Worker is lost? worker2Port does not contain $x " +
+                    s"but worker2Rate does contain?")
                   return
-            })
+              })
 
             val cmd = CommandSet.responseReceiver(Some(ip_port.toArray[(String, Int)]), None)
             socket.write(cmd)
-
 
           case None =>
             waitQueue += collector
@@ -647,18 +625,18 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
   }
 
   // ***********************************************************************************
-  /** deal with balance **/
+  // deal with balance
 
   private def updateWorkersBufferRate() = {
-    idToWorker.values.foreach(x => x.actor! BufferInfo)
+    idToWorker.values.foreach(x => x.actor ! BufferInfo)
   }
 
   // notify receiver to change worker
   private def notifyReceiver(receiverHost: String,
-                             addWorker: Option[Array[(String, Int)]],
-                             deleWorker: Option[Array[(String, Int)]]): Unit = {
+    addWorker: Option[Array[(String, Int)]],
+    deleWorker: Option[Array[(String, Int)]]): Unit = {
 
-    val res = CommandSet.responseReceiver(addWorker,deleWorker)
+    val res = CommandSet.responseReceiver(addWorker, deleWorker)
 
     loadServer.collector2Socket.get(receiverHost) match {
       case None =>
@@ -680,8 +658,8 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     updateWorkersBufferRate()
 
     def underHalfRateStrategy(
-                               availableWorkers: List[(String, Double)],
-                               collector: String): Unit = {
+      availableWorkers: List[(String, Double)],
+      collector: String): Unit = {
       // when there is a available worker who's rate is under buffer rate,
       // we believe that this worker in enough to deal with this work.
       require(availableWorkers.head._2 <= 0.5)
@@ -695,8 +673,8 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     }
 
     def underWarnRateStrategy(
-                               availableWorkers: List[(String, Double)],
-                               collector: String): Unit = {
+      availableWorkers: List[(String, Double)],
+      collector: String): Unit = {
       val adjustSize = Math.min(availableWorkers.size, workerToPort.size / 2)
       for (i <- 0 until adjustSize) {
         val worker = availableWorkers(i)._1
@@ -722,8 +700,8 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     // deal with the situation that only one collector connect with this worker
     def dealWithSingleConnection(collector: String): Boolean = {
       // now, our strategy is split the writing stream on this collector
-      val availableWorkers: List[(String, Double)] = workerToBufferRate.filterNot(x => x._1 == workerIP)
-        .toList.sortWith(_._2 < _._2)
+      val availableWorkers: List[(String, Double)] =
+        workerToBufferRate.filterNot(x => x._1 == workerIP).toList.sortWith(_._2 < _._2)
       if (availableWorkers.isEmpty) {
         logInfo(String.format(
           "[Netflow] Total worker number is %d (%s)," +
@@ -760,10 +738,6 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
         selectStrategy(availableWorkers, orderedcollectors.head._1)
       } else {
         // all collectors which is connected with this worker
-        // connects with more than one workers,
-        // 我们首先选择出除了该worker之外的最小rate的worker，
-        // 并与该worker相连的collector相连。
-        // collector的选取是看该collector相关连的worker的rate的均值最大的那个
         val avgRate = new ArrayBuffer[(String, Double)](collectors.length)
         collectors.foreach(coll => {
           require(collectorToWorkers.get(coll).isDefined,
@@ -786,11 +760,11 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
       }
     }
 
-    workerToCollectors.get(workerIP) match{
+    workerToCollectors.get(workerIP) match {
       case Some(colls) =>
-        if(colls.size == 1){
+        if (colls.size == 1) {
           dealWithSingleConnection(colls.head)
-        }else{
+        } else {
           dealWithMutilConnection(colls)
         }
 
@@ -799,7 +773,6 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
   }
 
 }
-
 
 object LoadMaster extends Logging {
 
