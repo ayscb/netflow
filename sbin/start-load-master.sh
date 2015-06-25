@@ -18,3 +18,25 @@
 # limitations under the License.
 #
 
+# Starts the QueryMaster on the machine this script is executed on.
+
+sbin="`dirname "$0"`"
+sbin="`cd "$sbin"; pwd`"
+
+. "$sbin/netflow-config.sh"
+
+. "$NETFLOW_PREFIX/bin/load-netflow-env.sh"
+
+if [ "$NETFLOW_LOAD_MASTER_PORT" = "" ]; then
+  NETFLOW_LOAD_MASTER_PORT=9088
+fi
+
+if [ "$NETFLOW_LOAD_MASTER_HOST" = "" ]; then
+  NETFLOW_LOAD_MASTER_HOST=`hostname`
+fi
+
+if [ "$NETFLOW_LOAD_MASTER_WEBUI_PORT" = "" ]; then
+  NETFLOW_LOAD_MASTER_WEBUI_PORT=18070
+fi
+
+"$sbin"/netflow-daemon.sh start cn.ac.ict.acs.netflow.load.master.LoadMaster 1 --host $NETFLOW_LOAD_MASTER_HOST --port $NETFLOW_LOAD_MASTER_PORT --webui-port $NETFLOW_LOAD_MASTER_WEBUI_PORT

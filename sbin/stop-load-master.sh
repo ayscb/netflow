@@ -18,11 +18,11 @@
 # limitations under the License.
 #
 
+# Stop the master on the machine this script is executed on.
+
 sbin=`dirname "$0"`
 sbin=`cd "$sbin"; pwd`
 
 . "$sbin/netflow-config.sh"
 
-. "$NETFLOW_PREFIX/bin/load-netflow-env.sh"
-
-"$sbin"/netflow-daemons.sh stop cn.ac.ict.acs.netflow.deploy.QueryWorker 1
+"$sbin"/netflow-daemon.sh stop cn.ac.ict.acs.netflow.load.master.LoadMaster 1

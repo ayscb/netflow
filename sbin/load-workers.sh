@@ -23,14 +23,14 @@
 #
 # Environment Variables
 #
-#   NETFLOW_QUERY_WORKERS    File naming remote hosts.
-#     Default is ${NETFLOW_CONF_DIR}/query-workers.
+#   NETFLOW_LOAD_WORKERS    File naming remote hosts.
+#     Default is ${NETFLOW_CONF_DIR}/load-workers.
 #   NETFLOW_CONF_DIR  Alternate conf dir. Default is ${NETFLOW_HOME}/conf.
-#   NETFLOW_QUERY_WORKER_SLEEP Seconds to sleep between spawning remote commands.
+#   NETFLOW_LOAD_WORKER_SLEEP Seconds to sleep between spawning remote commands.
 #   NETFLOW_SSH_OPTS Options passed to ssh when running remote commands.
 ##
 
-usage="Usage: query-workers.sh [--config <conf-dir>] command..."
+usage="Usage: load-workers.sh [--config <conf-dir>] command..."
 
 # if no args specified, show usage
 if [ $# -le 0 ]; then
@@ -43,11 +43,11 @@ sbin="`cd "$sbin"; pwd`"
 
 . "$sbin/netflow-config.sh"
 
-# If the query-workers file is specified in the command line,
+# If the load-workers file is specified in the command line,
 # then it takes precedence over the definition in
 # netflow-env.sh. Save it here.
-if [ -f "$NETFLOW_QUERY_WORKERS" ]; then
-  HOSTLIST=`cat "$NETFLOW_QUERY_WORKERS"`
+if [ -f "$NETFLOW_LOAD_WORKERS" ]; then
+  HOSTLIST=`cat "$NETFLOW_LOAD_WORKERS"`
 fi
 
 # Check if --config is passed as an argument. It is an optional parameter.
@@ -70,14 +70,14 @@ fi
 . "$NETFLOW_PREFIX/bin/load-netflow-env.sh"
 
 if [ "$HOSTLIST" = "" ]; then
-  if [ "$NETFLOW_QUERY_WORKERS" = "" ]; then
-    if [ -f "${NETFLOW_CONF_DIR}/query-workers" ]; then
-      HOSTLIST=`cat "${NETFLOW_CONF_DIR}/query-workers"`
+  if [ "$NETFLOW_LOAD_WORKERS" = "" ]; then
+    if [ -f "${NETFLOW_CONF_DIR}/load-workers" ]; then
+      HOSTLIST=`cat "${NETFLOW_CONF_DIR}/load-workers"`
     else
       HOSTLIST=localhost
     fi
   else
-    HOSTLIST=`cat "${NETFLOW_QUERY_WORKERS}"`
+    HOSTLIST=`cat "${NETFLOW_LOAD_WORKERS}"`
   fi
 fi
 

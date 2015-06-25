@@ -100,21 +100,21 @@ if [ "$NETFLOW_LOG_DIR" = "" ]; then
   export NETFLOW_LOG_DIR="$NETFLOW_HOME/logs"
 fi
 
-mkdir -p "NETFLOW_LOG_DIR"
-touch "NETFLOW_LOG_DIR"/.netflow_test > /dev/null 2>&1
+mkdir -p "$NETFLOW_LOG_DIR"
+touch "$NETFLOW_LOG_DIR"/.netflow_test > /dev/null 2>&1
 TEST_LOG_DIR=$?
 if [ "${TEST_LOG_DIR}" = "0" ]; then
-  rm -f "NETFLOW_LOG_DIR"/.netflow_test
+  rm -f "$NETFLOW_LOG_DIR"/.netflow_test
 else
-  chown "$NETFLOW_IDENT_STRING" "NETFLOW_LOG_DIR"
+  chown "$NETFLOW_IDENT_STRING" "$NETFLOW_LOG_DIR"
 fi
 
 if [ "$NETFLOW_PID_DIR" = "" ]; then
-  $NETFLOW_PID_DIR=/tmp
+  NETFLOW_PID_DIR=/tmp
 fi
 
 # some variables
-log="NETFLOW_LOG_DIR/netflow-$NETFLOW_IDENT_STRING-$command-$instance-$HOSTNAME.out"
+log="$NETFLOW_LOG_DIR/netflow-$NETFLOW_IDENT_STRING-$command-$instance-$HOSTNAME.out"
 pid="$NETFLOW_PID_DIR/netflow-$NETFLOW_IDENT_STRING-$command-$instance.pid"
 
 # Set default scheduling priority

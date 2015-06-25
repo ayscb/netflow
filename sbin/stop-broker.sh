@@ -18,10 +18,11 @@
 # limitations under the License.
 #
 
-# Usage: start-query-worker.sh <worker#> <netflow-query-master-URL>
-#   where <netflow-query-master-URL> is like "netflow-query://localhost:9099"
+sbin=`dirname "$0"`
+sbin=`cd "$sbin"; pwd`
 
-sbin="`dirname "$0"`"
-sbin="`cd "$sbin"; pwd`"
+. "$sbin/netflow-config.sh"
 
-"$sbin"/netflow-daemon.sh start cn.ac.ict.acs.netflow.deploy.QueryWorker "$@"
+. "$NETFLOW_PREFIX/bin/load-netflow-env.sh"
+
+"$sbin"/netflow-daemons.sh stop cn.ac.ict.acs.netflow.query.broker.RestBroker 1
