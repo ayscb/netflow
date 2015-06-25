@@ -731,6 +731,11 @@ static void updateWorkerList(char* workerList) {
                 curNum ++;
             }
             updateActiveClientfd();
+            
+            // check the current worker list
+            if(worker_list.activeNum == 0){
+                requestMaster(NULL);
+            }
         }       
         break;
         
