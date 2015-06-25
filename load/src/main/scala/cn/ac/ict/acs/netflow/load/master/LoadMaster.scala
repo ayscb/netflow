@@ -18,6 +18,8 @@
  */
 package cn.ac.ict.acs.netflow.load.master
 
+import cn.ac.ict.acs.netflow.metrics.MetricsSystem
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
@@ -58,6 +60,9 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
   val addressToWorker = new mutable.HashMap[Address, LoadWorkerInfo]
 
   Utils.checkHost(masterHost, "Expected hostname")
+
+  val masterMetricsSystem = MetricsSystem.createMetricsSystem("master", conf)
+  val masterSource = new LoadMasterSource(this)
 
   val loadMasterUrl = "netflow-load://" + masterHost + ":" + masterPort
   var loadMasterWebUIUrl: String = _
@@ -101,6 +106,10 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     // TODO: a pseudo webuiurl here
     loadMasterWebUIUrl = "http://" + masterHost + ":" + webUiPort
     context.system.scheduler.schedule(0.millis, WORKER_TIMEOUT.millis, self, CheckForWorkerTimeOut)
+
+    masterMetricsSystem.registerSource(masterSource)
+    masterMetricsSystem.start()
+
     val (persistenceEngine_, leaderElectionAgent_) =
       RECOVERY_MODE match {
         case "ZOOKEEPER" =>
@@ -125,6 +134,8 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
   }
 
   override def postStop(): Unit = {
+    masterMetricsSystem.report()
+    masterMetricsSystem.stop()
     persistenceEngine.close()
     leaderElectionAgent.stop()
   }

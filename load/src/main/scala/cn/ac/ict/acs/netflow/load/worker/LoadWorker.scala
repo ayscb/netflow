@@ -23,6 +23,7 @@ import java.util
 import java.util.UUID
 import akka.actor._
 import akka.remote.{ DisassociatedEvent, RemotingLifecycleEvent }
+import cn.ac.ict.acs.netflow.metrics.MetricsSystem
 
 import org.joda.time.DateTime
 import cn.ac.ict.acs.netflow._
@@ -52,6 +53,9 @@ class LoadWorker(
 
   Utils.checkHost(host, "Expected hostname")
   assert(port > 0)
+
+  val metricsSystem = MetricsSystem.createMetricsSystem("worker", conf)
+  val workerSource = new LoadWorkerSource(this)
 
   val createTimeFormat = TimeUtils.createFormat
 
@@ -140,14 +144,18 @@ class LoadWorker(
     receiverserver.start()
 
     registerWithMaster()
+    metricsSystem.registerSource(workerSource)
+    metricsSystem.start()
   }
 
   override def postStop(): Unit = {
+    metricsSystem.report()
     registrationRetryTimer.foreach(_.cancel())
 
     logInfo(s"Close receiver server and load server!")
     receiverserver.interrupt()
     loadserver.stopAllWriterThreads()
+    metricsSystem.stop()
   }
 
   override def receiveWithLogging = {
