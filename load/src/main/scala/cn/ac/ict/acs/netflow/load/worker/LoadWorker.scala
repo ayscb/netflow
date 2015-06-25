@@ -395,8 +395,6 @@ class LoadWorker(
       if(curThreadNum < maxLoadThreadsNum){
         loadserver.adjustWritersNum(curThreadNum + 1)
         logInfo(s"Add new thread")
-      }else{
-        logInfo(s"increase thread to max size")
       }
     }
   }
