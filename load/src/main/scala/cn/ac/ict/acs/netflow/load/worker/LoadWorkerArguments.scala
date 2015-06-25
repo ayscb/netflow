@@ -34,17 +34,17 @@ class LoadWorkerArguments(args: Array[String], conf: NetFlowConf) {
   var propertiesFile: String = _
 
   // Check for settings in environment variables
-  if (System.getenv("NETFLOW_QUERY_WORKER_PORT") != null) {
-    port = System.getenv("NETFLOW_QUERY_WORKER_PORT").toInt
+  if (System.getenv("NETFLOW_LOAD_WORKER_PORT") != null) {
+    port = System.getenv("NETFLOW_LOAD_WORKER_PORT").toInt
   }
-  if (System.getenv("NETFLOW_QUERY_WORKER_CORES") != null) {
-    cores = System.getenv("NETFLOW_QUERY_WORKER_CORES").toInt
+  if (System.getenv("NETFLOW_LOAD_WORKER_CORES") != null) {
+    cores = System.getenv("NETFLOW_LOAD_WORKER_CORES").toInt
   }
-  if (System.getenv("NETFLOW_QUERY_WORKER_MEMORY") != null) {
-    memory = Utils.memoryStringToMb(System.getenv("NETFLOW_QUERY_WORKER_MEMORY"))
+  if (System.getenv("NETFLOW_LOAD_WORKER_MEMORY") != null) {
+    memory = Utils.memoryStringToMb(System.getenv("NETFLOW_LOAD_WORKER_MEMORY"))
   }
-  if (System.getenv("NETFLOW_QUERY_WORKER_WEBUI_PORT") != null) {
-    webUiPort = System.getenv("NETFLOW_QUERY_WORKER_WEBUI_PORT").toInt
+  if (System.getenv("NETFLOW_LOAD_WORKER_WEBUI_PORT") != null) {
+    webUiPort = System.getenv("NETFLOW_LOAD_WORKER_WEBUI_PORT").toInt
   }
 
   parse(args.toList)
@@ -104,12 +104,11 @@ class LoadWorkerArguments(args: Array[String], conf: NetFlowConf) {
     System.err.println(
       "Usage: LoadWorker [options] <master>\n" +
         "\n" +
-        "Master must be a URL of the form netflow-query://hostname:port\n" +
+        "Master must be a URL of the form netflow-load://hostname:port\n" +
         "\n" +
         "Options:\n" +
         "  -c CORES, --cores CORES  Number of cores to use\n" +
         "  -m MEM, --memory MEM     Amount of memory to use (e.g. 1000M, 2G)\n" +
-        "  -d DIR, --work-dir DIR   Directory to run apps in (default: NETFLOW_HOME/work)\n" +
         "  -h HOST, --host HOST     Hostname to listen on\n" +
         "  -p PORT, --port PORT     Port to listen on (default: random)\n" +
         "  --webui-port PORT        Port for web UI (default: 18081)\n" +

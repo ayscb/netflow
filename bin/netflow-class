@@ -15,19 +15,27 @@ if [ -z "$1" ]; then
 fi
 
 # Use 512m as the default memory, to be overridden by specific options
-DEFAULT_MEM="-512m"
+DEFAULT_MEM="512m"
 
 NETFLOW_DAEMON_JAVA_OPTS="$NETFLOW_DAEMON_JAVA_OPTS -Dnetflow.akka.logLifecycleEvents=true"
 
-# Add java opts and memory settings for QueryMaster, and QueryWorker
+# Add java opts and memory settings for QueryMaster, Broker, LoadMaster and LoadWorker
 case "$1" in
   # Master, and Worker use NETFLOW_DAEMON_JAVA_OPTS (and specific opts) + NETFLOW_DAEMON_MEMORY.
-  'cn.ac.ict.acs.netflow.deploy.qmaster.QueryMaster')
+  'cn.ac.ict.acs.netflow.query.master.QueryMaster')
     OUR_JAVA_OPTS="$NETFLOW_DAEMON_JAVA_OPTS $NETFLOW_QUERY_MASTER_OPTS"
     OUR_JAVA_MEM=${NETFLOW_DAEMON_MEMORY:-$DEFAULT_MEM}
     ;;
-  'cn.ac.ict.acs.netflow.deploy.QueryWorker')
-    OUR_JAVA_OPTS="$NETFLOW_DAEMON_JAVA_OPTS $NETFLOW_QUERY_WORKER_OPTS"
+  'cn.ac.ict.acs.netflow.query.broker.RestBroker')
+    OUR_JAVA_OPTS="$NETFLOW_DAEMON_JAVA_OPTS $NETFLOW_BROKER_OPTS"
+    OUR_JAVA_MEM=${NETFLOW_DAEMON_MEMORY:-$DEFAULT_MEM}
+    ;;
+  'cn.ac.ict.acs.netflow.load.master.LoadMaster')
+    OUR_JAVA_OPTS="$NETFLOW_DAEMON_JAVA_OPTS $NETFLOW_LOAD_MASTER_OPTS"
+    OUR_JAVA_MEM=${NETFLOW_DAEMON_MEMORY:-$DEFAULT_MEM}
+    ;;
+  'cn.ac.ict.acs.netflow.load.worker.LoadWorker')
+    OUR_JAVA_OPTS="$NETFLOW_DAEMON_JAVA_OPTS $NETFLOW_LOAD_WORKER_OPTS"
     OUR_JAVA_MEM=${NETFLOW_DAEMON_MEMORY:-$DEFAULT_MEM}
     ;;
   *)

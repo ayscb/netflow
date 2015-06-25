@@ -33,4 +33,4 @@ sbin=`cd "$sbin"; pwd`
 
 . "$sbin/netflow-config.sh"
 
-exec "$sbin/query-workers.sh" cd "$NETFLOW_HOME" \; "$sbin/netflow-daemon.sh" "$@"
+exec "$sbin/load-workers.sh" cd "$NETFLOW_HOME" \; "$sbin/netflow-daemon.sh" "$@"

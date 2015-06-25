@@ -65,6 +65,13 @@
             </goals>
             <configuration>
               <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                  <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
+                </transformer>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                  <resource>reference.conf</resource>
+                </transformer>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.DontIncludeResourceTransformer">
                   <resource>log4j.properties</resource>
                 </transformer>

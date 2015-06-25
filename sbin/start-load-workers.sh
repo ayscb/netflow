@@ -18,18 +18,21 @@
 # limitations under the License.
 #
 
-# Start all netflow query daemons.
-# Starts the query master on this node.
-# Starts #worker on each node specified in conf/query-workers
-
 sbin="`dirname "$0"`"
 sbin="`cd "$sbin"; pwd`"
 
-# Load the NetFlow configuration
 . "$sbin/netflow-config.sh"
 
-# Start Query Master
-"$sbin"/start-query-master.sh
+. "$NETFLOW_PREFIX/bin/load-netflow-env.sh"
 
-# Start Query Workers
-"$sbin"/start-query-workers.sh
+# Find the port number for the master
+if [ "$NETFLOW_LOAD_MASTER_PORT" = "" ]; then
+  NETFLOW_LOAD_MASTER_PORT=9088
+fi
+
+if [ "$NETFLOW_LOAD_MASTER_HOST" = "" ]; then
+  NETFLOW_LOAD_MASTER_HOST="`hostname`"
+fi
+
+# Launch the query workers
+exec "$sbin/load-workers.sh" cd "$NETFLOW_HOME" \; "$sbin/start-load-worker.sh" 1 "netflow-load://$NETFLOW_LOAD_MASTER_HOST:$NETFLOW_LOAD_MASTER_PORT"

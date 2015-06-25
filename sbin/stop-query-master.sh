@@ -25,4 +25,4 @@ sbin=`cd "$sbin"; pwd`
 
 . "$sbin/netflow-config.sh"
 
-"$sbin"/netflow-daemon.sh stop cn.ac.ict.acs.netflow.deploy.QueryMaster 1
+"$sbin"/netflow-daemon.sh stop cn.ac.ict.acs.netflow.query.master.QueryMaster 1

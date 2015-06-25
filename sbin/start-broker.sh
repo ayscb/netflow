@@ -18,25 +18,10 @@
 # limitations under the License.
 #
 
-# Starts the QueryMaster on the machine this script is executed on.
+# Usage: start-query-worker.sh <worker#> <netflow-query-master-URL>
+#   where <netflow-query-master-URL> is like "netflow-query://localhost:9099"
 
 sbin="`dirname "$0"`"
 sbin="`cd "$sbin"; pwd`"
 
-. "$sbin/netflow-config.sh"
-
-. "$NETFLOW_PREFIX/bin/load-netflow-env.sh"
-
-if [ "$NETFLOW_QUERY_MASTER_PORT" = "" ]; then
-  NETFLOW_QUERY_MASTER_PORT=9099
-fi
-
-if [ "$NETFLOW_QUERY_MASTER_HOST" = "" ]; then
-  NETFLOW_QUERY_MASTER_HOST=`hostname`
-fi
-
-if [ "$NETFLOW_QUERY_MASTER_WEBUI_PORT" = "" ]; then
-  NETFLOW_QUERY_MASTER_WEBUI_PORT=18080
-fi
-
-"$sbin"/netflow-daemon.sh start cn.ac.ict.acs.netflow.query.master.QueryMaster 1 --host $NETFLOW_QUERY_MASTER_HOST --port $NETFLOW_QUERY_MASTER_PORT --webui-port $NETFLOW_QUERY_MASTER_WEBUI_PORT
+"$sbin"/netflow-daemon.sh start cn.ac.ict.acs.netflow.query.broker.RestBroker "$@"

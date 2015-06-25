@@ -18,21 +18,11 @@
 # limitations under the License.
 #
 
-sbin="`dirname "$0"`"
-sbin="`cd "$sbin"; pwd`"
+sbin=`dirname "$0"`
+sbin=`cd "$sbin"; pwd`
 
 . "$sbin/netflow-config.sh"
 
 . "$NETFLOW_PREFIX/bin/load-netflow-env.sh"
 
-# Find the port number for the master
-if [ "$NETFLOW_QUERY_MASTER_PORT" = "" ]; then
-  NETFLOW_QUERY_MASTER_PORT=9099
-fi
-
-if [ "$NETFLOW_QUERY_MASTER_HOST" = "" ]; then
-  NETFLOW_QUERY_MASTER_HOST="`hostname`"
-fi
-
-# Launch the query workers
-exec "$sbin/query-workers.sh" cd "$NETFLOW_HOME" \; "$sbin/start-query-worker.sh" 1 "netflow-query://$NETFLOW_QUERY_MASTER_HOST:$NETFLOW_QUERY_MASTER_PORT"
+"$sbin"/netflow-daemons.sh stop cn.ac.ict.acs.netflow.load.worker.LoadWorker 1
