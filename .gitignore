@@ -59,3 +59,4 @@ hs_err_pid*
 sbt/
 *.o
 receiver
+collector/testData/*
