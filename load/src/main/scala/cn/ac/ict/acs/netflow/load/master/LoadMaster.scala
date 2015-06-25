@@ -201,15 +201,19 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
 
     // message about buffer
     case BuffersWarn(workerIp) =>
+      logDebug(s"$workerIp send BuffersWarn message to master.")
       adjustCollectorByBuffer(workerIp, sender())
 
     case BufferOverFlow(workerIp) =>
+      logDebug(s"$workerIp send bufferoverflow message to master.")
       adjustCollectorByBuffer(workerIp, sender())
 
     case BufferSimpleReport(workerIp, usageRate) =>
+      logDebug(s"get a simple report $workerIp -> $usageRate.")
       workerToBufferRate.update(workerIp, usageRate)
 
     case BufferWholeReport(workerIp, usageRate, maxSize, curSize) =>
+      logDebug(s"get a whole report $workerIp -> $usageRate ($curSize / $maxSize)")
       workerToBufferRate.update(workerIp, usageRate)
     // TODO save another information (maxSize, curSize)
 
@@ -822,7 +826,7 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
 
   private def getCmd(): Option[ByteBuffer] = {
     if (srcMapping.isEmpty) return None
-    val key = srcMapping.iterator.map(x => x._1 + ":" + x._2).mkString(CmdStruct.inner_delim)
+    val key = srcMapping.iterator.map(x => x._1 + "," + x._2).mkString(CmdStruct.inner_delim)
     val value = destAddr.iterator.mkString(CmdStruct.inner_delim)
     Some(CommandSet.resRules(key, value))
   }

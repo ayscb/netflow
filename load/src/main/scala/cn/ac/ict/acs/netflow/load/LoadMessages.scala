@@ -85,4 +85,16 @@ object CombineStatus extends Enumeration {
   val FINISH, DIRECTORY_NOT_EXIST, UNKNOWN_DIRECTORY, IO_EXCEPTION, PARTIAL_FINISH = Value
 }
 
+/**
+ * rule format
+ * {
+ *    ruleId,
+ *    srcAddr,
+ *    destAddr,
+ *    rate
+ * }
+ *
+ * @param src
+ * @param dest
+ */
 case class Rule(src: String, dest: String)
