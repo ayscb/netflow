@@ -615,7 +615,15 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
 
     val actualLen = Math.min(expectWorkerNum, availableWorkers.length)
     val result = new Array[String](actualLen)
-    for (i <- 0 until actualLen) {
+    var idx = 0
+
+    val selfworker = availableWorkers.filter(x => x._1 == collector)
+    if (selfworker.nonEmpty) {
+      result(idx) = selfworker.head._1
+      idx += 1
+    }
+
+    for (i <- idx until actualLen if availableWorkers(i)._1 != collector) {
       result(i) = availableWorkers(i)._1
     }
     Some(result)
