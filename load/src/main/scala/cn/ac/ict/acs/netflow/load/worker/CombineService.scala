@@ -44,13 +44,16 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
   }
 
   private val dirPathStr = load.getPathByTime(timestamp, conf)
-  setName(s"Combine server on directory $dirPathStr ")
+  setName(s"Combine server")
 
   override def run(): Unit = {
     logInfo(s"Combine server begins to combine $dirPathStr ...")
     val fs = FileSystem.get(conf.hadoopConfiguration)
     val fPath = new Path(dirPathStr)
-    if (!validDirectory(fs, fPath)) return // has send the message to master
+    if (!validDirectory(fs, fPath)) {
+      master ! CombineFinished(CombineStatus.UNKNOWN_DIRECTORY)
+      return
+    } // has send the message to master
 
     val maxRetryNum = 4
     var curTry = 0
@@ -60,10 +63,10 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
           Thread.sleep(60000 + curTry * 30000)
           curTry += 1
         case ParquetState.FINISH =>
-          master ! CombineFinished(CombineStatus.FINISH)
+          master! CombineFinished(CombineStatus.FINISH)
           return
         case ParquetState.FAIL =>
-          master ! CombineFinished(CombineStatus.IO_EXCEPTION)
+          master! CombineFinished(CombineStatus.IO_EXCEPTION)
           return
       }
     }

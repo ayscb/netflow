@@ -97,33 +97,31 @@ class LoadWorker(
   var coresUsed = 0
   var memoryUsed = 0
   var connectionAttemptCount = 0
-
   var registrationRetryTimer: Option[Cancellable] = None
 
   // load data
-  val defaultWriterNum = conf.getInt(LoadConf.WRITER_NUMBER, 2)
-  val maxQueueNum = conf.getInt(LoadConf.QUEUE_MAXPACKAGE_NUM, 1000000)
-  val warnThreshold = {
+  private val defaultWriterNum = conf.getInt(LoadConf.WRITER_NUMBER, 2)
+  private val maxQueueNum = conf.getInt(LoadConf.QUEUE_MAXPACKAGE_NUM, 1000000)
+  private val warnThreshold = {
     val threshold = conf.getInt(LoadConf.QUEUE_WARN_THRESHOLD, 70)
     if (0 < threshold && threshold < 100) threshold else 70
   }
 
   // buffer list
-  val netflowBuff =
-    new WrapBufferQueue(maxQueueNum, warnThreshold,
-      DefaultLoadBalanceStrategy.loadBalanceWorker,
-      () => master ! BufferOverFlow)
+  val netflowBuff = new WrapBufferQueue(maxQueueNum, warnThreshold,
+    DefaultLoadBalanceStrategy2.loadBalanceWorker,
+    () => master ! BufferOverFlow)
 
   // load Service
-  val loadserver = new LoaderService(self, netflowBuff, conf)
+  private val loadserver = new LoaderService(self, netflowBuff, conf)
 
   // receiver Service
-  val receiverserver = new Receiver(netflowBuff, conf)
+  private val receiverserver = new Receiver(netflowBuff, conf)
 
   // whole load thread's current combine file timestamp
-  val combineTimeStamp = new ArrayBuffer[Long]()
+  private var combineTimeStamp: Long = _
 
-  val workerIP = InetAddress.getLocalHost.getHostAddress
+  private val workerIP = InetAddress.getLocalHost.getHostAddress
 
   def coresFree: Int = cores - coresUsed
   def memoryFree: Int = memory - memoryUsed
@@ -183,46 +181,49 @@ class LoadWorker(
       logInfo(s"[Netflow] $x Disassociated !")
       masterDisconnected()
 
+    /**
+     * deal with combine message
+     */
     // the message is sent by loadService to tell load worker to combine whole parquet
     case CloseParquet(timeStamp) =>
-      combineTimeStamp += timeStamp
-      if (combineTimeStamp.size == loadserver.curThreadsNum) {
-        combineTimeStamp.sortWith(_ < _)
-        if (combineTimeStamp.head == combineTimeStamp.last) {
-          if (connected) master ! CloseParquet(combineTimeStamp.head)
-        } else {
-          logWarning(s"Current total thread is ${loadserver.curThreadsNum}}, " +
-            s"and all thread's stamp time in a dictionary should be same, " +
-            s"but now ${combineTimeStamp.mkString("<=")}. ")
-
-          if (connected) master ! CloseParquet(combineTimeStamp.head)
-        }
-        combineTimeStamp.clear()
+      if (connected && combineTimeStamp != timeStamp) {
+        combineTimeStamp = timeStamp
+        master ! CloseParquet(timeStamp)
       }
 
     // this message is sent by master to assigned this worker to run combine service
     case CombineParquet(fileStamp) =>
       new CombineService(fileStamp, master, conf).start()
 
+    /**
+     * deal with buffer info message
+     */
     // master message (send by master to get buffer information)
     case BufferInfo =>
-      if (connected){
+      if (connected) {
         master ! BufferSimpleReport(workerIP, netflowBuff.currUsageRate())
       }
 
-
     // scheduler message (only send by itself)
     case BuffHeatBeat =>
-      if (connected){
+      if (connected) {
         master ! BufferWholeReport(workerIP, netflowBuff.currUsageRate(),
           netflowBuff.maxQueueNum, netflowBuff.size)
       }
 
+    /**
+     * deal with balance
+     */
     case AdjustThread =>
-      loadserver.adjustWritersNum(loadserver.curThreadsNum + 1)
+      if (loadserver.curThreadsNum < cores) {
+        loadserver.adjustWritersNum(loadserver.curThreadsNum + 1)
+      }
 
+    /**
+     * deal with BGP
+     */
     case updateBGP(bgpIds, bgpDatas) =>
-
+      updateBGP(bgpIds, bgpDatas)
   }
 
   private def changeMaster(url: String, webUrl: String): Unit = {
@@ -331,6 +332,10 @@ class LoadWorker(
     "load-worker-%s-%s-%d".format((new DateTime).toString(createTimeFormat), host, port)
   }
 
+  private def updateBGP(key: Array[Int], value: Array[Array[Byte]]): Unit = {
+
+  }
+
   // implement the load balance strategy
   private object DefaultLoadBalanceStrategy extends LoadBalanceStrategy with Logging {
 
@@ -345,6 +350,11 @@ class LoadWorker(
       logInfo(s"current threads num is $currentThreadNum, " +
         s"and current threads rate is  $currentThreadsAverageRate. ")
 
+      if (currentThreadNum >= maxLoadThreadsNum) {
+        if (master != null) master ! BuffersWarn(workerIP)
+        return
+      }
+
       if (lastThreadNum == 0) {
         // the first time to exec load balance, so we only increase thread number
         loadserver.adjustWritersNum(currentThreadNum + 1)
@@ -352,11 +362,6 @@ class LoadWorker(
         lastThreadNum = currentThreadNum
         lastRate = currentThreadsAverageRate
       } else {
-        if (currentThreadNum == maxLoadThreadsNum) {
-          if (master != null) master ! BuffersWarn(host)
-          return
-        }
-
         if (currentThreadsAverageRate > lastRate) {
           loadserver.adjustWritersNum(currentThreadNum + 1)
           logWarning("add a new thread")
@@ -377,6 +382,22 @@ class LoadWorker(
         idx += 1
       }
       sum / ratesList.size()
+    }
+  }
+
+  private object DefaultLoadBalanceStrategy2 extends LoadBalanceStrategy with Logging{
+
+    private val maxLoadThreadsNum = cores / 2
+
+    override def loadBalanceWorker(): Unit = {
+
+      val curThreadNum =  loadserver.curThreadsNum
+      if(curThreadNum < maxLoadThreadsNum){
+        loadserver.adjustWritersNum(curThreadNum + 1)
+        logInfo(s"Add new thread")
+      }else{
+        logInfo(s"increase thread to max size")
+      }
     }
   }
 }

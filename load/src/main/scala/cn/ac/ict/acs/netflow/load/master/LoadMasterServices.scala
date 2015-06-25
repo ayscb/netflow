@@ -25,6 +25,7 @@ import java.nio.channels._
 
 import akka.actor.ActorRef
 import cn.ac.ict.acs.netflow.load.LoadMessages.{ DeleReceiver, RequestWorker, DeleWorker }
+import cn.ac.ict.acs.netflow.load.master.CommandSet.CmdStruct._
 import cn.ac.ict.acs.netflow.{ NetFlowException, Logging, NetFlowConf }
 import cn.ac.ict.acs.netflow.util.Utils
 
@@ -207,17 +208,23 @@ class MasterService(val master: ActorRef, val conf: NetFlowConf)
 
 object CommandSet {
 
-  /* the command struct that connect with receiver */
-  object CommandStruct {
-    // the command request from worker to master
-    val req_workerlist = "$req$"
-    val req_report = "$report$"
+  /**
+   * define the message format: + total length (short)
+   *  request workers : $$1&-1;3.4.5.6:1000&+2;1.2.3.4:1000;2.2.2.2:1234
+   *  rules: $$2&ip1:1;ip2:1&ipA;ipB
+   */
+  object CmdStruct {
 
-    // the command response from master to worker
-    val res_prefix = "$$"
+    // massage idx
+    val workerIp: Byte = 1
+    val rules: Byte = 2
+
+    // message prefix
+    val msg_prefix: String = "$$"
 
     // inner command definition
-    val delim = "&"
+    val outer_delim = "&"
+    val inner_delim = ";"
   }
 
   private val req_buffer = ByteBuffer.allocate(1500)
@@ -225,52 +232,79 @@ object CommandSet {
 
   private val sb = new StringBuilder
 
-  /**
-   *    $$+2&1.2.3.4:1000&2.2.2.2:1234&
-   *    $$-1&3.4.5.6:1000&
-   *    $$-1&3.4.5.6:1000&+2&1.2.3.4:1000&2.2.2.2:1234&
-   * @return
-   */
-  def responseReceiver(
-    addIpAdds: Option[Array[(String, Int)]],
-    deleIpAdds: Option[Array[(String, Int)]]): ByteBuffer = {
+  private def buildCmd(msgType: Byte, groupData: String*): ByteBuffer = {
     res_buffer.clear()
     sb.clear()
-    sb.append(CommandStruct.res_prefix) // $$
+    // $$1&
+    sb.append(msg_prefix).append(msgType).append(outer_delim)
+    // group1&group2&....
+    val actualGroupData = groupData.filterNot(data => data == null)
+    sb.append(actualGroupData.mkString(outer_delim))
 
-    deleIpAdds match {
-      case Some(ipAdds) =>
-        sb.append("-").append(ipAdds.length).append(CommandStruct.delim)
-        ipAdds.map(ip_port => {
-          sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
-        })
-      case None =>
-    }
-
-    addIpAdds match {
-      case Some(ipAdds) =>
-        sb.append("+").append(ipAdds.length).append(CommandStruct.delim)
-        ipAdds.map(ip_port => {
-          sb.append(ip_port._1).append(":").append(ip_port._2).append(CommandStruct.delim)
-        })
-      case None =>
-    }
-
-    res_buffer.put(sb.toString().getBytes)
+    val data = sb.toString().getBytes
+    res_buffer.putShort((2 + data.length).asInstanceOf[Short])
+    res_buffer.put(data)
     res_buffer.flip()
     res_buffer
   }
 
+  /**
+   *    $$1&+2;1.2.3.4:1000;2.2.2.2:1234
+   *    $$1&-1;3.4.5.6:1000
+   *    $$1&-1;3.4.5.6:1000&+2;1.2.3.4:1000;2.2.2.2:1234
+   * @param addIpAdds
+   * @param deleIpAdds
+   * @return
+   */
+  def resWorkerIPs(addIpAdds: Option[Array[(String, Int)]],
+    deleIpAdds: Option[Array[(String, Int)]]): ByteBuffer = {
+
+    def groupData(typse: String, ipAdds: Option[Array[(String, Int)]]): String = {
+      ipAdds match {
+        case Some(_ipAdds) => // -1;3.4.5.6:1000
+          sb.clear()
+          sb.append(typse).append(_ipAdds.length).append(inner_delim)
+          sb.append(_ipAdds.map(x => x._1 + ":" + x._2).mkString(inner_delim))
+          sb.toString()
+        case None => null
+      }
+    }
+
+    val deleGroupStr: String = groupData("-", deleIpAdds)
+    val addGroupStr: String = groupData("+", addIpAdds)
+    buildCmd(workerIp, deleGroupStr, addGroupStr)
+  }
+
+  /**
+   *   $$2&key&value
+   * @param key
+   * @param value
+   * @return
+   */
+  def resRules(key: String, value: String): ByteBuffer = {
+    buildCmd(rules, key, value)
+  }
+
+  /**
+   * check if nor not the data is the request data
+   * type = 3
+   * @param data
+   * @return
+   */
   def isReqWorkerList(data: ByteBuffer): Boolean = {
-    data.array.startsWith(CommandStruct.req_workerlist)
+    if (data.array.startsWith(msg_prefix.getBytes)) {
+      data.array()(msg_prefix.length) == 3
+    } else {
+      false
+    }
   }
 
   def getDeadWorker(data: ByteBuffer): Option[(String, Int)] = {
-    if (data.limit() == CommandStruct.req_workerlist.length) {
+    if (data.limit() == msg_prefix.length + 1) {
       None
     } else {
-      val pos = CommandStruct.req_workerlist.length
-      assert(data.get(pos) == '-')
+      val pos = msg_prefix.length + 1
+      assert(outer_delim(0) == data.get(pos))
       data.position(pos + 1)
       val ipStr = new String(data.array(), data.position(), data.remaining()).split(":")
       assert(ipStr.length == 2) // only has one address

@@ -18,6 +18,8 @@
  */
 package cn.ac.ict.acs.netflow.load
 
+import scala.collection.mutable.ArrayBuffer
+
 object LoadMessages {
 
   /**
@@ -71,9 +73,16 @@ object LoadMessages {
   case class DeleWorker(workerIP: String, port: Int)
   case class RequestWorker(receiverIP: String)
 
+  /**
+   * rule message
+   */
+  case class ruleMessage(rules: ArrayBuffer[Rule])
+  case class updateRule(timeStamp: Long, key: String, value: String)
 }
 
 object CombineStatus extends Enumeration {
   type CombineStatus = Value
   val FINISH, DIRECTORY_NOT_EXIST, UNKNOWN_DIRECTORY, IO_EXCEPTION, PARTIAL_FINISH = Value
 }
+
+case class Rule(src: String, dest: String)

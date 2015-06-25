@@ -27,12 +27,17 @@ class WrapBufferQueue(
     val loadBalanceStrategyFunc: () => Unit,
     val sendOverflowMessage: () => Unit) {
 
-  require(0 < warnThreshold && warnThreshold < 100, "The Queue warnThreshold should be in (0,100).")
+  require(0 < warnThreshold && warnThreshold < 80, "The Queue warnThreshold should be in (0,80).")
 
   private val bufferQueue = new LinkedBlockingQueue[ByteBuffer](maxQueueNum)
-  private val warnThresholdNum = ((warnThreshold * 1.0 / 100) * maxQueueNum).asInstanceOf[Int]
+
+  private val adjustThresholdNum =
+    (((warnThreshold - 20) * 1.0 / 100) * maxQueueNum).asInstanceOf[Int]
+  private val warnThresholdNum =
+    ((warnThreshold * 1.0 / 100) * maxQueueNum).asInstanceOf[Int]
 
   private val halfNum = 0.5 * maxQueueNum
+  private var lastSize = 0
   private var hasCall = false
 
   // get the element from queue , block when the queue is empty
@@ -48,15 +53,25 @@ class WrapBufferQueue(
 
   def currUsageRate(): Double = 1.0 * bufferQueue.size() / maxQueueNum
 
-  private def checkThreshold() = {
-    if (bufferQueue.remainingCapacity() < 10) {
+  private def checkThreshold(): Unit = {
+    if (lastSize > bufferQueue.size()) {
+      lastSize = bufferQueue.size()
+      hasCall = false
+      return
+    } else {
+      lastSize = bufferQueue.size()
+    }
+
+    if(!hasCall && bufferQueue.size() > warnThresholdNum){
       sendOverflowMessage() // will block.....
-      hasCall = false // reset
-    } else if (!hasCall && bufferQueue.size() > warnThresholdNum) { // warn
+      hasCall = true
+      return
+    }
+
+    if(!hasCall && bufferQueue.size() > adjustThresholdNum){
       loadBalanceStrategyFunc()
       hasCall = true
-    } else if (bufferQueue.size() < halfNum) {
-      hasCall = false
+      return
     }
   }
 }
