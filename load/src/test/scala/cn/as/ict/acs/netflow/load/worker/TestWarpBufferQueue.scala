@@ -18,9 +18,6 @@
  */
 package cn.as.ict.acs.netflow.load.worker
 
-import java.nio.ByteBuffer
-
-import cn.ac.ict.acs.netflow.load.worker.WrapBufferQueue
 import org.scalatest.FunSuite
 
 class TestWarpBufferQueue extends FunSuite {
@@ -31,18 +28,5 @@ class TestWarpBufferQueue extends FunSuite {
 
   def sendOver(): Unit = {
     println("sendOver")
-  }
-
-  test("test fun call") {
-    val warper = new WrapBufferQueue(100, 70, loadBalanceStrategyFunc, sendOver)
-    for (i <- 0 until 70) {
-      assert(warper.currSize == i)
-      warper.put(ByteBuffer.allocate(10))
-    }
-
-    for (i <- 70 until 100) {
-      assert(warper.currSize == i)
-      warper.put(ByteBuffer.allocate(10))
-    }
   }
 }
