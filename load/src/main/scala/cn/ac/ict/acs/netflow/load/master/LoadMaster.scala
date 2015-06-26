@@ -83,14 +83,14 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
    * about balance
    */
   // workerIP => (IP,port)
-  @volatile val workerToPort = new mutable.HashMap[String, (String, Int)]()
+   val workerToPort = new mutable.HashMap[String, (String, Int)]()
   // worker : buffer used rate[0,100]
-  @volatile val workerToBufferRate = new mutable.HashMap[String, Double]()
+   val workerToBufferRate = new mutable.HashMap[String, Double]()
   // worker : receiver => 1 : n
-  @volatile val workerToCollectors = new mutable.HashMap[String, ArrayBuffer[String]]()
+  val workerToCollectors = new mutable.HashMap[String, ArrayBuffer[String]]()
 
   // receiver : worker => 1 : n
-  @volatile val collectorToWorkers = new mutable.HashMap[String, ArrayBuffer[String]]()
+   val collectorToWorkers = new mutable.HashMap[String, ArrayBuffer[String]]()
 
   private val halfLimit = 0.5
   private val warnLimit = 0.7
