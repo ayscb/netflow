@@ -80,7 +80,7 @@ object V9Parser extends VersionedParser {
   override def getFlowCount(data: ByteBuffer, startPos: Int): Int = data.getShort(startPos + 2)
 
   override def getTime(data: ByteBuffer, startPos: Int): Long = {
-    data.getInt(startPos + 8) & 0xFFFFFFFFFFL
+    (data.getInt(startPos + 8) & 0xFFFFFFFFFFL) * 1000
   }
   override def getBodyPos(data: ByteBuffer, startPos: Int): Int = startPos + 20
 
@@ -89,7 +89,6 @@ object V9Parser extends VersionedParser {
     // insert template into templates
     val flowsetId = data.getShort(startPos)
     val flowsetLen = data.getShort(startPos + 2)
-    //   println(s"[call V9Parser.getNextFSPos] flowsetID:$flowsetId flowLen:$flowsetLen")
 
     flowsetId match {
       case x if x > 255 =>
@@ -150,7 +149,7 @@ object V5Parser extends VersionedParser {
   override def getVersion: Int = 5
   override def getFlowCount(data: ByteBuffer, startPos: Int): Int = data.getShort(startPos + 2)
   override def getTime(data: ByteBuffer, startPos: Int): Long = {
-    data.getShort(startPos + 8) & 0xFFFFFFFFFFL
+    (data.getShort(startPos + 8) & 0xFFFFFFFFFFL) * 1000
   }
   override def getBodyPos(data: ByteBuffer, startPos: Int): Int = data.getShort(startPos + 24)
   override def getNextFSPos(data: ByteBuffer, startPos: Int, routerIp: Array[Byte]): Int = startPos
