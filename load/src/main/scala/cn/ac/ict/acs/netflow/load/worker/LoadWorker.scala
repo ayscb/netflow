@@ -238,8 +238,8 @@ class LoadWorker(
     activeMasterWebUiUrl = webUrl
 
     master = context.actorSelection(
-      LoadMaster.toAkkaUrl(activeMasterUrl, AkkaUtils.protocol(context.system)))
-    masterAddress = LoadMaster.toAkkaAddress(activeMasterUrl, AkkaUtils.protocol(context.system))
+      AkkaUtils.toLMAkkaUrl(activeMasterUrl, AkkaUtils.protocol(context.system)))
+    masterAddress = AkkaUtils.toLMAkkaAddress(activeMasterUrl, AkkaUtils.protocol(context.system))
     connected = true
     // Cancel any outstanding re-registration attempts because we found a new master
     registrationRetryTimer.foreach(_.cancel())
@@ -416,7 +416,7 @@ object LoadWorker extends Logging {
     val sysName = systemName + workerNumber.map(_.toString).getOrElse("")
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem(sysName, host, port, conf)
     val masterAkkaUrls = masterUrls.map(
-      LoadMaster.toAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
+      AkkaUtils.toLMAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
     actorSystem.actorOf(Props(classOf[LoadWorker], host, boundPort, webUiPort, cores,
       memory, masterAkkaUrls, sysName, actorName, conf), name = actorName)
     (actorSystem, boundPort)

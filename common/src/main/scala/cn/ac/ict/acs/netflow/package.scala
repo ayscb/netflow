@@ -29,6 +29,11 @@ package object netflow {
 
   val QUERYMASTER_ACTORSYSTEM = "netflowQueryMaster"
   val QUERYMASTER_ACTOR = "QueryMaster"
+
   val BROKER_ACTORSYSTEM = "netflowRest"
   val BROKER_ACTOR = "RestBroker"
+
+  val LOADMASTER_ACTORSYSTEM = "netflowLoadMaster"
+  val LOADMASTER_ACTOR = "LoadMaster"
+
 }

@@ -43,6 +43,7 @@ class BrokerSuite(_system: ActorSystem)
     broker = TestActorRef(
       new RestBroker("fake",19898, 19799,
         Array("netflow-query://fake:7977"),
+        Array("netflow-load://fake:9199"),
         new NetFlowConf(false)))
     bareBroker = broker.underlyingActor
     dummyMaster = _system.actorOf(Props(new DummyMaster), "dummy")

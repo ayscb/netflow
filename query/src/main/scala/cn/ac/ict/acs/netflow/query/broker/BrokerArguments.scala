@@ -27,6 +27,7 @@ class BrokerArguments(args: Array[String], conf: NetFlowConf) {
   var port = 0
   var restPort = 19999
   var masters: Array[String] = _
+  var loadMasters: Array[String] = _
   var propertiesFile: String = _
 
   // Check for settings in environment variables
@@ -61,6 +62,10 @@ class BrokerArguments(args: Array[String], conf: NetFlowConf) {
 
     case ("--help") :: tail =>
       printUsageAndExit(0)
+
+    case ("--load-master") :: value :: tail =>
+      loadMasters = value.stripPrefix("netflow-load://").split(",").map("netflow-load://" + _)
+      parse(tail)
 
     case value :: tail =>
       if (masters != null) { // Two positional arguments were given

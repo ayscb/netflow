@@ -19,6 +19,7 @@
 package cn.ac.ict.acs.netflow.load.master
 
 import cn.ac.ict.acs.netflow.metrics.MetricsSystem
+import org.joda.time.DateTime
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -42,6 +43,7 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
   import LoadMasterMessages._
   import LoadMessages._
   import MasterMessages._
+  import ConfigurationMessages._
 
   import context.dispatcher
 
@@ -237,6 +239,31 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
 
     case RequestWorker(receiverIP) =>
       assignWorker(receiverIP)
+
+    // Forwarding rules and BGP table configuration
+    case GetAllRules =>
+      sender ! CurrentRules(forwardingRules.iterator.toArray)
+    case InsertRules(rule) =>
+      sender ! insertForwardingRules(rule)
+    case UpdateSingleRule(ruleId, ruleItem) =>
+      sender ! SingleRuleSubstitution(forwardingRules.put(ruleId, ruleItem), ruleItem)
+    case DeleteSingleRule(ruleId) =>
+      sender ! DeletedRule(forwardingRules.remove(ruleId))
+  }
+
+  // **********************************************************************************
+  // As a Configuration Server
+
+  private val forwardingRules = mutable.HashMap.empty[String, RuleItem]
+
+  def generateInsertionId(): String = (new DateTime).toString(TimeUtils.createFormat)
+
+  def insertForwardingRules(rule: ForwardingRule): ConfigurationMessage = {
+    val prefix = generateInsertionId()
+    rule.rules.zipWithIndex.foreach { case (item, i) =>
+      forwardingRules(prefix + "-" + i) = item
+    }
+    InsertionSuccess(rule.rules.size)
   }
 
   // **********************************************************************************
@@ -820,31 +847,5 @@ object LoadMaster extends Logging {
     val portsRequest = actor.ask(BoundPortsRequest)(timeout)
     val portsResponse = Await.result(portsRequest, timeout).asInstanceOf[BoundPortsResponse]
     (actorSystem, boundPort, portsResponse.webUIPort)
-  }
-
-  /**
-   * Returns an `akka.tcp://...` URL for the Master actor given a
-   * netflowkUrl `netflow-query://host:port`.
-   *
-   * @throws NetFlowException if the url is invalid
-   */
-  def toAkkaUrl(netflowUrl: String, protocol: String): String = {
-    val uri = new java.net.URI(netflowUrl)
-    val host = uri.getHost
-    val port = uri.getPort
-    AkkaUtils.address(protocol, systemName, host, port, actorName)
-  }
-
-  /**
-   * Returns an akka `Address` for the Master actor given a
-   * netflowkUrl `netflow-query://host:port`.
-   *
-   * @throws NetFlowException if the url is invalid
-   */
-  def toAkkaAddress(netflowUrl: String, protocol: String): Address = {
-    val uri = new java.net.URI(netflowUrl)
-    val host = uri.getHost
-    val port = uri.getPort
-    Address(protocol, systemName, host, port)
   }
 }

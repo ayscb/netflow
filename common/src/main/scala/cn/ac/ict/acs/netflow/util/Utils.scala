@@ -310,14 +310,14 @@ object Utils extends Logging {
       val uri = new java.net.URI(netflowUrl)
       val host = uri.getHost
       val port = uri.getPort
-      if (uri.getScheme != "netflow-query" ||
+      if ((uri.getScheme != "netflow-query" && uri.getScheme != "netflow-load") ||
         host == null ||
         port < 0 ||
         (uri.getPath != null && !uri.getPath.isEmpty) || // uri.getPath returns "" instead of null
         uri.getFragment != null ||
         uri.getQuery != null ||
         uri.getUserInfo != null) {
-        throw new NetFlowException("Invalid query master URL: " + netflowUrl)
+        throw new NetFlowException("Invalid master URL: " + netflowUrl)
       }
       (host, port)
     } catch {
