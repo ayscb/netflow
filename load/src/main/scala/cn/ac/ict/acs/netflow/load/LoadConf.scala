@@ -48,6 +48,8 @@ object LoadConf {
   // ParquetwriterWrapper
   val LOAD_DIR_CREATION_INTERVAL = "netflow.load.dir.creation.interval"
   val CLOSE_DELAY = "netflow.close.delay"
+  val REPORT_MASTER_DELAY = "netflow.report.master.delay"
+  val REPORT_WORKER_DELAY = "netflow.report.worker.delay"
 
   // loadWroker
   val WRITER_NUMBER = "netflow.writer.number"
@@ -57,3 +59,4 @@ object LoadConf {
   val UNSORTED_PACKETS_DIR = "netflow.load.unsorted.dir"
 
 }
+

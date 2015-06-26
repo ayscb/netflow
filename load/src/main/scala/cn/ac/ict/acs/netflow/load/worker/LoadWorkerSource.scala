@@ -50,15 +50,12 @@ class LoadWorkerSource(val worker: LoadWorker) extends Source {
   })
 
   metricRegistry.register(name("threadpool", "activeLoaders"), new Gauge[Int] {
-    override def getValue: Int = 1 // TODO
+    override def getValue: Int = worker.loadServer.curThreadsNum
   })
 
   // Gauge for file system stats of this worker
   for (scheme <- Array("hdfs", "file")) {
-    registerFileSystemStat(scheme, "read_bytes", _.getBytesRead, 0L)
     registerFileSystemStat(scheme, "write_bytes", _.getBytesWritten, 0L)
-    registerFileSystemStat(scheme, "read_ops", _.getReadOps, 0)
-    registerFileSystemStat(scheme, "largeRead_ops", _.getLargeReadOps, 0)
     registerFileSystemStat(scheme, "write_ops", _.getWriteOps, 0)
   }
 

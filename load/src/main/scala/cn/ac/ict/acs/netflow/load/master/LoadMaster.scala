@@ -19,8 +19,8 @@
 package cn.ac.ict.acs.netflow.load.master
 
 import java.nio.ByteBuffer
-
 import cn.ac.ict.acs.netflow.load.master.CommandSet.CmdStruct
+import cn.ac.ict.acs.netflow.metrics.MetricsSystem
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -63,6 +63,9 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
 
   Utils.checkHost(masterHost, "Expected hostname")
 
+  val masterMetricsSystem = MetricsSystem.createMetricsSystem("master", conf)
+  val masterSource = new LoadMasterSource(this)
+
   val loadMasterUrl = "netflow-load://" + masterHost + ":" + masterPort
   var loadMasterWebUIUrl: String = _
   var state = LoadMasterRecoveryState.STANDBY
@@ -76,14 +79,14 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
    * about balance
    */
   // workerIP => (IP,port)
-  @transient val workerToPort = new mutable.HashMap[String, (String, Int)]()
+  @volatile val workerToPort = new mutable.HashMap[String, (String, Int)]()
   // worker : buffer used rate[0,100]
-  @transient val workerToBufferRate = new mutable.HashMap[String, Double]()
+  @volatile val workerToBufferRate = new mutable.HashMap[String, Double]()
   // worker : receiver => 1 : n
-  @transient val workerToCollectors = new mutable.HashMap[String, ArrayBuffer[String]]()
+  @volatile val workerToCollectors = new mutable.HashMap[String, ArrayBuffer[String]]()
 
   // receiver : worker => 1 : n
-  @transient val collectorToWorkers = new mutable.HashMap[String, ArrayBuffer[String]]()
+  @volatile val collectorToWorkers = new mutable.HashMap[String, ArrayBuffer[String]]()
 
   private val halfLimit = 0.5
   private val warnLimit = 0.7
@@ -105,6 +108,10 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     // TODO: a pseudo webuiurl here
     loadMasterWebUIUrl = "http://" + masterHost + ":" + webUiPort
     context.system.scheduler.schedule(0.millis, WORKER_TIMEOUT.millis, self, CheckForWorkerTimeOut)
+
+    masterMetricsSystem.registerSource(masterSource)
+    masterMetricsSystem.start()
+
     val (persistenceEngine_, leaderElectionAgent_) =
       RECOVERY_MODE match {
         case "ZOOKEEPER" =>
@@ -129,6 +136,8 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
   }
 
   override def postStop(): Unit = {
+    masterMetricsSystem.report()
+    masterMetricsSystem.stop()
     persistenceEngine.close()
     leaderElectionAgent.stop()
   }
@@ -204,9 +213,9 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
       logDebug(s"$workerIp send BuffersWarn message to master.")
       adjustCollectorByBuffer(workerIp, sender())
 
-    case BufferOverFlow(workerIp) =>
-      logDebug(s"$workerIp send bufferoverflow message to master.")
-      adjustCollectorByBuffer(workerIp, sender())
+//    case BufferOverFlow(workerIp) =>
+//      logDebug(s"$workerIp send bufferoverflow message to master.")
+//      adjustCollectorByBuffer(workerIp, sender())
 
     case BufferSimpleReport(workerIp, usageRate) =>
       logDebug(s"get a simple report $workerIp -> $usageRate.")

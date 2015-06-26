@@ -19,26 +19,60 @@
 package cn.ac.ict.acs.netflow.load.worker
 
 import java.nio.ByteBuffer
-import java.util.concurrent.{ LinkedBlockingQueue, LinkedBlockingDeque }
+import java.util.concurrent.{ TimeUnit, Executors, LinkedBlockingQueue, LinkedBlockingDeque }
+
+import cn.ac.ict.acs.netflow.load.LoadConf
+import cn.ac.ict.acs.netflow.{ NetFlowConf, Logging }
+import cn.ac.ict.acs.netflow.util.ThreadUtils
 
 class WrapBufferQueue(
-    val maxQueueNum: Int,
-    val warnThreshold: Int,
     val loadBalanceStrategyFunc: () => Unit,
-    val sendOverflowMessage: () => Unit) {
+    val sendOverflowMessage: () => Unit,
+    val conf: NetFlowConf) extends Logging {
 
-  require(0 < warnThreshold && warnThreshold < 80, "The Queue warnThreshold should be in (0,80).")
-
-  private val bufferQueue = new LinkedBlockingQueue[ByteBuffer](maxQueueNum)
+  private val maxQueueNum = conf.getInt(LoadConf.QUEUE_MAXPACKAGE_NUM, 1000000)
+  private val warnThreshold = {
+    val threshold = conf.getInt(LoadConf.QUEUE_WARN_THRESHOLD, 70)
+    if (0 < threshold && threshold < 100) threshold else 70
+  }
+  private val reportMasterDelay = conf.getInt(LoadConf.REPORT_MASTER_DELAY, 5 * 1000)
+  private val reportWorkerDelay = conf.getInt(LoadConf.REPORT_WORKER_DELAY, 3 * 1000)
 
   private val adjustThresholdNum =
     (((warnThreshold - 20) * 1.0 / 100) * maxQueueNum).asInstanceOf[Int]
-  private val warnThresholdNum =
-    ((warnThreshold * 1.0 / 100) * maxQueueNum).asInstanceOf[Int]
+  private val warnThresholdNum = ((warnThreshold * 1.0 / 100) * maxQueueNum).asInstanceOf[Int]
 
-  private val halfNum = 0.5 * maxQueueNum
-  private var lastSize = 0
-  private var hasCall = false
+  private val bufferQueue = new LinkedBlockingQueue[ByteBuffer](maxQueueNum)
+
+
+  @volatile private var reportMasterFlag: Boolean = false
+  @volatile private var reportWorkerFlag: Boolean = false
+  @volatile var lastQueueSize: Int = 0
+  private val scheduledThreadPool = Executors.newScheduledThreadPool(2)
+
+  private def runnable(delay: Long, isMasterReport: Boolean) = new Runnable {
+    override def run(): Unit = {
+      val curSize = bufferQueue.size()
+      val curRate = 1.0 * (curSize - lastQueueSize) / delay
+      if (curRate > 0) {
+        // means the rate is increase
+        if (isMasterReport) {
+          reportMasterFlag = true
+        } else {
+          reportWorkerFlag = true
+        }
+      }
+      lastQueueSize = curSize
+    }
+  }
+
+  scheduledThreadPool.scheduleWithFixedDelay(
+    runnable(reportMasterDelay, isMasterReport = true),
+    0, reportMasterDelay, TimeUnit.MILLISECONDS)
+
+  scheduledThreadPool.scheduleWithFixedDelay(
+    runnable(reportWorkerDelay, isMasterReport = false),
+    0, reportWorkerDelay, TimeUnit.MILLISECONDS)
 
   // get the element from queue , block when the queue is empty
   def take = bufferQueue.take()
@@ -50,27 +84,20 @@ class WrapBufferQueue(
   }
 
   def size = bufferQueue.size()
-
   def currUsageRate(): Double = 1.0 * bufferQueue.size() / maxQueueNum
 
   private def checkThreshold(): Unit = {
-    if (lastSize > bufferQueue.size()) {
-      lastSize = bufferQueue.size()
-      hasCall = false
-      return
-    } else {
-      lastSize = bufferQueue.size()
-    }
 
-    if(!hasCall && bufferQueue.size() > warnThresholdNum){
+    val curSize = bufferQueue.size()
+    if (reportMasterFlag && curSize > warnThresholdNum) {
       sendOverflowMessage() // will block.....
-      hasCall = true
+      reportMasterFlag = false
       return
     }
 
-    if(!hasCall && bufferQueue.size() > adjustThresholdNum){
+    if (reportWorkerFlag && curSize > adjustThresholdNum) {
       loadBalanceStrategyFunc()
-      hasCall = true
+      reportWorkerFlag = false
       return
     }
   }

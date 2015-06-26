@@ -22,14 +22,6 @@
 # JvmSource is the only available source to collect extrally
 *.source.jvm.class = cn.ac.ict.acs.netflow.metrics.source.JvmSource
 
-querymaster.sink.
-broker.sink.
-
-loadmaster.
-
-loadworker.
-
-
 # All available Sink definitions:
 
 #*.sink.console.period = 10s
