@@ -74,13 +74,8 @@ package object load {
    * @return
    */
   def getTimeBase(millis: Long, conf: NetFlowConf): Long = {
-    val interval = dirCreationInterval(conf) / 1000
+    val interval = dirCreationInterval(conf)
     millis / interval * interval
   }
-
 }
-// 1426474558 2015/3/16 10:55:58
-// 1426474200 2015/3/16 10:50:0
-
-// 2377
 
