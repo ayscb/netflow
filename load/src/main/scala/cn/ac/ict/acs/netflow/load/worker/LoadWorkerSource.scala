@@ -42,7 +42,7 @@ class LoadWorkerSource(val worker: LoadWorker) extends Source {
   }
 
   metricRegistry.register(name("queuedPackets"), new Gauge[Int] {
-    override def getValue: Int = worker.netflowBuff.size
+    override def getValue: Int = worker.netflowBuff.currSize
   })
 
   metricRegistry.register(name("queueLoad"), new Gauge[Double] {

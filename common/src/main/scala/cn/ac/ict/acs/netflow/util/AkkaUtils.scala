@@ -232,4 +232,26 @@ object AkkaUtils extends Logging {
     Address(protocol, QUERYMASTER_ACTORSYSTEM, host, port)
   }
 
+  /**
+   * Returns an `akka.tcp://...` URL for the Master actor given a
+   * netflowkUrl `netflow-load://host:port`.
+   *
+   * @throws NetFlowException if the url is invalid
+   */
+  def toLMAkkaUrl(netflowUrl: String, protocol: String): String = {
+    val (host, port) = Utils.extractHostPortFromNetFlowUrl(netflowUrl)
+    AkkaUtils.address(protocol, LOADMASTER_ACTORSYSTEM, host, port, LOADMASTER_ACTOR)
+  }
+
+  /**
+   * Returns an akka `Address` for the Master actor given a
+   * netflowkUrl `netflow-load://host:port`.
+   *
+   * @throws NetFlowException if the url is invalid
+   */
+  def toLMAkkaAddress(netflowUrl: String, protocol: String): Address = {
+    val (host, port) = Utils.extractHostPortFromNetFlowUrl(netflowUrl)
+    Address(protocol, LOADMASTER_ACTORSYSTEM, host, port)
+  }
+
 }

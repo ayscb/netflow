@@ -83,7 +83,8 @@ class WrapBufferQueue(
     bufferQueue.put(byteBuffer)
   }
 
-  def size = bufferQueue.size()
+  def currSize = bufferQueue.size()
+  def bufferCapability = maxQueueNum
   def currUsageRate(): Double = 1.0 * bufferQueue.size() / maxQueueNum
 
   private def checkThreshold(): Unit = {

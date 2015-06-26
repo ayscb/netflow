@@ -19,9 +19,13 @@
 package cn.ac.ict.acs.netflow.load.master
 
 import java.nio.ByteBuffer
+
+import cn.ac.ict.acs.netflow.ConfigurationMessages._
 import cn.ac.ict.acs.netflow.load.master.CommandSet.CmdStruct
 import cn.ac.ict.acs.netflow.metrics.MetricsSystem
+import org.joda.time.DateTime
 
+import scala.StringBuilder
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
@@ -213,9 +217,9 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
       logDebug(s"$workerIp send BuffersWarn message to master.")
       adjustCollectorByBuffer(workerIp, sender())
 
-//    case BufferOverFlow(workerIp) =>
-//      logDebug(s"$workerIp send bufferoverflow message to master.")
-//      adjustCollectorByBuffer(workerIp, sender())
+    //    case BufferOverFlow(workerIp) =>
+    //      logDebug(s"$workerIp send bufferoverflow message to master.")
+    //      adjustCollectorByBuffer(workerIp, sender())
 
     case BufferSimpleReport(workerIp, usageRate) =>
       logDebug(s"get a simple report $workerIp -> $usageRate.")
@@ -244,9 +248,77 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     case RequestWorker(collectorIP) =>
       assignWorker(collectorIP)
 
-    // message about rules
-    case ruleMessage(rules) =>
-      notifyRulesToAllWorkers(rules)
+    // Forwarding rules and BGP table configuration
+    case GetAllRules =>
+      sender ! CurrentRules(forwardingRules.iterator.toArray)
+
+    case InsertRules(rule) =>
+      sender ! insertForwardingRules(rule)
+      notifyRulesToAllCollectors()
+
+    case UpdateSingleRule(ruleId, ruleItem) =>
+      sender ! SingleRuleSubstitution(forwardingRules.put(ruleId, ruleItem), ruleItem)
+      notifyRulesToAllCollectors()
+
+    case DeleteSingleRule(ruleId) =>
+      sender ! DeletedRule(forwardingRules.remove(ruleId))
+      notifyRulesToAllCollectors()
+  }
+
+  // **********************************************************************************
+  // As a Configuration Server
+
+  private val forwardingRules = mutable.HashMap.empty[String, RuleItem]
+
+  def generateInsertionId(): String = (new DateTime).toString(TimeUtils.createFormat)
+
+  def insertForwardingRules(rule: ForwardingRule): ConfigurationMessage = {
+    val prefix = generateInsertionId()
+    rule.rules.zipWithIndex.foreach {
+      case (item, i) =>
+        forwardingRules(prefix + "-" + i) = item
+    }
+    InsertionSuccess(rule.rules.size)
+  }
+
+  def pushRuleToCollector(collector: String): Unit = {
+    getRuleStr match {
+      case Some(cmd) => loadServer.collector2Socket(collector).write(cmd)
+      case None =>
+    }
+  }
+
+  private def notifyRulesToAllCollectors(): Unit = {
+    val cmd = getRuleStr.get
+    cmd.mark()
+    loadServer.collector2Socket.foreach(coll => {
+      coll._2.write(cmd)
+      cmd.reset()
+    })
+  }
+
+  private def getRuleStr: Option[ByteBuffer] = {
+    if (forwardingRules.isEmpty) return None
+
+    val values = forwardingRules.valuesIterator
+    val valueMap = mutable.HashMap.empty[String, Int] // string = "desIP,rate"
+    val res_key = new StringBuilder()
+    val res_val = new StringBuilder()
+
+    values.foreach(value => {
+      val _key = value.routerId.concat(",").concat(value.srcPort.toString)
+      val _value = value.destIp.concat(",").concat(value.rate)
+      if (valueMap.contains(_value)) {
+        res_key.append(_key).append(",").append(valueMap(_value)).append(CmdStruct.inner_delim)
+      } else {
+        val pos = valueMap.size
+        valueMap(_value) = pos
+        res_key.append(_key).append(",").append(pos).append(CmdStruct.inner_delim)
+      }
+    })
+    res_key.delete(res_key.lastIndexOf(CmdStruct.inner_delim), res_key.length)
+    res_val.delete(res_val.lastIndexOf(CmdStruct.inner_delim), res_key.length)
+    Some(CommandSet.resRules(res_key.toString(), res_val.toString()))
   }
 
   // **********************************************************************************
@@ -822,50 +894,6 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
         }
 
       case None => logError(s"worker2Collectors should not be null! ")
-    }
-  }
-
-  // ***********************************************************************************
-  /**
-   * deal with rules
-   */
-  private val destAddr = mutable.LinkedHashSet.empty[String]
-  private val destAddr2idx = mutable.HashMap.empty[String, Int]
-  private val srcMapping = mutable.HashMap.empty[String, Int]
-
-  private def getCmd(): Option[ByteBuffer] = {
-    if (srcMapping.isEmpty) return None
-    val key = srcMapping.iterator.map(x => x._1 + "," + x._2).mkString(CmdStruct.inner_delim)
-    val value = destAddr.iterator.mkString(CmdStruct.inner_delim)
-    Some(CommandSet.resRules(key, value))
-  }
-
-  private def notifyRulesToAllWorkers(rules: ArrayBuffer[Rule]): Unit = {
-    rules.foreach(f = rule => {
-      if (destAddr.contains(rule.dest)) {
-        val idx: Int = destAddr2idx(rule.dest)
-        srcMapping(rule.src) = idx
-      } else {
-        val idx = destAddr.size
-        destAddr2idx(rule.dest) = idx
-        srcMapping(rule.src) = idx
-        destAddr += rule.dest
-      }
-    })
-
-    val cmd = getCmd().get
-    cmd.mark()
-    loadServer.collector2Socket.foreach(coll => {
-      coll._2.write(cmd)
-      cmd.reset()
-    })
-
-  }
-
-  def pushRuleToCollector(collector: String): Unit = {
-    getCmd() match {
-      case Some(cmd) => loadServer.collector2Socket(collector).write(cmd)
-      case None =>
     }
   }
 }

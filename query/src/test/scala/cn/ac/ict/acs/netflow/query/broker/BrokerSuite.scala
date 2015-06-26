@@ -43,6 +43,7 @@ class BrokerSuite(_system: ActorSystem)
     broker = TestActorRef(
       new RestBroker("fake",19898, 19799,
         Array("netflow-query://fake:7977"),
+        Array("akka.tcp://netflowLoadMaster@fake:9099"),
         new NetFlowConf(false)))
     bareBroker = broker.underlyingActor
     dummyMaster = _system.actorOf(Props(new DummyMaster), "dummy")
@@ -53,12 +54,12 @@ class BrokerSuite(_system: ActorSystem)
   }
 
   test("Register success") {
-    assert(!bareBroker.registered)
-    assert(!bareBroker.connected)
+    assert(bareBroker.registered == false)
+    assert(bareBroker.connected == false)
     assert(bareBroker.master == null)
     broker ! RegisteredBroker("netflow-query://fake:7977", "http://fake:19991")
-    assert(bareBroker.registered)
-    assert(bareBroker.connected)
+    assert(bareBroker.registered != false)
+    assert(bareBroker.connected != false)
     assert(bareBroker.master != null)
   }
 

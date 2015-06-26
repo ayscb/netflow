@@ -49,13 +49,14 @@ class RestBroker(
   val port: Int,
   val restPort: Int,
   val masterAkkaUrls: Array[String],
+  val loadMasterAkkaUrls: Array[String],
   val conf: NetFlowConf)
     extends Actor with RestService with BrokerLike with ActorLogReceive with Logging {
 
   implicit def actorRefFactory: ActorContext = context
 
   val currentRoutes =
-    respondWithMediaType(`application/json`)(queryRoutes ~ /* configurationRoutes ~ */ otherRoutes)
+    respondWithMediaType(`application/json`)(queryRoutes ~ configurationRoutes ~ otherRoutes)
 
   override def receiveWithLogging =
     lifecycleMaintenance orElse runRoute(currentRoutes)
@@ -99,6 +100,12 @@ trait BrokerLike {
   @volatile var registered = false
   @volatile var connected = false
 
+  var loadMaster: ActorSelection = null
+  var loadMasterAddress: Address = null
+  var activeLoadMasterUrl: String = ""
+
+  changeLoadMaster(loadMasterAkkaUrls.head)
+
   val brokerId = generateBrokerId()
 
   var connectionAttemptCount = 0
@@ -130,6 +137,12 @@ trait BrokerLike {
     // Cancel any outstanding re-registration attempts because we found a new master
     registrationRetryTimer.foreach(_.cancel())
     registrationRetryTimer = None
+  }
+
+  def changeLoadMaster(url: String): Unit = {
+    activeLoadMasterUrl = url
+    loadMaster = context.actorSelection(activeLoadMasterUrl)
+    loadMasterAddress = AddressFromURIString(url)
   }
 
   def registerWithMaster() {
@@ -264,6 +277,13 @@ trait BrokerLike {
       logInfo(s"$x Disassociated !")
       masterDisconnected()
     }
+
+    case x: DisassociatedEvent if x.remoteAddress == loadMasterAddress => {
+      logInfo(s"$x Disassociated !")
+      loadMaster = null
+      loadMasterAddress = null
+      activeLoadMasterUrl = ""
+    }
   }
 }
 
@@ -271,6 +291,7 @@ trait RestService extends HttpService with Json4sJacksonSupport {
   this: RestBroker =>
 
   import RestMessages._
+  import ConfigurationMessages._
 
   implicit def json4sJacksonFormats = DefaultFormats
 
@@ -342,65 +363,56 @@ trait RestService extends HttpService with Json4sJacksonSupport {
     }
   }
 
-  //  val configurationRoutes = pathPrefix("v1" / "conf") {
-  //    // Forwarding rules configuration
-  //    pathPrefix("f-rules") {
-  //      // GET /v1/conf/f-rules return all available rules
-  //      (get & pathEndOrSingleSlash) {
-  //        requestConfigurationServer {
-  //          GetAllRules
-  //        }
-  //      } ~
-  //        // POST /v1/conf/f-rules add forwarding rules described in request body
-  //        (post & pathEndOrSingleSlash) {
-  //          requestConfigurationServer {
-  //            entity(as[ForwardingRule]) { rule =>
-  //              InsertRules(rule)
-  //            }
-  //          }
-  //        } ~
-  //        // PUT /v1/conf/f-rules/<ruleId> update the specified rule
-  //        (put & path(Segment)) { ruleId =>
-  //          requestConfigurationServer {
-  //            entity(as[RuleItem]) { ruleItem =>
-  //              UpdateSingleRule(ruleId, ruleItem)
-  //            }
-  //          }
-  //        } ~
-  //        // DELETE /v1/conf/f-rules/<ruleId> delete the specified rule
-  //        (delete & path(Segment)) { ruleId =>
-  //          requestConfigurationServer {
-  //            DeleteSingleRule(ruleId)
-  //          }
-  //        }
-  //    }
-  //  }
+  val configurationRoutes = pathPrefix("v1" / "conf") {
+    // Forwarding rules configuration
+    pathPrefix("f-rules") {
+      // GET /v1/conf/f-rules return all available rules
+      (get & pathEndOrSingleSlash) {
+        requestConfigurationServer {
+          GetAllRules
+        }
+      } ~
+        // POST /v1/conf/f-rules add forwarding rules described in request body
+        (post & pathEndOrSingleSlash) {
+          entity(as[ForwardingRule]) { rule =>
+            requestConfigurationServer {
+              InsertRules(rule)
+            }
+          }
+        } ~
+        // PUT /v1/conf/f-rules/<ruleId> update the specified rule
+        (put & path(Segment)) { ruleId =>
+          entity(as[RuleItem]) { ruleItem =>
+            requestConfigurationServer {
+              UpdateSingleRule(ruleId, ruleItem)
+            }
+          }
+        } ~
+        // DELETE /v1/conf/f-rules/<ruleId> delete the specified rule
+        (delete & path(Segment)) { ruleId =>
+          requestConfigurationServer {
+            DeleteSingleRule(ruleId)
+          }
+        }
+    }
+  }
 
-  case class ForwardingRule(rules: Seq[RuleItem])
+  def requestConfigurationServer(message: ConfigurationMessage): Route = { ctx =>
+    def handleRequest(
+      rc: RequestContext,
+      message: ConfigurationMessage,
+      loadMaster: ActorSelection) = {
 
-  case class RuleItem(routerId: String, srcPort: Int, destIp: String, rate: String)
+      context.actorOf(Props(classOf[LoadMasterRequestHandler], rc, message, loadMaster, conf))
+    }
 
-  //  def requestConfigurationServer(x: Any): Route = { ctx =>
-  //    x match {
-  //      case GetAllRules =>
-  //        Future {
-  //          try {
-  //            val socket = new Socket(confServerHost, confServerPort)
-  //            val br = new BufferedReader(new InputStreamReader(socket.getInputStream))
-  //            val bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream))
-  //            bw.write("GETALLRULES")
-  //
-  //          } catch {
-  //            case uhe: UnknownHostException =>
-  //
-  //          }
-  //
-  //
-  //
-  //        }
-  //
-  //    }
-  //  }
+    logDebug(s"Get ${message.toString} from client")
+    if (loadMaster != null) {
+      handleRequest(ctx, message, loadMaster)
+    } else {
+      ctx.complete(500, "The Broker cannot connect to a valid LoadMaster")
+    }
+  }
 }
 
 object RestBroker extends Logging {
@@ -410,7 +422,7 @@ object RestBroker extends Logging {
     val newConf = new NetFlowConf
     val args = new BrokerArguments(argStrings, newConf)
     val (actorSystem, _, _, _) = startSystemAndActor(args.host, args.port, args.restPort,
-      args.masters, newConf)
+      args.masters, args.loadMasters, newConf)
     actorSystem.awaitTermination()
   }
 
@@ -419,14 +431,17 @@ object RestBroker extends Logging {
     port: Int,
     restPort: Int,
     masterUrls: Array[String],
+    loadMasterUrls: Array[String],
     conf: NetFlowConf = new NetFlowConf): (ActorSystem, ActorRef, Int, Int) = {
 
     val sysName = BROKER_ACTORSYSTEM + "-" + UUID.randomUUID().toString.takeRight(8)
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem(sysName, host, port, conf)
     val masterAkkaUrls = masterUrls.map(
       AkkaUtils.toQMAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
+    val loadMasterAkkaUrls = loadMasterUrls.map(
+      AkkaUtils.toLMAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
     val (actor, boundRestPort) = createActorAndListen(actorSystem, host,
-      boundPort, restPort, masterAkkaUrls, conf)
+      boundPort, restPort, masterAkkaUrls, loadMasterAkkaUrls, conf)
 
     (actorSystem, actor, boundPort, boundRestPort)
   }
@@ -437,10 +452,11 @@ object RestBroker extends Logging {
     port: Int,
     restPort: Int,
     masterAkkaUrls: Array[String],
+    loadMasterAkkaUrls: Array[String],
     conf: NetFlowConf) = {
     val startActorAndListen: Int => (ActorRef, Int) = { actualRestPort =>
       doCreateActorAndListen(actorSystem, host, port, actualRestPort,
-        masterAkkaUrls, conf)
+        masterAkkaUrls, loadMasterAkkaUrls, conf)
     }
     Utils.startServiceOnPort(restPort, startActorAndListen, conf, "RESTful-Service")
   }
@@ -451,10 +467,11 @@ object RestBroker extends Logging {
     port: Int,
     restPort: Int,
     masterAkkaUrls: Array[String],
+    loadMasterAkkaUrls: Array[String],
     conf: NetFlowConf): (ActorRef, Int) = {
 
     val actor = actorSystem.actorOf(Props(classOf[RestBroker], host, port, restPort,
-      masterAkkaUrls, conf), name = BROKER_ACTOR)
+      masterAkkaUrls, loadMasterAkkaUrls, conf), name = BROKER_ACTOR)
 
     implicit val timeOut = Timeout(AkkaUtils.askTimeout(conf))
 

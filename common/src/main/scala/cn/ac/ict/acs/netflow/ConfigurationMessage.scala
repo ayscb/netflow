@@ -16,33 +16,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.as.ict.acs.netflow.load.worker
+package cn.ac.ict.acs.netflow
 
-import java.nio.ByteBuffer
+trait ConfigurationMessage extends Serializable
 
-import cn.ac.ict.acs.netflow.load.worker.WrapBufferQueue
-import org.scalatest.FunSuite
+object ConfigurationMessages {
 
-class TestWarpBufferQueue extends FunSuite {
+  case object GetAllRules extends ConfigurationMessage
 
-  def loadBalanceStrategyFunc(): Unit = {
-    println("loadBalanceStrategyFunc")
-  }
+  case class CurrentRules(availableRules: Array[(String, RuleItem)]) extends ConfigurationMessage
 
-  def sendOver(): Unit = {
-    println("sendOver")
-  }
+  case class InsertRules(rules: ForwardingRule)
+    extends ConfigurationMessage
 
-  test("test fun call") {
-    val warper = new WrapBufferQueue(100, 70, loadBalanceStrategyFunc, sendOver)
-    for (i <- 0 until 70) {
-      assert(warper.currSize == i)
-      warper.put(ByteBuffer.allocate(10))
-    }
+  case class InsertionSuccess(insertNum: Int) extends ConfigurationMessage
 
-    for (i <- 70 until 100) {
-      assert(warper.currSize == i)
-      warper.put(ByteBuffer.allocate(10))
-    }
-  }
+  case class UpdateSingleRule(ruleId: String, ruleItem: RuleItem)
+    extends ConfigurationMessage
+
+  case class SingleRuleSubstitution(oldItem: Option[RuleItem], newItem: RuleItem)
+    extends ConfigurationMessage
+
+  case class DeleteSingleRule(ruleId: String) extends ConfigurationMessage
+
+  case class DeletedRule(deletedRule: Option[RuleItem]) extends ConfigurationMessage
 }

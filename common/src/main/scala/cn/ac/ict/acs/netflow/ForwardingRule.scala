@@ -16,33 +16,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.as.ict.acs.netflow.load.worker
+package cn.ac.ict.acs.netflow
 
-import java.nio.ByteBuffer
+case class ForwardingRule(rules: Seq[RuleItem])
 
-import cn.ac.ict.acs.netflow.load.worker.WrapBufferQueue
-import org.scalatest.FunSuite
+case class RuleItem(routerId: String, srcPort: Int, destIp: String, rate: String)
 
-class TestWarpBufferQueue extends FunSuite {
-
-  def loadBalanceStrategyFunc(): Unit = {
-    println("loadBalanceStrategyFunc")
-  }
-
-  def sendOver(): Unit = {
-    println("sendOver")
-  }
-
-  test("test fun call") {
-    val warper = new WrapBufferQueue(100, 70, loadBalanceStrategyFunc, sendOver)
-    for (i <- 0 until 70) {
-      assert(warper.currSize == i)
-      warper.put(ByteBuffer.allocate(10))
-    }
-
-    for (i <- 70 until 100) {
-      assert(warper.currSize == i)
-      warper.put(ByteBuffer.allocate(10))
-    }
-  }
-}

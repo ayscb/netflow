@@ -209,7 +209,7 @@ class LoadWorker(
     case BuffHeatBeat =>
       if (connected) {
         master ! BufferWholeReport(workerIP, netflowBuff.currUsageRate(),
-          netflowBuff.maxQueueNum, netflowBuff.size)
+          netflowBuff.bufferCapability, netflowBuff.currSize)
       }
 
     /**
@@ -232,9 +232,10 @@ class LoadWorker(
     activeMasterWebUiUrl = webUrl
 
     master = context.actorSelection(
-      LoadMaster.toAkkaUrl(activeMasterUrl, AkkaUtils.protocol(context.system)))
-    masterAddress = LoadMaster.toAkkaAddress(activeMasterUrl, AkkaUtils.protocol(context.system))
+      AkkaUtils.toLMAkkaUrl(activeMasterUrl, AkkaUtils.protocol(context.system)))
+    masterAddress = AkkaUtils.toLMAkkaAddress(activeMasterUrl, AkkaUtils.protocol(context.system))
     connected = true
+
     // Cancel any outstanding re-registration attempts because we found a new master
     registrationRetryTimer.foreach(_.cancel())
     registrationRetryTimer = None
@@ -392,7 +393,7 @@ class LoadWorker(
 
     override def loadBalanceWorker(): Unit = {
 
-      val curThreadNum =  loadServer.curThreadsNum
+      val curThreadNum = loadServer.curThreadsNum
       if(curThreadNum < maxLoadThreadsNum){
         loadServer.adjustWritersNum(curThreadNum + 1)
         logInfo(s"Add new thread")
@@ -428,7 +429,7 @@ object LoadWorker extends Logging {
     val sysName = systemName + workerNumber.map(_.toString).getOrElse("")
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem(sysName, host, port, conf)
     val masterAkkaUrls = masterUrls.map(
-      LoadMaster.toAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
+      AkkaUtils.toLMAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
     actorSystem.actorOf(Props(classOf[LoadWorker], host, boundPort, webUiPort, cores,
       memory, masterAkkaUrls, sysName, actorName, conf), name = actorName)
     (actorSystem, boundPort)
