@@ -25,7 +25,6 @@ import java.nio.channels._
 
 import akka.actor.ActorRef
 import cn.ac.ict.acs.netflow.load.LoadMessages.{ DeleReceiver, RequestWorker, DeleWorker }
-import cn.ac.ict.acs.netflow.load.master.CommandSet.CmdStruct._
 import cn.ac.ict.acs.netflow.{ NetFlowException, Logging, NetFlowConf }
 import cn.ac.ict.acs.netflow.util.Utils
 
@@ -206,7 +205,7 @@ class MasterService(val master: ActorRef, val conf: NetFlowConf)
   }
 }
 
-object CommandSet {
+object CommandSet extends Logging {
 
   /**
    * define the message format: + total length (short)
@@ -226,6 +225,7 @@ object CommandSet {
     val outer_delim = "&"
     val inner_delim = ";"
   }
+  import CmdStruct._
 
   private val req_buffer = ByteBuffer.allocate(1500)
   private val res_buffer = ByteBuffer.allocate(1500)
@@ -243,7 +243,10 @@ object CommandSet {
 
     val data = sb.toString().getBytes
     res_buffer.putShort((2 + data.length).asInstanceOf[Short])
+    logDebug(s"current cmd's length ${2 + data.length}")
     res_buffer.put(data)
+    logDebug(s"current cmd context is ${new String(res_buffer.array(), 0, res_buffer.position())}")
+    logDebug(s"context id ${sb.toString()}")
     res_buffer.flip()
     res_buffer
   }
