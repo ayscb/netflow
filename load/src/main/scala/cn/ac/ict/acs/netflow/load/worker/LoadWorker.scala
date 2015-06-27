@@ -189,7 +189,7 @@ class LoadWorker(
     case CloseParquet(timeStamp) =>
       if (connected && combineTimeStamp != timeStamp) {
         combineTimeStamp = timeStamp
-        master ! CloseParquet(timeStamp)
+        master ! CloseParquet(combineTimeStamp)
       }
 
     // this message is sent by master to assigned this worker to run combine service
