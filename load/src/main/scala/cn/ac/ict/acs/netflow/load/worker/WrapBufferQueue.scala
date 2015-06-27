@@ -30,13 +30,13 @@ class WrapBufferQueue(
     val sendOverflowMessage: () => Unit,
     val conf: NetFlowConf) extends Logging {
 
-  private val maxQueueNum = conf.getInt(LoadConf.QUEUE_MAXPACKAGE_NUM, 1000000)
-  private val warnThreshold = {
+  val maxQueueNum = conf.getInt(LoadConf.QUEUE_MAXPACKAGE_NUM, 1 * 1024 * 1024)
+  val warnThreshold = {
     val threshold = conf.getInt(LoadConf.QUEUE_WARN_THRESHOLD, 70)
     if (0 < threshold && threshold < 100) threshold else 70
   }
-  private val reportMasterDelay = conf.getInt(LoadConf.REPORT_MASTER_DELAY, 5 * 1000)
-  private val reportWorkerDelay = conf.getInt(LoadConf.REPORT_WORKER_DELAY, 3 * 1000)
+  private val reportMasterDelay = conf.getInt(LoadConf.REPORT_MASTER_DELAY, 5)
+  private val reportWorkerDelay = conf.getInt(LoadConf.REPORT_WORKER_DELAY, 3)
 
   private val adjustThresholdNum =
     (((warnThreshold - 20) * 1.0 / 100) * maxQueueNum).asInstanceOf[Int]
@@ -44,11 +44,16 @@ class WrapBufferQueue(
 
   private val bufferQueue = new LinkedBlockingQueue[ByteBuffer](maxQueueNum)
 
-
   @volatile private var reportMasterFlag: Boolean = false
   @volatile private var reportWorkerFlag: Boolean = false
   @volatile var lastQueueSize: Int = 0
-  private val scheduledThreadPool = Executors.newScheduledThreadPool(2)
+  @volatile var enqueueCount: Int = 0
+  @volatile var enqueueRate: Double = 0
+  @volatile var dequeueCount: Int = 0
+  @volatile var dequeueRate: Double = 0
+  val interval = 30 // s
+
+  private val scheduledThreadPool = Executors.newScheduledThreadPool(4)
 
   private def runnable(delay: Long, isMasterReport: Boolean) = new Runnable {
     override def run(): Unit = {
@@ -68,23 +73,36 @@ class WrapBufferQueue(
 
   scheduledThreadPool.scheduleWithFixedDelay(
     runnable(reportMasterDelay, isMasterReport = true),
-    0, reportMasterDelay, TimeUnit.MILLISECONDS)
+    0, reportMasterDelay, TimeUnit.SECONDS)
 
   scheduledThreadPool.scheduleWithFixedDelay(
     runnable(reportWorkerDelay, isMasterReport = false),
-    0, reportWorkerDelay, TimeUnit.MILLISECONDS)
+    0, reportWorkerDelay, TimeUnit.SECONDS)
+
+  scheduledThreadPool.scheduleAtFixedRate(new Runnable {
+    override def run(): Unit = synchronized {
+      enqueueRate = 1.0 * enqueueCount / interval
+      enqueueCount = 0
+      dequeueRate = 1.0 * dequeueCount / interval
+      dequeueCount = 0
+    }
+  }, 0, interval, TimeUnit.SECONDS)
 
   // get the element from queue , block when the queue is empty
-  def take = bufferQueue.take()
+  def take = {
+    val data = bufferQueue.take()
+    dequeueCount += data.limit()
+    data
+  }
 
   // put the element to queue, block when the queue is full
   def put(byteBuffer: ByteBuffer) = {
     checkThreshold()
     bufferQueue.put(byteBuffer)
+    enqueueCount += byteBuffer.limit()
   }
 
   def currSize = bufferQueue.size()
-  def bufferCapability = maxQueueNum
   def currUsageRate(): Double = 1.0 * bufferQueue.size() / maxQueueNum
 
   private def checkThreshold(): Unit = {
