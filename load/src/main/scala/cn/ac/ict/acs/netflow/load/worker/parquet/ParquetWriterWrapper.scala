@@ -21,37 +21,42 @@ package cn.ac.ict.acs.netflow.load.worker.parquet
 import java.util.concurrent._
 
 import akka.actor.ActorRef
-import cn.ac.ict.acs.netflow.NetFlowConf
-import cn.ac.ict.acs.netflow.load
+import cn.ac.ict.acs.netflow.{ Logging, NetFlowConf, load }
 import cn.ac.ict.acs.netflow.load.LoadMessages.CloseParquet
 import cn.ac.ict.acs.netflow.load.worker.{ Row, Writer, WriterWrapper }
 
 import scala.collection._
 
-class ParquetWriterWrapper(worker: ActorRef, conf: NetFlowConf) extends WriterWrapper {
+class ParquetWriterWrapper(worker: ActorRef, conf: NetFlowConf)
+    extends WriterWrapper with Logging {
 
   private val dicInterValTime = load.dirCreationInterval(conf)
   private val closeDelay = load.writerCloseDelay(conf)
   require(dicInterValTime > closeDelay,
     "closeInterval should be less than dicInterValTime in netflow configure file")
 
+  private val delayTime = dicInterValTime + closeDelay
+  logInfo(s"totalTime: $delayTime ms. dicTime: $dicInterValTime, closeDelay: $closeDelay")
+
   private val timeToWriters = mutable.HashMap.empty[Long, Writer]
   private val closeWriterScheduler = mutable.HashMap.empty[Writer, ScheduledFuture[_]]
 
   private def registerCloseScheduler(writer: Writer) = {
-    closeWriterScheduler(writer)
-      = ParquetWriterWrapper.scheduledThreadPool.schedule(new Runnable {
-      override def run() = {
-        writer.close()
-        worker ! CloseParquet(writer.timeBase())
-        timeToWriters.synchronized {
-          timeToWriters -= writer.timeBase()
+
+    closeWriterScheduler(writer) =
+      ParquetWriterWrapper.scheduledThreadPool.schedule(new Runnable {
+        override def run() = {
+          writer.close()
+          worker ! CloseParquet(writer.timeBase())
+          timeToWriters.synchronized {
+            timeToWriters -= writer.timeBase()
+          }
+          closeWriterScheduler.synchronized {
+            closeWriterScheduler -= writer
+          }
+          logInfo(s"Close current file ${load.getPathByTime(writer.timeBase(), conf)}")
         }
-        closeWriterScheduler.synchronized {
-          closeWriterScheduler -= writer
-        }
-      }
-    }, dicInterValTime + closeDelay, TimeUnit.MILLISECONDS)
+      }, delayTime, TimeUnit.MILLISECONDS)
   }
 
   override def init(): Unit = {}
@@ -76,5 +81,4 @@ class ParquetWriterWrapper(worker: ActorRef, conf: NetFlowConf) extends WriterWr
 object ParquetWriterWrapper {
   val scheduledThreadPool = Executors.newScheduledThreadPool(2)
 }
-
 
