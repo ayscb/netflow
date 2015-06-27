@@ -209,7 +209,7 @@ class LoadWorker(
     case BuffHeatBeat =>
       if (connected) {
         master ! BufferWholeReport(workerIP, netflowBuff.currUsageRate(),
-          netflowBuff.bufferCapability, netflowBuff.currSize)
+          netflowBuff.maxQueueNum, netflowBuff.currSize)
       }
 
     /**
