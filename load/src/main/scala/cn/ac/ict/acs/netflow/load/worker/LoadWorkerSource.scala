@@ -41,16 +41,26 @@ class LoadWorkerSource(val worker: LoadWorker) extends Source {
     })
   }
 
-  metricRegistry.register(name("queuedPackets"), new Gauge[Int] {
-    override def getValue: Int = worker.netflowBuff.currSize
+  metricRegistry.register(name("loadServer", "activeLoaders"), new Gauge[Int] {
+    override def getValue: Int = worker.loadServer.curThreadsNum
   })
 
-  metricRegistry.register(name("queueLoad"), new Gauge[Double] {
+  metricRegistry.register(name("threadPool-Status", "currestSize"), new Gauge[Int] {
+    override def getValue: Int = worker.netflowBuff.currSize
+  })
+  metricRegistry.register(name("threadPool-Status", "maxSize"), new Gauge[Int] {
+    override def getValue: Int = worker.netflowBuff.maxQueueNum
+  })
+  metricRegistry.register(name("threadPool-Status", "currentUsageRate"), new Gauge[Double] {
     override def getValue: Double = worker.netflowBuff.currUsageRate()
   })
 
-  metricRegistry.register(name("threadpool", "activeLoaders"), new Gauge[Int] {
-    override def getValue: Int = worker.loadServer.curThreadsNum
+  metricRegistry.register(name("threadPool-Rate", "enqueueRate"), new Gauge[Double] {
+    override def getValue: Double = worker.netflowBuff.enqueueRate
+  })
+
+  metricRegistry.register(name("threadPool-Rate", "dequeueRate"), new Gauge[Double] {
+    override def getValue: Double = worker.netflowBuff.dequeueRate
   })
 
   // Gauge for file system stats of this worker
