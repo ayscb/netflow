@@ -20,15 +20,12 @@ package cn.ac.ict.acs.netflow.load.worker.parser
 
 import java.nio.ByteBuffer
 
-/**
- * Created by ayscb on 15-6-11.
- */
 trait VersionedParser {
 
   def getVersion: Int
 
   /**
-   *
+   * get current netflow package flow count
    * @param data the data contain router ip and netflow data. (single package)
    * @param startPos  start form netflow header
    * @return
@@ -36,7 +33,7 @@ trait VersionedParser {
   def getFlowCount(data: ByteBuffer, startPos: Int): Int
 
   /**
-   *
+   * Get the current package's Unix timestamp
    * @param data the data contain router ip and netflow data. (single package)
    * @param startPos start from netflow header
    * @return
@@ -44,7 +41,7 @@ trait VersionedParser {
   def getTime(data: ByteBuffer, startPos: Int): Long
 
   /**
-   *
+   * Get the current netflow version body position
    * @param data the data contain router ip and netflow data. (single package)
    * @param startPos start from netflow header
    * @return
@@ -53,7 +50,8 @@ trait VersionedParser {
 
   /**
    *  Get the next position of the data flow set,
-   *  for V9 ,we will deal with the template flow set
+   *  for V9 ,we will deal with the template flow set here,
+   *  but for V5, we only return current position
    * @param data the data contain router ip and netflow data. (single package)
    * @param startPos start from netflow body
    * @return
@@ -82,7 +80,7 @@ object V9Parser extends VersionedParser {
   override def getFlowCount(data: ByteBuffer, startPos: Int): Int = data.getShort(startPos + 2)
 
   override def getTime(data: ByteBuffer, startPos: Int): Long = {
-    data.getInt(startPos + 8) & 0xFFFFFFFFFFL
+    (data.getInt(startPos + 8) & 0xFFFFFFFFFFL) * 1000
   }
   override def getBodyPos(data: ByteBuffer, startPos: Int): Int = startPos + 20
 
@@ -91,7 +89,6 @@ object V9Parser extends VersionedParser {
     // insert template into templates
     val flowsetId = data.getShort(startPos)
     val flowsetLen = data.getShort(startPos + 2)
-    //   println(s"[call V9Parser.getNextFSPos] flowsetID:$flowsetId flowLen:$flowsetLen")
 
     flowsetId match {
       case x if x > 255 =>
@@ -139,10 +136,20 @@ object V9Parser extends VersionedParser {
  *
  */
 object V5Parser extends VersionedParser {
+
+  val tmpArray = Array(
+    (8, 4), (12, 4), (15, 4), (10, 2), (14, 2),
+    (2, 4), (1, 4), (22, 4), (21, 4), (7, 2),
+    (11, 2), (-1, 2), (6, 1), (4, 1), (5, 1),
+    (16, 2), (17, 2), (9, 1), (13, 1), (-1, 2))
+  val temp = new Template(5, 20).createTemplate()
+  temp.createTemplate(tmpArray: _*)
+  PacketParser.templates.put(TemplateKey(null, 5), temp)
+
   override def getVersion: Int = 5
   override def getFlowCount(data: ByteBuffer, startPos: Int): Int = data.getShort(startPos + 2)
   override def getTime(data: ByteBuffer, startPos: Int): Long = {
-    data.getShort(startPos + 8) & 0xFFFFFFFFFFL
+    (data.getShort(startPos + 8) & 0xFFFFFFFFFFL) * 1000
   }
   override def getBodyPos(data: ByteBuffer, startPos: Int): Int = data.getShort(startPos + 24)
   override def getNextFSPos(data: ByteBuffer, startPos: Int, routerIp: Array[Byte]): Int = startPos

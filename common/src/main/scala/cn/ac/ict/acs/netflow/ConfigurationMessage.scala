@@ -16,17 +16,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.as.ict.acs.netflow.load.worker
+package cn.ac.ict.acs.netflow
 
-import org.scalatest.FunSuite
+trait ConfigurationMessage extends Serializable
 
-class TestWarpBufferQueue extends FunSuite {
+object ConfigurationMessages {
 
-  def loadBalanceStrategyFunc(): Unit = {
-    println("loadBalanceStrategyFunc")
-  }
+  case object GetAllRules extends ConfigurationMessage
 
-  def sendOver(): Unit = {
-    println("sendOver")
-  }
+  case class CurrentRules(availableRules: Array[(String, RuleItem)]) extends ConfigurationMessage
+
+  case class InsertRules(rules: ForwardingRule)
+    extends ConfigurationMessage
+
+  case class InsertionSuccess(insertNum: Int) extends ConfigurationMessage
+
+  case class UpdateSingleRule(ruleId: String, ruleItem: RuleItem)
+    extends ConfigurationMessage
+
+  case class SingleRuleSubstitution(oldItem: Option[RuleItem], newItem: RuleItem)
+    extends ConfigurationMessage
+
+  case class DeleteSingleRule(ruleId: String) extends ConfigurationMessage
+
+  case class DeletedRule(deletedRule: Option[RuleItem]) extends ConfigurationMessage
 }

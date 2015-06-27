@@ -65,7 +65,7 @@ class Template(val tmpId: Int, val fieldsCount: Int) {
    * create a single template for v5 v7
    * @param key_value
    */
-  def createTemplate(key_value: (Int, Int)*): Unit = {
+  def createTemplate(key_value: (Int, Int)*): Template = {
     assert(key_value.length == fieldsCount)
     var i = 0
     key_value.foreach(x => {
@@ -73,5 +73,6 @@ class Template(val tmpId: Int, val fieldsCount: Int) {
       values(i) = x._2
       i += 1
     })
+    this
   }
 }

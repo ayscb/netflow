@@ -138,7 +138,11 @@ class RowWriteSupport extends WriteSupport[Row] with Logging {
    * @param start
    * @param length
    */
-  private def writeField(index: Int, bb: ByteBuffer, start: Int, length: Int) = {
+  private def writeField(index: Int, bb: ByteBuffer, start: Int, length: Int): Unit = {
+
+    // skip the -1 key which we record as padding byte
+    if(index == -1) return
+
     val (pos, tpe) = getPosAndType(FieldType.NETFLOW, index)
     writer.startField(tpe.getName, pos)
     writeValue()

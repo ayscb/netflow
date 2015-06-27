@@ -77,5 +77,5 @@ package object load {
     val interval = dirCreationInterval(conf)
     millis / interval * interval
   }
-
 }
+

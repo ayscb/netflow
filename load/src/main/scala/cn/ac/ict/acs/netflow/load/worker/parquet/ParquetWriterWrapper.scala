@@ -38,8 +38,9 @@ class ParquetWriterWrapper(worker: ActorRef, conf: NetFlowConf) extends WriterWr
   private val timeToWriters = mutable.HashMap.empty[Long, Writer]
   private val closeWriterScheduler = mutable.HashMap.empty[Writer, ScheduledFuture[_]]
 
-  def registerCloseScheduler(writer: Writer) = {
-    closeWriterScheduler(writer) = ParquetWriterWrapper.scheduledThreadPool.schedule(new Runnable {
+  private def registerCloseScheduler(writer: Writer) = {
+    closeWriterScheduler(writer)
+      = ParquetWriterWrapper.scheduledThreadPool.schedule(new Runnable {
       override def run() = {
         writer.close()
         worker ! CloseParquet(writer.timeBase())
@@ -75,3 +76,5 @@ class ParquetWriterWrapper(worker: ActorRef, conf: NetFlowConf) extends WriterWr
 object ParquetWriterWrapper {
   val scheduledThreadPool = Executors.newScheduledThreadPool(2)
 }
+
+

@@ -23,6 +23,7 @@ import java.io.IOException
 import java.net.{ InetSocketAddress, ServerSocket }
 import java.nio.{ ByteOrder, ByteBuffer }
 import java.nio.channels._
+import java.util.concurrent.{TimeUnit, Executors}
 
 import scala.collection.mutable
 
@@ -54,7 +55,6 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Thread 
   }
   def collectors: Iterable[String] = channelToIp.values
 
-  private var t_count = 0
   override def run() = {
     val serverSocketChannel = ServerSocketChannel.open()
     serverSocketChannel.configureBlocking(false)
@@ -144,7 +144,6 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Thread 
           packetBuffer.put(curContent)
           holder.content = null
           holder.len.clear()
-          t_count += 1
         }
       } else if (holder.len.position < 2) { // reading length first
         val lb = holder.len
@@ -173,6 +172,8 @@ class Receiver(packetBuffer: WrapBufferQueue, conf: NetFlowConf) extends Thread 
     channelToIp.remove(c)
     c.close()
   }
+
+
 
   class PacketHolder {
     val len: ByteBuffer = ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN)

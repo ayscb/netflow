@@ -148,8 +148,6 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
         hadoopConf.set(key.substring("netflow.hadoop.".length), value)
       }
     }
-    // test
- //   hadoopConf.set("fs.default.name","hdfs://localhost:8020")
 
     val bufferSize = get("netflow.buffer.size", "65536")
     hadoopConf.set("io.file.buffer.size", bufferSize)

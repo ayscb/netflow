@@ -23,10 +23,6 @@ import java.util.concurrent.ConcurrentHashMap
 
 import cn.ac.ict.acs.netflow.NetFlowException
 
-/**
- * Created by ayscb on 15-6-11.
- */
-
 object PacketParser {
   val templates = new ConcurrentHashMap[TemplateKey, Template]
 
@@ -59,7 +55,8 @@ object PacketParser {
     }
 
     val totalDataFSCount = nfParser.getFlowCount(packet, curPos)
-    val nfTime = nfParser.getTime(packet, curPos)
+    val nfTime = System.currentTimeMillis()
+    // nfParser.getTime(packet, curPos)
 
     // 2. skip to netflow body position
     curPos = nfParser.getBodyPos(packet, curPos)

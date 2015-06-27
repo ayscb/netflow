@@ -55,5 +55,8 @@ ec2/lib/
 scalastyle.txt
 scalastyle-output.xml
 dependency-reduced-pom.xml
-
+hs_err_pid*
 sbt/
+*.o
+receiver
+collector/testData/*
