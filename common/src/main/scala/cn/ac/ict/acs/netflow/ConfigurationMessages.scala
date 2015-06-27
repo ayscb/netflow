@@ -18,6 +18,26 @@
  */
 package cn.ac.ict.acs.netflow
 
-case class ForwardingRule(rules: Seq[RuleItem])
+trait ConfigurationMessage extends Serializable
 
-case class RuleItem(routerId: String, srcPort: Int, destIp: String, rate: String)
+object ConfigurationMessages {
+
+  case object GetAllRules extends ConfigurationMessage
+
+  case class CurrentRules(availableRules: Array[(String, RuleItem)]) extends ConfigurationMessage
+
+  case class InsertRules(rules: ForwardingRule)
+    extends ConfigurationMessage
+
+  case class InsertionSuccess(insertNum: Int) extends ConfigurationMessage
+
+  case class UpdateSingleRule(ruleId: String, ruleItem: RuleItem)
+    extends ConfigurationMessage
+
+  case class SingleRuleSubstitution(oldItem: Option[RuleItem], newItem: RuleItem)
+    extends ConfigurationMessage
+
+  case class DeleteSingleRule(ruleId: String) extends ConfigurationMessage
+
+  case class DeletedRule(deletedRule: Option[RuleItem]) extends ConfigurationMessage
+}

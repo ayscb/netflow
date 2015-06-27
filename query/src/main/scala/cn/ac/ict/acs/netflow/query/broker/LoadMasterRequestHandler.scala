@@ -34,9 +34,9 @@ import cn.ac.ict.acs.netflow._
 import cn.ac.ict.acs.netflow.util.ActorLogReceive
 
 class LoadMasterRequestHandler(rc: RequestContext,
-                               requestMessage: ConfigurationMessage,
-                               master: ActorSelection,
-                               conf: NetFlowConf)
+  requestMessage: ConfigurationMessage,
+  master: ActorSelection,
+  conf: NetFlowConf)
   extends Actor with ActorLogReceive with Json4sSupport with Logging {
 
   implicit def json4sFormats = DefaultFormats
