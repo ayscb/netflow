@@ -37,6 +37,7 @@ object hadoopTest {
         printf(s"Can not remove file ${outFile.toUri.toString} " +
           s"to ${basePath.toUri.toString.concat("/").concat(fileName)}")
       }
+    }catch {
       case e: IOException =>
         printf(s"Close parquet file error, ${e.getMessage} ")
         printf(s"${e.getStackTrace.toString}")
