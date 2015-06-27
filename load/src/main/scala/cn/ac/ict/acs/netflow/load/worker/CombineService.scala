@@ -47,37 +47,48 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
   setName(s"Combine server")
 
   override def run(): Unit = {
-    logInfo(s"Combine server begins to combine $dirPathStr ...")
-    val fs = FileSystem.get(conf.hadoopConfiguration)
-    val fPath = new Path(dirPathStr)
-    if (!validDirectory(fs, fPath)) {
-      master ! CombineFinished(CombineStatus.UNKNOWN_DIRECTORY)
-      return
-    } // has send the message to master
+    logInfo(s"Combine server begins to combine $dirPathStr")
+    try {
+      val fs = FileSystem.get(conf.hadoopConfiguration)
+      val fPath = new Path(dirPathStr)
+      if (!validDirectory(fs, fPath)) {
+        master ! CombineFinished(CombineStatus.UNKNOWN_DIRECTORY)
+        logInfo(s"Combine server error, validDirectory error!")
+        return
+      } // has send the message to master
 
-    val maxRetryNum = 4
-    var curTry = 0
-    while (maxRetryNum == curTry) {
-      combineFiles(fs, fPath) match {
-        case ParquetState.WAIT =>
-          Thread.sleep(60000 + curTry * 30000)
-          curTry += 1
-        case ParquetState.FINISH =>
-          master! CombineFinished(CombineStatus.FINISH)
-          return
-        case ParquetState.FAIL =>
-          master! CombineFinished(CombineStatus.IO_EXCEPTION)
-          return
+      val maxRetryNum = 4
+      var curTry = 0
+      while (maxRetryNum != curTry) {
+        combineFiles(fs, fPath) match {
+          case ParquetState.WAIT =>
+            Thread.sleep(60000 + curTry * 30000)
+            curTry += 1
+          case ParquetState.FINISH =>
+            master ! CombineFinished(CombineStatus.FINISH)
+            logInfo(s"Combine files finished. ")
+            return
+          case ParquetState.FAIL =>
+            master ! CombineFinished(CombineStatus.IO_EXCEPTION)
+            logInfo(s"Combine files IO exception. ")
+            return
+        }
       }
+
+      if (maxRetryNum == curTry) {
+        // delete the template's file.
+        // Since we believe there
+        mergeParquetFiles(fs, fPath)
+        finishCombine(fs, fPath)
+        master ! CombineFinished(CombineStatus.PARTIAL_FINISH)
+        logInfo(s"delete template file and Combine partial files finished. ")
+      }
+    } catch {
+      case e: IOException =>
+        master ! CombineFinished(CombineStatus.IO_EXCEPTION)
+        logInfo(s"Combine files IO exception. ")
     }
 
-    if (maxRetryNum == curTry) {
-      // delete the template's file.
-      // Since we believe there
-      mergeParquetFiles(fs, fPath)
-      finishCombine(fs, fPath)
-      master ! CombineFinished(CombineStatus.PARTIAL_FINISH)
-    }
   }
 
   /**
@@ -105,6 +116,7 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
 
       val ls = fs.listStatus(dirPath)
       if (ls.isEmpty) {
+        logError(s"[ parquet ] UNKNOWN_DIRECTORY, ${dirPathStr} ")
         master ! CombineFinished(CombineStatus.UNKNOWN_DIRECTORY)
         return false
       }
@@ -202,7 +214,8 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
       val outputStatus = fs.getFileStatus(fPath)
       val footers =
         ParquetFileReader.readAllFootersInParallel(conf.hadoopConfiguration, outputStatus)
-      ParquetFileWriter.writeMetadataFile(conf.hadoopConfiguration, fPath, footers)
+
+      ParquetFileWriter.writeMetadataFile(conf.hadoopConfiguration, outputStatus.getPath, footers)
 
       // write _success File
       finishCombine(fs, fPath)
@@ -245,5 +258,4 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
     fs.close()
   }
 }
-
 
