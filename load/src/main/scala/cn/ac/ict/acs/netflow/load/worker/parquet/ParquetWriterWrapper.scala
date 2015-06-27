@@ -35,13 +35,14 @@ class ParquetWriterWrapper(worker: ActorRef, conf: NetFlowConf)
   require(dicInterValTime > closeDelay,
     "closeInterval should be less than dicInterValTime in netflow configure file")
 
-  private val delayTime = dicInterValTime + closeDelay
-  logInfo(s"totalTime: $delayTime ms. dicTime: $dicInterValTime, closeDelay: $closeDelay")
-
   private val timeToWriters = mutable.HashMap.empty[Long, Writer]
   private val closeWriterScheduler = mutable.HashMap.empty[Writer, ScheduledFuture[_]]
 
-  private def registerCloseScheduler(writer: Writer) = {
+  private def getDelayTime(timeStamp: Long): Long = {
+    dicInterValTime - (timeStamp - load.getTimeBase(timeStamp, conf) ) + closeDelay
+  }
+
+  private def registerCloseScheduler(writer: Writer, timeStamp: Long) = {
 
     closeWriterScheduler(writer) =
       ParquetWriterWrapper.scheduledThreadPool.schedule(new Runnable {
@@ -56,7 +57,7 @@ class ParquetWriterWrapper(worker: ActorRef, conf: NetFlowConf)
           }
           logInfo(s"Close current file ${load.getPathByTime(writer.timeBase(), conf)}")
         }
-      }, delayTime, TimeUnit.MILLISECONDS)
+      }, getDelayTime(timeStamp), TimeUnit.MILLISECONDS)
   }
 
   override def init(): Unit = {}
@@ -66,7 +67,7 @@ class ParquetWriterWrapper(worker: ActorRef, conf: NetFlowConf)
     val writer = timeToWriters.getOrElseUpdate(timeBase, {
       val tbw = new TimelyParquetWriter(timeBase, conf)
       tbw.init()
-      registerCloseScheduler(tbw)
+      registerCloseScheduler(tbw, packetTime)
       tbw
     })
     writer.write(rowIter)
