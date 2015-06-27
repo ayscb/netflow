@@ -18,7 +18,9 @@
  */
 package cn.ac.ict.acs.netflow.load.worker.parquet
 
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import parquet.column.ParquetProperties.WriterVersion
 import parquet.hadoop.ParquetWriter
@@ -86,16 +88,26 @@ class TimelyParquetWriter(val timeBase: Long, val conf: NetFlowConf)
     pw.close()
 
     // move _template file to sub directory
-    val basePath = outputFile.getParent
-    val fileName = outputFile.getName
-    val fs = basePath.getFileSystem(conf.newConfiguration())
-    if (!fs.rename(outputFile, new Path(basePath, fileName))) {
-      logError(s"Can not remove file ${outputFile.toUri.toString} " +
-        s"to ${basePath.toUri.toString.concat("/").concat(fileName)}")
-    }
+    moveFile(outputFile, conf.hadoopConfiguration)
 
     if (memoryManageEnable) {
       removeFromMemManager(pw)
+    }
+  }
+
+  private def moveFile(outFile: Path, conf: Configuration): Unit ={
+    val basePath = outFile.getParent.getParent
+    val fileName = outFile.getName
+    val fs = basePath.getFileSystem(conf)
+    try {
+      if (!fs.rename(outFile, new Path(basePath, fileName))) {
+        printf(s"Can not remove file ${outFile.toUri.toString} " +
+          s"to ${basePath.toUri.toString.concat("/").concat(fileName)}")
+      }
+    } catch {
+      case e: IOException =>
+        printf(s"Close parquet file error, ${e.getMessage} ")
+        printf(s"${e.getStackTrace.toString}")
     }
   }
 }
