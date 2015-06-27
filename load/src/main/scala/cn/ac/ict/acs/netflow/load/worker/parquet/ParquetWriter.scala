@@ -24,13 +24,13 @@ import parquet.column.ParquetProperties.WriterVersion
 import parquet.hadoop.ParquetWriter
 import parquet.hadoop.metadata.CompressionCodecName
 
-import cn.ac.ict.acs.netflow.NetFlowConf
-import cn.ac.ict.acs.netflow.load
+import cn.ac.ict.acs.netflow.{ Logging, NetFlowConf, load }
 import cn.ac.ict.acs.netflow.load.LoadConf
 import cn.ac.ict.acs.netflow.load.worker.{ Row, Writer }
 import cn.ac.ict.acs.netflow.util.Utils
 
-class TimelyParquetWriter(val timeBase: Long, val conf: NetFlowConf) extends Writer {
+class TimelyParquetWriter(val timeBase: Long, val conf: NetFlowConf)
+    extends Writer with Logging {
   import TimelyParquetWriter._
 
   val compression = CompressionCodecName.fromConf(
@@ -84,6 +84,16 @@ class TimelyParquetWriter(val timeBase: Long, val conf: NetFlowConf) extends Wri
 
   override def close() = {
     pw.close()
+
+    // move _template file to sub directory
+    val basePath = outputFile.getParent
+    val fileName = outputFile.getName
+    val fs = basePath.getFileSystem(conf.newConfiguration())
+    if (!fs.rename(outputFile, new Path(basePath, fileName))) {
+      logError(s"Can not remove file ${outputFile.toUri.toString} " +
+        s"to ${basePath.toUri.toString.concat("/").concat(fileName)}")
+    }
+
     if (memoryManageEnable) {
       removeFromMemManager(pw)
     }
