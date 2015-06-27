@@ -45,7 +45,7 @@ final class LoaderService(
     }
   }
 
-  def curThreadsNum: Int = writeThreadRate.size
+  def curThreadsNum: Int = writerThreadPool.getPoolSize
 
   def adjustWritersNum(newThreadNum: Int) = {
 
@@ -86,7 +86,7 @@ final class LoaderService(
     val list = new util.ArrayList[Double]()
     writeThreadRate.synchronized({
       writeThreadRate.valuesIterator.foreach(list.add)
-   //   writeThreadRate.keysIterator.foreach(writeThreadRate(_) = 0.0)
+      //   writeThreadRate.keysIterator.foreach(writeThreadRate(_) = 0.0)
     })
     readRateFlag = false
     RateCount.set(0)
@@ -136,14 +136,14 @@ final class LoaderService(
             }
 
             // reset 'hasRead'
-            if(!readRateFlag & hasRead){
+            if (!readRateFlag & hasRead) {
               hasRead = false
             }
 
             packageCount += 1
             val (flowSets, packetTime) = parse(data)
             while (flowSets.hasNext) {
-              val dfs= flowSets.next().getRows
+              val dfs = flowSets.next().getRows
               writer.write(dfs, packetTime)
             }
 
