@@ -55,7 +55,8 @@ object PacketParser {
     }
 
     val totalDataFSCount = nfParser.getFlowCount(packet, curPos)
-    val nfTime = nfParser.getTime(packet, curPos)
+    val nfTime = System.currentTimeMillis()
+    // nfParser.getTime(packet, curPos)
 
     // 2. skip to netflow body position
     curPos = nfParser.getBodyPos(packet, curPos)
