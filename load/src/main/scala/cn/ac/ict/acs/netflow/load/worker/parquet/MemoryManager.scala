@@ -20,10 +20,11 @@ package cn.ac.ict.acs.netflow.load.worker.parquet
 
 import java.lang.management.ManagementFactory
 
-import cn.ac.ict.acs.netflow.Logging
-import parquet.hadoop.ParquetWriter
-
 import scala.collection.mutable
+
+import org.apache.parquet.hadoop.ParquetWriter
+
+import cn.ac.ict.acs.netflow.Logging
 
 /**
  * copy from parquet.hadoop.MemoryManage

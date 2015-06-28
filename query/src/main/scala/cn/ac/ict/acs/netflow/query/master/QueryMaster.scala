@@ -18,6 +18,10 @@
  */
 package cn.ac.ict.acs.netflow.query.master
 
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{Path, FileSystem}
+import org.apache.hadoop.hdfs.DFSClient
+
 import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.concurrent.Await
@@ -114,7 +118,7 @@ class QueryMaster(
   defaultSparkProperties("spark.master") = sparkMasterUrl
   defaultSparkProperties("spark.app.name") = defaultMainClass
   defaultSparkProperties("spark.jars") = defaultJar
-  defaultSparkProperties("spark.driver.supervise") = "true"
+//  defaultSparkProperties("spark.driver.supervise") = "true"
   val defaultEnvironmentVariables = new mutable.HashMap[String, String]
   defaultEnvironmentVariables("SPARK_SCALA_VERSION") = SCALA_BINARY_VERSION
   defaultEnvironmentVariables("SPARK_HOME") = sparkHome
@@ -568,9 +572,24 @@ class QueryMaster(
 
     val appArgs = desc.appArgs.getOrElse(defaultAppArgs.toArray)
 
-    val effectiveSparkProperties =
-      desc.sparkProperties.map(_ ++ defaultSparkProperties).
-        getOrElse(defaultSparkProperties)
+    val effectiveSparkProperties = mutable.HashMap.empty[String, String]
+
+    effectiveSparkProperties ++= desc.sparkProperties.map(_ ++ defaultSparkProperties).
+      getOrElse(defaultSparkProperties)
+
+    val configuration = new Configuration(false)
+    configuration.set("fs.default.name", "hdfs://localhost:9000")
+
+    val fs = FileSystem.newInstance(configuration)
+
+    if (desc.query.functions != null) {
+      desc.query.functions.map(_.inputPath).foreach { pathStr =>
+        val localPath = new Path(pathStr)
+        localPath.getName
+        fs.copyFromLocalFile(false, true, localPath,
+          new Path(s"/netflow_tmp/$id/${localPath.getName}"))
+      }
+    }
 
     val effectiveEnvironmentVariables =
       desc.environmentVariables.map(_ ++ defaultEnvironmentVariables).

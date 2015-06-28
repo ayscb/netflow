@@ -20,9 +20,9 @@ package cn.ac.ict.acs.netflow.load.worker.parquet
 
 import java.util.concurrent.atomic.AtomicInteger
 import org.apache.hadoop.fs.Path
-import parquet.column.ParquetProperties.WriterVersion
-import parquet.hadoop.ParquetWriter
-import parquet.hadoop.metadata.CompressionCodecName
+import org.apache.parquet.column.ParquetProperties.WriterVersion
+import org.apache.parquet.hadoop.ParquetWriter
+import org.apache.parquet.hadoop.metadata.CompressionCodecName
 
 import cn.ac.ict.acs.netflow.NetFlowConf
 import cn.ac.ict.acs.netflow.load

@@ -18,6 +18,9 @@
  */
 package cn.ac.ict.acs.netflow
 
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.FileSystem
+
 import scala.concurrent.Future
 
 import akka.actor._
@@ -89,11 +92,27 @@ class JobActor(
       sc = new SparkContext(conf)
       val sqlContext = new SQLContext(sc)
 
-      // val result = sqlContext.sql(query.sql)
+//      val result = sqlContext.sql(query.sql)
+//
+//      query.functions.foreach { func =>
+//        func.name match {
+//          case "subnetmap" => SubnetMapping(func.inputPath).udfRegister(sqlContext)
+//        }
+//      }
+
+      logError(System.getProperty("java.class.path"))
 
       import sqlContext.implicits._
-      val a = sc.parallelize(Seq(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), 5)
-      val result = a.toDF()
+
+      Seq(Tuple1("202.114.11.1")).toDF("a").registerTempTable("t")
+
+      val configuration = new Configuration(false)
+      configuration.set("fs.default.name", "hdfs://localhost:9000")
+
+      val fs = FileSystem.newInstance(configuration)
+      SubnetMapping(jobId, "subnet.txt", fs).udfRegister(sqlContext)
+
+      val result = sqlContext.sql("SELECT subnetmap(a) from t")
 
       if (resultTracker != null) {
         val schema = result.toString
