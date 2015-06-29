@@ -18,9 +18,6 @@
  */
 package cn.ac.ict.acs.netflow
 
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.FileSystem
-
 import scala.concurrent.Future
 
 import akka.actor._
@@ -92,33 +89,24 @@ class JobActor(
       sc = new SparkContext(conf)
       val sqlContext = new SQLContext(sc)
 
-//      val result = sqlContext.sql(query.sql)
-//
-//      query.functions.foreach { func =>
-//        func.name match {
-//          case "subnetmap" => SubnetMapping(func.inputPath).udfRegister(sqlContext)
-//        }
-//      }
+      // load root directory, ensure we see all the data
+      sqlContext.read.parquet("/netflow").registerTempTable("t")
 
-      logError(System.getProperty("java.class.path"))
+      query.functions.foreach { func =>
+        func.name match {
+          case "subnetmap" =>
+            SubnetMapping(jobId, getFileName(func.inputPath),
+              conf.get("spark.hadoop.fs.default.name")).udfRegister(sqlContext)
+        }
+      }
 
-      import sqlContext.implicits._
-
-      Seq(Tuple1("202.114.11.1")).toDF("a").registerTempTable("t")
-
-      val configuration = new Configuration(false)
-      configuration.set("fs.default.name", "hdfs://localhost:9000")
-
-      val fs = FileSystem.newInstance(configuration)
-      SubnetMapping(jobId, "subnet.txt", fs).udfRegister(sqlContext)
-
-      val result = sqlContext.sql("SELECT subnetmap(a) from t")
+      val result = sqlContext.sql(query.sql)
 
       if (resultTracker != null) {
         val schema = result.toString
         val sample = result.head(10).map(_.toString)
-        val ouputCount = result.count()
-        resultTracker ! JobResult(jobId, ResultDetail(schema, sample, ouputCount))
+        val outputCount = 0 // result.count()
+        resultTracker ! JobResult(jobId, ResultDetail(schema, sample, outputCount))
       }
       result.write.json(outputPath + "/" + jobId)
 
@@ -132,6 +120,10 @@ class JobActor(
         sc.stop()
       }
     }
+  }
+
+  private def getFileName(path: String) = {
+    path.substring(path.lastIndexOf('/') + 1)
   }
 }
 

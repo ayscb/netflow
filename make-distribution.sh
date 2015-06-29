@@ -18,6 +18,10 @@
 # limitations under the License.
 #
 
+set -o pipefail
+set -e
+set -x
+
 NETFLOW_HOME="$(cd "`dirname "$0"`"; pwd)"
 DISTDIR="$NETFLOW_HOME/dist"
 MVN=`which mvn`
@@ -37,6 +41,10 @@ while (( "$#" )); do
   case $1 in
   --tgz)
     MAKE_TGZ=true
+    ;;
+  --spark)
+    SPARK_DIST="$2"
+    shift
     ;;
   --help)
     exit_with_usage
@@ -63,6 +71,11 @@ cp "$NETFLOW_HOME/README.md" "$DISTDIR"
 cp -r "$NETFLOW_HOME/bin" "$DISTDIR"
 cp -r "$NETFLOW_HOME/sbin" "$DISTDIR"
 cp -r "$NETFLOW_HOME/docs" "$DISTDIR"
+cp -r "$NETFLOW_HOME/dev/json" "$DISTDIR"
+
+if [ -n "$SPARK_DIST" ]; then
+  cp -r "$SPARK_DIST" "$DISTDIR"
+fi
 
 if [ "$MAKE_TGZ" == "true" ]; then
   TARDIR_NAME=netflow-$VERSION-bin

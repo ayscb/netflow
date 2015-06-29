@@ -2,7 +2,7 @@
   "jobName": "xyz",
   "jobType": "adhoc",
   "jobQuery": {
-    "sql": "select subnetmap(ipv4_src_addr) as src, subnetmap(ipv4_dst_addr) as dst, count(1) from t group by src, dst",
+    "sql": "select subnetmap(ipv4_src_addr), subnetmap(ipv4_dst_addr), count(1) from t group by subnetmap(ipv4_src_addr), subnetmap(ipv4_dst_addr)",
     "functions": [
       {
         "name": "subnetmap",

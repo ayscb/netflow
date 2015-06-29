@@ -70,6 +70,12 @@ class QueryMaster(
 
   val sparkHome = System.getenv("SPARK_HOME")
   require(sparkHome != null, "SPARK_HOME env must be set")
+  val sparkPropertiesFile =
+    if (System.getenv("SPARK_PROPERTIES_FILE") == null) {
+      sparkHome + "/" + "spark-defaults.conf"
+    } else {
+      System.getenv("SPARK_PROPERTIES_FILE")
+    }
 
   // Remove a dead broker after given interval
   val REAPER_ITERATIONS = conf.getInt("netflow.dead.broker.persistence", 15)
@@ -118,7 +124,7 @@ class QueryMaster(
   defaultSparkProperties("spark.master") = sparkMasterUrl
   defaultSparkProperties("spark.app.name") = defaultMainClass
   defaultSparkProperties("spark.jars") = defaultJar
-//  defaultSparkProperties("spark.driver.supervise") = "true"
+  defaultSparkProperties("spark.driver.supervise") = "true"
   val defaultEnvironmentVariables = new mutable.HashMap[String, String]
   defaultEnvironmentVariables("SPARK_SCALA_VERSION") = SCALA_BINARY_VERSION
   defaultEnvironmentVariables("SPARK_HOME") = sparkHome
@@ -577,15 +583,17 @@ class QueryMaster(
     effectiveSparkProperties ++= desc.sparkProperties.map(_ ++ defaultSparkProperties).
       getOrElse(defaultSparkProperties)
 
-    val configuration = new Configuration(false)
-    configuration.set("fs.default.name", "hdfs://localhost:9000")
+    val currentSP = Utils.getPropertiesFromFile(sparkPropertiesFile)
+    effectiveSparkProperties ++= currentSP
 
-    val fs = FileSystem.newInstance(configuration)
+//    val configuration = new Configuration(false)
+//    configuration.set("fs.default.name", "hdfs://localhost:9000")
+
+    val fs = FileSystem.newInstance(conf.hadoopConfiguration)
 
     if (desc.query.functions != null) {
       desc.query.functions.map(_.inputPath).foreach { pathStr =>
         val localPath = new Path(pathStr)
-        localPath.getName
         fs.copyFromLocalFile(false, true, localPath,
           new Path(s"/netflow_tmp/$id/${localPath.getName}"))
       }
