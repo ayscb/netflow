@@ -28,17 +28,17 @@ object ParquetSchema extends Logging {
 
   private val headerFields = new Array[Type](5)
   headerFields(0) = new PrimitiveType(REQUIRED, INT64, "time")
-  headerFields(1) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 4, "router_ipv4")
-  headerFields(2) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 16, "router_ipv6")
+  headerFields(1) = new PrimitiveType(OPTIONAL, BINARY, "router_ipv4")
+  headerFields(2) = new PrimitiveType(OPTIONAL, BINARY, "router_ipv6")
   headerFields(3) = null
   headerFields(4) = null
 
   private val bgpFields = new Array[Type](9)
   bgpFields(0) = new PrimitiveType(OPTIONAL, BINARY, "router_prefix")
-  bgpFields(1) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 4, "router_ipv4")
-  bgpFields(2) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 16, "router_ipv6")
-  bgpFields(3) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 4, "next_hop_ipv4")
-  bgpFields(4) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 16, "next_hop_ipv6")
+  bgpFields(1) = new PrimitiveType(OPTIONAL, BINARY, "router_ipv4")
+  bgpFields(2) = new PrimitiveType(OPTIONAL, BINARY, "router_ipv6")
+  bgpFields(3) = new PrimitiveType(OPTIONAL, BINARY, "next_hop_ipv4")
+  bgpFields(4) = new PrimitiveType(OPTIONAL, BINARY, "next_hop_ipv6")
   bgpFields(5) = new PrimitiveType(OPTIONAL, BINARY, "as_path")
   bgpFields(6) = new PrimitiveType(OPTIONAL, BINARY, "community")
   bgpFields(7) = new PrimitiveType(OPTIONAL, BINARY, "adjacent_as")
@@ -54,19 +54,19 @@ object ParquetSchema extends Logging {
   netflowFields(5) = new PrimitiveType(OPTIONAL, INT32, "src_tos")
   netflowFields(6) = new PrimitiveType(OPTIONAL, INT32, "tcp_flags")
   netflowFields(7) = new PrimitiveType(OPTIONAL, INT32, "l4_src_port")
-  netflowFields(8) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 4, "ipv4_src_addr")
+  netflowFields(8) = new PrimitiveType(OPTIONAL, BINARY, "ipv4_src_addr")
   netflowFields(9) = new PrimitiveType(OPTIONAL, INT32, "src_mask")
   netflowFields(10) = new PrimitiveType(OPTIONAL, INT64, "input_snmp")
 
   // 11-20
   netflowFields(11) = new PrimitiveType(OPTIONAL, INT32, "l4_dst_port")
-  netflowFields(12) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 4, "ipv4_dst_addr")
+  netflowFields(12) = new PrimitiveType(OPTIONAL, BINARY, "ipv4_dst_addr")
   netflowFields(13) = new PrimitiveType(OPTIONAL, INT32, "dst_mask")
   netflowFields(14) = new PrimitiveType(OPTIONAL, INT64, "output_snmp")
-  netflowFields(15) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 4, "ipv4_next_hop")
+  netflowFields(15) = new PrimitiveType(OPTIONAL, BINARY, "ipv4_next_hop")
   netflowFields(16) = new PrimitiveType(OPTIONAL, INT64, "src_as")
   netflowFields(17) = new PrimitiveType(OPTIONAL, INT64, "dst_as")
-  netflowFields(18) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 4, "bgp_ipv4_next_hop")
+  netflowFields(18) = new PrimitiveType(OPTIONAL, BINARY, "bgp_ipv4_next_hop")
   netflowFields(19) = new PrimitiveType(OPTIONAL, INT64, "mul_dst_pkts")
   netflowFields(20) = new PrimitiveType(OPTIONAL, INT64, "mul_dst_bytes")
 
@@ -77,8 +77,8 @@ object ParquetSchema extends Logging {
   netflowFields(24) = new PrimitiveType(OPTIONAL, INT64, "out_pkts")
   netflowFields(25) = new PrimitiveType(OPTIONAL, INT32, "min_pkt_lngth")
   netflowFields(26) = new PrimitiveType(OPTIONAL, INT32, "max_pkt_lngth")
-  netflowFields(27) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 16, "ipv6_src_addr")
-  netflowFields(28) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 16, "ipv6_dst_addr")
+  netflowFields(27) = new PrimitiveType(OPTIONAL, BINARY, "ipv6_src_addr")
+  netflowFields(28) = new PrimitiveType(OPTIONAL, BINARY, "ipv6_dst_addr")
   netflowFields(29) = new PrimitiveType(OPTIONAL, INT32, "ipv6_src_mask")
   netflowFields(30) = new PrimitiveType(OPTIONAL, INT32, "ipv6_dst_mask")
 
@@ -101,8 +101,7 @@ object ParquetSchema extends Logging {
   netflowFields(44) = new PrimitiveType(OPTIONAL, INT64, "ipv4_src_prefix")
   netflowFields(45) = new PrimitiveType(OPTIONAL, INT64, "ipv4_dst_prefix")
   netflowFields(46) = new PrimitiveType(OPTIONAL, INT32, "mpls_top_label_type")
-  netflowFields(47) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 4,
-    "mpls_top_label_ip_addr")
+  netflowFields(47) = new PrimitiveType(OPTIONAL, BINARY, "mpls_top_label_ip_addr")
   netflowFields(48) = new PrimitiveType(OPTIONAL, INT32, "flow_sampler_id")
   netflowFields(49) = new PrimitiveType(OPTIONAL, INT32, "flow_sampler_mode")
   netflowFields(50) = new PrimitiveType(OPTIONAL, INT64, "flow_sampler_random_interval")
@@ -113,16 +112,16 @@ object ParquetSchema extends Logging {
   netflowFields(53) = new PrimitiveType(OPTIONAL, INT32, "max_ttl")
   netflowFields(54) = new PrimitiveType(OPTIONAL, INT32, "ipv4_ident")
   netflowFields(55) = new PrimitiveType(OPTIONAL, INT32, "dst_tos")
-  netflowFields(56) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 6, "in_src_mac")
-  netflowFields(57) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 6, "out_dst_mac")
+  netflowFields(56) = new PrimitiveType(OPTIONAL, BINARY, "in_src_mac")
+  netflowFields(57) = new PrimitiveType(OPTIONAL, BINARY, "out_dst_mac")
   netflowFields(58) = new PrimitiveType(OPTIONAL, INT32, "src_vlan")
   netflowFields(59) = new PrimitiveType(OPTIONAL, INT32, "dst_vlan")
   netflowFields(60) = new PrimitiveType(OPTIONAL, INT32, "ip_protocol_version")
 
   // 61-70
   netflowFields(61) = new PrimitiveType(OPTIONAL, INT32, "direction")
-  netflowFields(62) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 16, "ipv6_next_hop")
-  netflowFields(63) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 16, "bpg_ipv6_next_hop")
+  netflowFields(62) = new PrimitiveType(OPTIONAL, BINARY, "ipv6_next_hop")
+  netflowFields(63) = new PrimitiveType(OPTIONAL, BINARY, "bpg_ipv6_next_hop")
   netflowFields(64) = new PrimitiveType(OPTIONAL, INT64, "ipv6_option_headers")
   netflowFields(65) = null // *Vendor Proprietary
   netflowFields(66) = null // *Vendor Proprietary
@@ -141,10 +140,10 @@ object ParquetSchema extends Logging {
   netflowFields(77) = new PrimitiveType(OPTIONAL, INT32, "mpls_label_8") // contain 20bit
   netflowFields(78) = new PrimitiveType(OPTIONAL, INT32, "mpls_label_9") // contain 20bit
   netflowFields(79) = new PrimitiveType(OPTIONAL, INT32, "mpls_label_10") // contain 20bit
-  netflowFields(80) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 6, "in_dst_mac")
+  netflowFields(80) = new PrimitiveType(OPTIONAL, BINARY, "in_dst_mac")
 
   // 81-90
-  netflowFields(81) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 6, "out_src_mac")
+  netflowFields(81) = new PrimitiveType(OPTIONAL, BINARY, "out_src_mac")
   netflowFields(82) = new PrimitiveType(OPTIONAL, BINARY, "if_name")
   netflowFields(83) = new PrimitiveType(OPTIONAL, BINARY, "if_desc")
   netflowFields(84) = new PrimitiveType(OPTIONAL, BINARY, "sampler_name")
@@ -152,8 +151,8 @@ object ParquetSchema extends Logging {
   netflowFields(86) = new PrimitiveType(OPTIONAL, INT64, "in_permanent_pkts")
   netflowFields(87) = null // *Vendor Proprietary
   netflowFields(88) = new PrimitiveType(OPTIONAL, INT32, "fragment_offset")
-  netflowFields(89) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 1, "forwarding_status")
-  netflowFields(90) = new PrimitiveType(OPTIONAL, FIXED_LEN_BYTE_ARRAY, 8, "mpls_pal_rd")
+  netflowFields(89) = new PrimitiveType(OPTIONAL, BINARY, "forwarding_status")
+  netflowFields(90) = new PrimitiveType(OPTIONAL, BINARY, "mpls_pal_rd")
 
   // 91-100
   netflowFields(91) = new PrimitiveType(OPTIONAL, INT32, "mpls_prefix_len")
