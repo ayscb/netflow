@@ -83,9 +83,9 @@ class DataFlowSet(val bb: ByteBuffer, val packetTime: Long, val routerIp: Array[
     new Iterator[Row] {
       var curRow = new MutableRow(bb, template)
       if (routerIp.length == 4) {
-        curRow.setHeader(new RowHeader(Array[Any](packetTime, routerIp, null)))
+        curRow.setHeader(new RowHeader(Array[Any](packetTime, new String(routerIp), null)))
       } else if (routerIp.length == 16) {
-        curRow.setHeader(new RowHeader(Array[Any](packetTime, null, routerIp)))
+        curRow.setHeader(new RowHeader(Array[Any](packetTime, null, new String(routerIp))))
       } else {
         existTmp = false // skip the package
       }
