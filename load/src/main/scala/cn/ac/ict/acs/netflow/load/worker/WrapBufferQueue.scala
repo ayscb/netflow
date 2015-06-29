@@ -25,6 +25,46 @@ import cn.ac.ict.acs.netflow.load.LoadConf
 import cn.ac.ict.acs.netflow.{ NetFlowConf, Logging }
 import cn.ac.ict.acs.netflow.util.ThreadUtils
 
+object WrapBufferQueue {
+  val scheduledThreadPool =
+    ThreadUtils.newDaemonScheduledExecutor("WrapBufferQueue-ScheduledExecutor", 4)
+  val sampleInterval = 30 // s
+
+  def registerScheduled(wrapBuff: WrapBufferQueue): Unit = {
+
+    def resetFlag(delay: Long, isMasterReport: Boolean) = new Runnable {
+      override def run(): Unit = {
+        val curSize = wrapBuff.bufferQueue.size()
+        if (curSize > wrapBuff.lastQueueSize) { // when the size is increase, reset the flag
+          if (isMasterReport) {
+            wrapBuff.reportMasterFlag = true
+          } else {
+            wrapBuff.reportWorkerFlag = true
+          }
+        }
+        wrapBuff.lastQueueSize = curSize
+      }
+    }
+
+    scheduledThreadPool.scheduleAtFixedRate(
+      resetFlag(wrapBuff.reportMasterDelay, isMasterReport = true),
+      0, wrapBuff.reportMasterDelay, TimeUnit.SECONDS)
+
+    scheduledThreadPool.scheduleAtFixedRate(
+      resetFlag(wrapBuff.reportWorkerDelay, isMasterReport = false),
+      0, wrapBuff.reportWorkerDelay, TimeUnit.SECONDS)
+
+    scheduledThreadPool.scheduleAtFixedRate(new Runnable {
+      override def run(): Unit = synchronized {
+        wrapBuff.enqueueRate = 1.0 * wrapBuff.enqueueCount / sampleInterval
+        wrapBuff.enqueueCount = 0
+        wrapBuff.dequeueRate = 1.0 * wrapBuff.dequeueCount / sampleInterval
+        wrapBuff.dequeueCount = 0
+      }
+    }, 0, sampleInterval, TimeUnit.SECONDS)
+  }
+}
+
 class WrapBufferQueue(
     val loadBalanceStrategyFunc: () => Unit,
     val sendOverflowMessage: () => Unit,
@@ -51,42 +91,8 @@ class WrapBufferQueue(
   @volatile var enqueueRate: Double = 0
   @volatile var dequeueCount: Int = 0
   @volatile var dequeueRate: Double = 0
-  val interval = 30 // s
 
-  private val scheduledThreadPool = Executors.newScheduledThreadPool(4)
-
-  private def runnable(delay: Long, isMasterReport: Boolean) = new Runnable {
-    override def run(): Unit = {
-      val curSize = bufferQueue.size()
-      val curRate = 1.0 * (curSize - lastQueueSize) / delay
-      if (curRate > 0) {
-        // means the rate is increase
-        if (isMasterReport) {
-          reportMasterFlag = true
-        } else {
-          reportWorkerFlag = true
-        }
-      }
-      lastQueueSize = curSize
-    }
-  }
-
-  scheduledThreadPool.scheduleWithFixedDelay(
-    runnable(reportMasterDelay, isMasterReport = true),
-    0, reportMasterDelay, TimeUnit.SECONDS)
-
-  scheduledThreadPool.scheduleWithFixedDelay(
-    runnable(reportWorkerDelay, isMasterReport = false),
-    0, reportWorkerDelay, TimeUnit.SECONDS)
-
-  scheduledThreadPool.scheduleAtFixedRate(new Runnable {
-    override def run(): Unit = synchronized {
-      enqueueRate = 1.0 * enqueueCount / interval
-      enqueueCount = 0
-      dequeueRate = 1.0 * dequeueCount / interval
-      dequeueCount = 0
-    }
-  }, 0, interval, TimeUnit.SECONDS)
+  WrapBufferQueue.registerScheduled(this) // statistic rate by Daemon thread
 
   // get the element from queue , block when the queue is empty
   def take = {

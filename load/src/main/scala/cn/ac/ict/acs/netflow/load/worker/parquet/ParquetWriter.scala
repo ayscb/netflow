@@ -18,19 +18,21 @@
  */
 package cn.ac.ict.acs.netflow.load.worker.parquet
 
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.column.ParquetProperties.WriterVersion
 import org.apache.parquet.hadoop.ParquetWriter
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
 
-import cn.ac.ict.acs.netflow.NetFlowConf
-import cn.ac.ict.acs.netflow.load
+import cn.ac.ict.acs.netflow.{ Logging, NetFlowConf, load }
 import cn.ac.ict.acs.netflow.load.LoadConf
 import cn.ac.ict.acs.netflow.load.worker.{ Row, Writer }
 import cn.ac.ict.acs.netflow.util.Utils
 
-class TimelyParquetWriter(val timeBase: Long, val conf: NetFlowConf) extends Writer {
+class TimelyParquetWriter(val timeBase: Long, val conf: NetFlowConf)
+    extends Writer with Logging {
   import TimelyParquetWriter._
 
   val compression = CompressionCodecName.fromConf(
@@ -84,8 +86,28 @@ class TimelyParquetWriter(val timeBase: Long, val conf: NetFlowConf) extends Wri
 
   override def close() = {
     pw.close()
+
+    // move _template file to sub directory
+    moveFile(outputFile, conf.hadoopConfiguration)
+
     if (memoryManageEnable) {
       removeFromMemManager(pw)
+    }
+  }
+
+  private def moveFile(outFile: Path, conf: Configuration): Unit ={
+    val basePath = outFile.getParent.getParent
+    val fileName = outFile.getName
+    val fs = basePath.getFileSystem(conf)
+    try {
+      if (!fs.rename(outFile, new Path(basePath, fileName))) {
+        printf(s"Can not remove file ${outFile.toUri.toString} " +
+          s"to ${basePath.toUri.toString.concat("/").concat(fileName)}")
+      }
+    } catch {
+      case e: IOException =>
+        printf(s"Close parquet file error, ${e.getMessage} ")
+        printf(s"${e.getStackTrace.toString}")
     }
   }
 }

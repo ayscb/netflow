@@ -32,7 +32,7 @@ final class LoaderService(
     private val bufferList: WrapBufferQueue,
     private val conf: NetFlowConf) extends Logging {
 
-  private val writerThreadPool = ThreadUtils.newDaemonCachedThreadPool("parquetWriterPool")
+  private val writerThreadPool = ThreadUtils.newDaemonCachedThreadPool("loadService-writerPool")
 
   private val writeThreadRate = new mutable.HashMap[Thread, Double]()
   private val RateCount = new java.util.concurrent.atomic.AtomicInteger()
@@ -86,7 +86,6 @@ final class LoaderService(
     val list = new util.ArrayList[Double]()
     writeThreadRate.synchronized({
       writeThreadRate.valuesIterator.foreach(list.add)
-      //   writeThreadRate.keysIterator.foreach(writeThreadRate(_) = 0.0)
     })
     readRateFlag = false
     RateCount.set(0)
@@ -120,7 +119,8 @@ final class LoaderService(
         logInfo("[Netflow] Start sub Write Parquet %d"
           .format(Thread.currentThread().getId))
 
-        writeThreadRate.synchronized(writeThreadRate(Thread.currentThread()) = 0.0)
+        writeThreadRate(Thread.currentThread()) = 0.0
+
         startTime = System.currentTimeMillis()
         packageCount = 0
 
@@ -128,8 +128,7 @@ final class LoaderService(
           while (true) {
             val data = bufferList.take // block when this list is empty
             if (readRateFlag && !hasRead) {
-              writeThreadRate
-                .synchronized(writeThreadRate(Thread.currentThread()) = getCurrentRate)
+              writeThreadRate(Thread.currentThread()) = getCurrentRate
 
               RateCount.incrementAndGet()
               hasRead = true

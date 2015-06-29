@@ -30,10 +30,10 @@ object TimeUtils {
   val CREATE_PATTERN = "yyyyMMddHHmmss"
   val SHOW_PATTERN = "yyyy-MM-dd,HH:mm:ss"
 
-  val SECOND_PATH_PATTERN = "/yyyy/MM/dd/HH/mm/ss"
-  val MINUTE_PATH_PATTERN = "/yyyy/MM/dd/HH/mm"
-  val HOUR_PATH_PATTERN = "/yyyy/MM/dd/HH"
-  val DAY_PATH_PATTERN = "/yyyy/MM/dd"
+  val SECOND_PATH_PATTERN = "/'year='yyyy/'month='MM/'day='dd/'hr='HH/'min='mm/'sec='ss"
+  val MINUTE_PATH_PATTERN = "/'year='yyyy/'month='MM/'day='dd/'hr='HH/'min='mm"
+  val HOUR_PATH_PATTERN = "/'year='yyyy/'month='MM/'day='dd/'hr='HH"
+  val DAY_PATH_PATTERN = "/'year='yyyy/'month='MM/'day='dd"
 
   def newFormat(patternStr: String): DateTimeFormatter = {
     DateTimeFormat.forPattern(patternStr)
