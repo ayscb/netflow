@@ -44,11 +44,21 @@ package object load {
     newFormat(fmtStr)
   }
 
+  /**
+   *
+   * @param conf netflow configure
+   * @return  the ms time
+   */
   def dirCreationInterval(conf: NetFlowConf): Long = {
     val interval = conf.get(LOAD_DIR_CREATION_INTERVAL, "10min")
     timeStringAsMs(interval)
   }
 
+  /**
+   *
+   * @param conf  netflow configure
+   * @return  ms Time
+   */
   def writerCloseDelay(conf: NetFlowConf): Long = {
     val interval = conf.get(CLOSE_DELAY, "3min")
     timeStringAsMs(interval)
