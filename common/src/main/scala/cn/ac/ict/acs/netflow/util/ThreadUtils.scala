@@ -78,7 +78,8 @@ object ThreadUtils {
    * Wrapper over newSingleThreadExecutor.
    */
   def newDaemonSingleThreadExecutor(threadName: String): ExecutorService = {
-    val threadFactory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat(threadName).build()
+    val threadFactory =
+      new ThreadFactoryBuilder().setDaemon(true).setNameFormat(threadName).build()
     Executors.newSingleThreadExecutor(threadFactory)
   }
 
@@ -86,7 +87,16 @@ object ThreadUtils {
    * Wrapper over newSingleThreadScheduledExecutor.
    */
   def newDaemonSingleThreadScheduledExecutor(threadName: String): ScheduledExecutorService = {
-    val threadFactory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat(threadName).build()
+    val threadFactory =
+      new ThreadFactoryBuilder().setDaemon(true).setNameFormat(threadName).build()
     Executors.newSingleThreadScheduledExecutor(threadFactory)
+  }
+
+  /**
+   * Wrapper over ScheduledExecutor. Only for running period job or delay job
+   */
+  def newDaemonScheduledExecutor(threadName: String, threadNum: Int): ScheduledExecutorService = {
+    val threadFactory = namedThreadFactory(threadName)
+    Executors.newScheduledThreadPool(threadNum, threadFactory)
   }
 }
