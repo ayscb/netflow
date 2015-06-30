@@ -23,6 +23,4 @@ sbin=`cd "$sbin"; pwd`
 
 . "$sbin/netflow-config.sh"
 
-. "$NETFLOW_PREFIX/bin/load-netflow-env.sh"
-
-"$sbin"/netflow-daemons.sh stop cn.ac.ict.acs.netflow.query.broker.RestBroker 1
+"$sbin"/netflow-daemon.sh stop cn.ac.ict.acs.netflow.query.broker.RestBroker 1

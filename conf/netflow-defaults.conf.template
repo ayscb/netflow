@@ -1,0 +1,7 @@
+# Default properties included when launching a netflow component
+# This is useful for default settings.
+
+# Overall settings
+netflow.hadoop.fs.default.name      hdfs://localhost:9000
+netflow.spark.master
+netflow.spark.rest.master

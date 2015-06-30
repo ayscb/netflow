@@ -57,12 +57,16 @@ while (( "$#" )); do
 done
 
 VERSION=$("$MVN" help:evaluate -Dexpression=project.version 2>/dev/null | grep -v "INFO" | tail -n 1)
+SCALA_VERSION=$("$MVN" help:evaluate -Dexpression=scala.binary.version $@ 2>/dev/null\
+    | grep -v "INFO"\
+    | tail -n 1)
 
 rm -rf "$DISTDIR"
 mkdir -p "$DISTDIR/lib"
 echo "NETFLOW $VERSION" >> "$DISTDIR/RELEASE"
 
 cp "$NETFLOW_HOME"/assembly/target/*assembly*.jar "$DISTDIR/lib/"
+cp "$NETFLOW_HOME"/sparkjob/target/scala-$SCALA_VERSION/sparkjob*.jar "$DISTDIR/lib/"
 
 # Copy other things
 mkdir "$DISTDIR"/conf
