@@ -20,11 +20,11 @@ package cn.as.ict.acs.netflow.load.worker
 
 import java.io.{IOException, FileNotFoundException}
 
+import _root_.parquet.hadoop.{ParquetFileWriter, ParquetFileReader}
 import cn.ac.ict.acs.netflow.load.LoadConf
 
 import cn.ac.ict.acs.netflow.{NetFlowException, load, Logging, NetFlowConf}
 import org.apache.hadoop.fs.{PathFilter, Path, FileSystem}
-import parquet.hadoop.{ParquetFileWriter, ParquetFileReader}
 
 object CombineServiceT{
 

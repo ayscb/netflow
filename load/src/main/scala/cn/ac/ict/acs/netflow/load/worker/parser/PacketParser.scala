@@ -21,9 +21,9 @@ package cn.ac.ict.acs.netflow.load.worker.parser
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
 
-import cn.ac.ict.acs.netflow.NetFlowException
+import cn.ac.ict.acs.netflow.{Logging, NetFlowException}
 
-object PacketParser {
+object PacketParser extends Logging{
   val templates = new ConcurrentHashMap[TemplateKey, Template]
 
   /**
@@ -42,6 +42,7 @@ object PacketParser {
       packet.get(ip)
       ip
     }
+    logDebug(s"router IP: " + routerIp.map(_&0xff).mkString("."))
 
     var validFlag = true
     curPos = packet.position() // after ip, this position is netflow header pos
@@ -50,7 +51,11 @@ object PacketParser {
       nfVersion match {
         case 5 => V5Parser
         case 9 => V9Parser
-        case _ => throw new NetFlowException("unknown packet version.")
+        case _ => {
+          logDebug(s"unnkow version, for $nfVersion")
+          logDebug(s"data: " + packet.array().map(_&0xff).mkString(" "))
+          // throw new NetFlowException("unknown packet version.")
+        }
       }
     }
 
