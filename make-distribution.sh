@@ -18,6 +18,10 @@
 # limitations under the License.
 #
 
+set -o pipefail
+set -e
+set -x
+
 NETFLOW_HOME="$(cd "`dirname "$0"`"; pwd)"
 DISTDIR="$NETFLOW_HOME/dist"
 MVN=`which mvn`
@@ -38,6 +42,10 @@ while (( "$#" )); do
   --tgz)
     MAKE_TGZ=true
     ;;
+  --spark)
+    SPARK_DIST="$2"
+    shift
+    ;;
   --help)
     exit_with_usage
     ;;
@@ -49,12 +57,16 @@ while (( "$#" )); do
 done
 
 VERSION=$("$MVN" help:evaluate -Dexpression=project.version 2>/dev/null | grep -v "INFO" | tail -n 1)
+SCALA_VERSION=$("$MVN" help:evaluate -Dexpression=scala.binary.version $@ 2>/dev/null\
+    | grep -v "INFO"\
+    | tail -n 1)
 
 rm -rf "$DISTDIR"
 mkdir -p "$DISTDIR/lib"
 echo "NETFLOW $VERSION" >> "$DISTDIR/RELEASE"
 
 cp "$NETFLOW_HOME"/assembly/target/*assembly*.jar "$DISTDIR/lib/"
+cp "$NETFLOW_HOME"/sparkjob/target/scala-$SCALA_VERSION/sparkjob*.jar "$DISTDIR/lib/"
 
 # Copy other things
 mkdir "$DISTDIR"/conf
@@ -63,6 +75,11 @@ cp "$NETFLOW_HOME/README.md" "$DISTDIR"
 cp -r "$NETFLOW_HOME/bin" "$DISTDIR"
 cp -r "$NETFLOW_HOME/sbin" "$DISTDIR"
 cp -r "$NETFLOW_HOME/docs" "$DISTDIR"
+cp -r "$NETFLOW_HOME/dev/json" "$DISTDIR"
+
+if [ -n "$SPARK_DIST" ]; then
+  cp -r "$SPARK_DIST" "$DISTDIR"
+fi
 
 if [ "$MAKE_TGZ" == "true" ]; then
   TARDIR_NAME=netflow-$VERSION-bin

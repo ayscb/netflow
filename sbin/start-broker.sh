@@ -24,4 +24,4 @@
 sbin="`dirname "$0"`"
 sbin="`cd "$sbin"; pwd`"
 
-"$sbin"/netflow-daemon.sh start cn.ac.ict.acs.netflow.query.broker.RestBroker "$@"
+"$sbin"/netflow-daemon.sh start cn.ac.ict.acs.netflow.query.broker.RestBroker 1 "$@"

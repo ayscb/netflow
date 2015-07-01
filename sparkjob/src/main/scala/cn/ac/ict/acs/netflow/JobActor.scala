@@ -89,17 +89,24 @@ class JobActor(
       sc = new SparkContext(conf)
       val sqlContext = new SQLContext(sc)
 
-      // val result = sqlContext.sql(query.sql)
+      // load root directory, ensure we see all the data
+      sqlContext.read.parquet("/netflow").registerTempTable("t")
 
-      import sqlContext.implicits._
-      val a = sc.parallelize(Seq(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), 5)
-      val result = a.toDF()
+      query.functions.foreach { func =>
+        func.name match {
+          case "subnetmap" =>
+            SubnetMapping(jobId, getFileName(func.inputPath),
+              conf.get("spark.hadoop.fs.default.name")).udfRegister(sqlContext)
+        }
+      }
+
+      val result = sqlContext.sql(query.sql)
 
       if (resultTracker != null) {
         val schema = result.toString
         val sample = result.head(10).map(_.toString)
-        val ouputCount = result.count()
-        resultTracker ! JobResult(jobId, ResultDetail(schema, sample, ouputCount))
+        val outputCount = 0 // result.count()
+        resultTracker ! JobResult(jobId, ResultDetail(schema, sample, outputCount))
       }
       result.write.json(outputPath + "/" + jobId)
 
@@ -113,6 +120,10 @@ class JobActor(
         sc.stop()
       }
     }
+  }
+
+  private def getFileName(path: String) = {
+    path.substring(path.lastIndexOf('/') + 1)
   }
 }
 

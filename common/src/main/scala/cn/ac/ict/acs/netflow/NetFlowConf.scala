@@ -32,7 +32,7 @@ object NetFlowConf {
 
 }
 
-class NetFlowConf(loadDefaults: Boolean) extends Serializable {
+class NetFlowConf(loadDefaults: Boolean) extends Serializable with Logging {
 
   def this() = this(true)
 
@@ -116,7 +116,7 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
   }
 
   /** Get a parameter as a float, falling back to a default if not set */
-  def getFloat(key :String,  defaultValue: Float) : Float = {
+  def getFloat(key: String, defaultValue: Float): Float = {
     getOption(key).map(_.toFloat).getOrElse(defaultValue)
   }
 
@@ -141,12 +141,14 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
    */
   def newConfiguration(): Configuration = {
     val hadoopConf = new Configuration()
+    hadoopConf.addResource("hdfs-site.xml")
 
     // Copy any "netflow.hadoop.foo=bar" system properties into conf as "foo=bar"
-    getAll.foreach { case (key, value) =>
-      if (key.startsWith("netflow.hadoop.")) {
-        hadoopConf.set(key.substring("netflow.hadoop.".length), value)
-      }
+    getAll.foreach {
+      case (key, value) =>
+        if (key.startsWith("netflow.hadoop.")) {
+          hadoopConf.set(key.substring("netflow.hadoop.".length), value)
+        }
     }
 
     val bufferSize = get("netflow.buffer.size", "65536")

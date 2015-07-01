@@ -18,9 +18,9 @@
  */
 package cn.ac.ict.acs.netflow.load.worker.parquet
 
-import parquet.schema.PrimitiveType.PrimitiveTypeName._
-import parquet.schema.Type.Repetition._
-import parquet.schema.{ PrimitiveType, Type, MessageType }
+import org.apache.parquet.schema.{MessageType, Type, PrimitiveType}
+import org.apache.parquet.schema.Type.Repetition._
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName._
 
 import cn.ac.ict.acs.netflow.{ Logging, NetFlowException }
 

@@ -20,9 +20,9 @@ package cn.ac.ict.acs.netflow.load.worker
 
 import java.io.{ IOException, FileNotFoundException }
 
-import _root_.parquet.hadoop.{ ParquetFileWriter, ParquetFileReader }
-
 import akka.actor.ActorSelection
+
+import org.apache.parquet.hadoop.{ParquetFileWriter, ParquetFileReader}
 
 import org.apache.hadoop.fs.{ FileStatus, PathFilter, Path, FileSystem }
 
@@ -37,6 +37,7 @@ import cn.ac.ict.acs.netflow.{ NetFlowException, NetFlowConf, Logging }
  */
 class CombineService(val timestamp: Long, val master: ActorSelection, val conf: NetFlowConf)
     extends Thread with Logging {
+
 
   object ParquetState extends Enumeration {
     type ParquetState = Value

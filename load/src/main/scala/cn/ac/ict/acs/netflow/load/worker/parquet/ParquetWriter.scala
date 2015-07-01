@@ -22,9 +22,9 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import parquet.column.ParquetProperties.WriterVersion
-import parquet.hadoop.ParquetWriter
-import parquet.hadoop.metadata.CompressionCodecName
+import org.apache.parquet.column.ParquetProperties.WriterVersion
+import org.apache.parquet.hadoop.ParquetWriter
+import org.apache.parquet.hadoop.metadata.CompressionCodecName
 
 import cn.ac.ict.acs.netflow.{ Logging, NetFlowConf, load }
 import cn.ac.ict.acs.netflow.load.LoadConf

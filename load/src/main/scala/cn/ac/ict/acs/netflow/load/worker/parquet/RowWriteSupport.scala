@@ -30,9 +30,9 @@ import scala.collection.JavaConverters._
 
 import org.apache.hadoop.conf.Configuration
 
-import parquet.hadoop.api.WriteSupport
-import parquet.io.api.{ Binary, RecordConsumer }
-import parquet.schema.PrimitiveType.PrimitiveTypeName._
+import org.apache.parquet.hadoop.api.WriteSupport
+import org.apache.parquet.io.api.{ Binary, RecordConsumer }
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName._
 
 import cn.ac.ict.acs.netflow.Logging
 
