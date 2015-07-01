@@ -148,6 +148,7 @@ class MasterService(val master: ActorRef, val conf: NetFlowConf)
         val curContent = holder.content
         channelRead(channel, curContent)
         if (!curContent.hasRemaining) {
+          logDebug(s"request data from ${getRemoteIp(channel)}, data is ${curContent.array()}")
           dealWithCommand(channel, curContent)
           holder.content = null
           holder.len.clear()
@@ -192,10 +193,15 @@ class MasterService(val master: ActorRef, val conf: NetFlowConf)
 
       // delete dead worker
       CommandSet.getDeadWorker(data) match {
-        case Some(result) => master ! DeleWorker(result._1, result._2)
+        case Some(result) => {
+          logDebug(s"Tell master to delete unreachable ip ${result._1}:${result._2}")
+          master ! DeleWorker(result._1, result._2)
+        }
         case None =>
       }
-      master ! RequestWorker(getRemoteIp(curChannel))
+      val remoteIP = getRemoteIp(curChannel)
+      logDebug(s"Tell master request a worker ip for $remoteIP")
+      master ! RequestWorker(remoteIP)
     }
   }
 
