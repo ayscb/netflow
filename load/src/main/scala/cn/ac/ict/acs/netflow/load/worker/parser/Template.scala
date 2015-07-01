@@ -21,6 +21,16 @@ package cn.ac.ict.acs.netflow.load.worker.parser
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
 
+object TemplateKey{
+  def apply(routerIp: Array[Byte], templateId: Int): Unit ={
+    if(routerIp==null){
+      new TemplateKey(Array('0'),templateId)
+    }else{
+      new TemplateKey(routerIp,templateId)
+    }
+  }
+}
+
 case class TemplateKey(routerIp: Array[Byte], templateId: Int) {
   override def hashCode(): Int = {
     java.util.Arrays.hashCode(routerIp) + templateId
