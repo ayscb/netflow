@@ -48,7 +48,9 @@ import cn.ac.ict.acs.netflow.load.worker.{ RowHeader, Row, MutableRow }
  * |           record m field n         |
  * --------------------------------------
  */
-class DataFlowSet(val bb: ByteBuffer, val packetTime: Long, val routerIp: Array[Byte]) {
+class DataFlowSet(val bb: ByteBuffer,
+                  val packetTime: Long, val routerIp: Array[Byte],
+                  val version: Int) {
   private val fsHeaderLen = 4
 
   private var dfsStartPos = 0
@@ -70,7 +72,11 @@ class DataFlowSet(val bb: ByteBuffer, val packetTime: Long, val routerIp: Array[
     dfsEndPos = startPos + fsLen
 
     //  println(s"[getNextDfS] startPos:${dfsStartPos}, endpos: ${dfsEndPos}, fsid:${fsId}")
-    val tempKey = new TemplateKey(routerIp, fsId)
+    val tempKey: TemplateKey = version match {
+      case 9 => TemplateKey(routerIp, fsId)
+      case _ => TemplateKey(null, version)
+    }
+
     existTmp = PacketParser.templates.containsKey(tempKey)
     if (existTmp) {
       template = PacketParser.templates.get(tempKey)
