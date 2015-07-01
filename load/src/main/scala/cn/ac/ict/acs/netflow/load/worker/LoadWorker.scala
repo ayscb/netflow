@@ -21,19 +21,20 @@ package cn.ac.ict.acs.netflow.load.worker
 import java.net.InetAddress
 import java.util
 import java.util.UUID
-import akka.actor._
-import akka.remote.{ DisassociatedEvent, RemotingLifecycleEvent }
-import cn.ac.ict.acs.netflow.metrics.MetricsSystem
 
-import org.joda.time.DateTime
-import cn.ac.ict.acs.netflow._
-import cn.ac.ict.acs.netflow.load.{ LoadConf, LoadMessages }
-import cn.ac.ict.acs.netflow.load.master.LoadMaster
-import cn.ac.ict.acs.netflow.util._
-
-import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 import scala.concurrent.duration._
+
+import akka.actor._
+import akka.remote.{ DisassociatedEvent, RemotingLifecycleEvent }
+
+import org.joda.time.DateTime
+
+import cn.ac.ict.acs.netflow._
+import cn.ac.ict.acs.netflow.load.{ LoadConf, LoadMessages }
+import cn.ac.ict.acs.netflow.util._
+import cn.ac.ict.acs.netflow.metrics.MetricsSystem
+
 
 class LoadWorker(
   host: String,

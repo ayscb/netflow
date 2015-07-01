@@ -21,16 +21,12 @@ package cn.ac.ict.acs.netflow
 import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
 
-import org.apache.hadoop.conf.Configuration
-
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
 
+import org.apache.hadoop.conf.Configuration
+
 import cn.ac.ict.acs.netflow.util.Utils
-
-object NetFlowConf {
-
-}
 
 class NetFlowConf(loadDefaults: Boolean) extends Serializable {
 
@@ -141,6 +137,7 @@ class NetFlowConf(loadDefaults: Boolean) extends Serializable {
    */
   def newConfiguration(): Configuration = {
     val hadoopConf = new Configuration()
+    hadoopConf.addResource("hdfs-site.xml")
 
     // Copy any "netflow.hadoop.foo=bar" system properties into conf as "foo=bar"
     getAll.foreach { case (key, value) =>
