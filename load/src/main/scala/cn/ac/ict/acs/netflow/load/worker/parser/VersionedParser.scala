@@ -142,8 +142,7 @@ object V5Parser extends VersionedParser {
     (2, 4), (1, 4), (22, 4), (21, 4), (7, 2),
     (11, 2), (-1, 2), (6, 1), (4, 1), (5, 1),
     (16, 2), (17, 2), (9, 1), (13, 1), (-1, 2))
-  val temp = new Template(5, 20).createTemplate()
-  temp.createTemplate(tmpArray: _*)
+  val temp = new Template(5, 20).createTemplate(tmpArray: _*)
   PacketParser.templates.put(TemplateKey(null, 5), temp)
 
   override def getVersion: Int = 5
