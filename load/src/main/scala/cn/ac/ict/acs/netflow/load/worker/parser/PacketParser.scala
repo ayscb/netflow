@@ -21,9 +21,9 @@ package cn.ac.ict.acs.netflow.load.worker.parser
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
 
-import cn.ac.ict.acs.netflow.{Logging, NetFlowException}
+import cn.ac.ict.acs.netflow.{ Logging, NetFlowException }
 
-object PacketParser extends Logging{
+object PacketParser extends Logging {
   val templates = new ConcurrentHashMap[TemplateKey, Template]
 
   /**
@@ -31,66 +31,96 @@ object PacketParser extends Logging{
    * @param packet
    * @return (Iterator[FlowSet] , PacketTime)
    */
+
   // def parse(packet: ByteBuffer): (Iterator[DataFlowSet], Long) = {
   def parse(packet: ByteBuffer): (Iterator[DataFlowSet], Long) = {
 
-    // 1. router ip
-    var curPos = 0
-    val routerIp = {
-      val ipLen = if (packet.get() == 4) 4 else 16
-      val ip = new Array[Byte](ipLen)
-      packet.get(ip)
-      ip
-    }
-    logDebug(s"router IP: " + routerIp.map(_&0xff).mkString("."))
+    try {
+      // 1. router ip
+      logWarning(s"begin parser, current packet's pos ${packet.position()}")
+      var curPos = 0
+      val routerIp = {
+        val ipLen = if (packet.get() == 4) 4 else 16
+        val ip = new Array[Byte](ipLen)
+        packet.get(ip)
+        ip
+      }
+      logWarning(s"--->after routerIp. router IP ${routerIp.map(_ & 0xff).mkString(".")}, " +
+        s"current packet's pos ${packet.position()}")
 
-    var validFlag = true
-    curPos = packet.position() // after ip, this position is netflow header pos
-    val nfVersion = packet.getShort(curPos)
-    val nfParser = {
-      nfVersion match {
-        case 5 => V5Parser
-        case 9 => V9Parser
-        case _ => {
-          logDebug(s"unnkow version, for $nfVersion")
-          logDebug(s"data: " + packet.array().map(_&0xff).mkString(" "))
-          // throw new NetFlowException("unknown packet version.")
+      // var validFlag = true
+      curPos = packet.position() // after ip, this position is netflow header pos
+      val nfVersion = packet.getShort(curPos)
+      logWarning(s"get nVersion = $nfVersion, current packet's pos ${packet.position()}")
+
+      val nfParser = {
+        nfVersion match {
+          case 5 => V5Parser
+          case 9 => V9Parser
+          case _ =>
+            throw new NetFlowException(s"unknown packet version. $nfVersion, " +
+              s"router IP ${routerIp.map(_ & 0xff).mkString(".")} ")
+
         }
       }
-    }
+      logWarning(s"--->after nfParser nfParser = ${nfParser.getVersion}")
 
-    val totalDataFSCount = nfParser.getFlowCount(packet, curPos)
-    val nfTime = System.currentTimeMillis()
-    // nfParser.getTime(packet, curPos)
+      // val totalDataFSCount = nfParser.getFlowCount(packet, curPos)
+      val nfTime = System.currentTimeMillis()
+      // nfParser.getTime(packet, curPos)
 
-    // 2. skip to netflow body position
-    curPos = nfParser.getBodyPos(packet, curPos)
+      // 2. skip to netflow body position
+      curPos = nfParser.getBodyPos(packet, curPos)
+      logWarning(s"--->after curPos, current packet's pos ${packet.position()} ")
 
-    val dataflowSet: Iterator[DataFlowSet] = new Iterator[DataFlowSet]() {
+      val dataflowSet: Iterator[DataFlowSet] = new Iterator[DataFlowSet]() {
 
-      private val curDFS: DataFlowSet = new DataFlowSet(packet, nfTime, routerIp)
-      private var curDFSPos = curPos
+        private val curDFS: DataFlowSet =
+          new DataFlowSet(packet, nfTime, routerIp, nfParser.getVersion)
 
-      override def hasNext: Boolean = {
+        private var curDFSPos = curPos
 
-        // TODO we remove the condition "dataFSCount != totalDataFSCount".
-        if (curDFSPos == packet.limit()) return false
-        var lastPos = 0
+        override def hasNext: Boolean = {
 
-        while (lastPos != curDFSPos) {
-          lastPos = curDFSPos
-          curDFSPos = nfParser.getNextFSPos(packet, curDFSPos, routerIp)
+          // TODO we remove the condition "dataFSCount != totalDataFSCount".
           if (curDFSPos == packet.limit()) return false
+          var lastPos = 0
+
+          while (lastPos != curDFSPos) {
+            lastPos = curDFSPos
+            curDFSPos = nfParser.getNextFSPos(packet, curDFSPos, routerIp)
+            if (curDFSPos == packet.limit()) return false
+          }
+          true
         }
-        true
-      }
 
-      override def next() = {
-        curDFSPos = curDFS.getNextDfS(curDFSPos)
-        curDFS
+        override def next() = {
+          curDFSPos = curDFS.getNextDfS(curDFSPos)
+          curDFS
+        }
       }
+      logWarning(s"--->after iterator, current packet's pos ${packet.position()} ")
+      (dataflowSet, nfTime)
+    } catch {
+      case e: NetFlowException =>
+        logError(s"${e.getMessage}")
+        logError(e.getStackTrace.toString)
+        logError(s"current data ${packet.array().map(x => x & 0xff).mkString(" ")}")
+
+        (new Iterator[DataFlowSet]() {
+          override def hasNext: Boolean = false
+          override def next(): DataFlowSet = ???
+        }, 0)
+
+      case e: Exception =>
+        logError(s"${e.getMessage}")
+        logError(e.getStackTrace.toString)
+        logError(s"current data ${packet.array().map(x => x & 0xff).mkString(" ")}")
+
+        (new Iterator[DataFlowSet]() {
+          override def hasNext: Boolean = false
+          override def next(): DataFlowSet = ???
+        }, 0)
     }
-
-    (dataflowSet, nfTime)
   }
 }
