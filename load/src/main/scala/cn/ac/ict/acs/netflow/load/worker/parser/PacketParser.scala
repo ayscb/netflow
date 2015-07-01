@@ -54,13 +54,9 @@ object PacketParser {
         // 2. skip to netflow body position
         val bodyStart = V5Parser.getBodyPos(packetStart)
 
-        val dfsIter = new Iterator[DataFlowSet]() {
-          private var first = true
-          def hasNext: Boolean =  if (first) { first = false; true } else false
-          def next(): DataFlowSet = {
-            val dfs = new DataFlowSet(packet, nfTime, routerIp, 5)
-            dfs.update(bodyStart, packet.limit(), V5Parser.temp)
-          }
+        val dfsIter = Iterator.single[DataFlowSet] {
+          val dfs = new DataFlowSet(packet, nfTime, routerIp, 5)
+          dfs.update(bodyStart, packet.limit(), V5Parser.temp)
         }
 
         (dfsIter, nfTime)
@@ -81,8 +77,6 @@ object PacketParser {
           private var curTemp: Template = null
 
           override def hasNext: Boolean = {
-
-            // TODO we remove the condition "dataFSCount != totalDataFSCount".
             if (curStartPos == packet.limit()) return false
 
             var lastPos = 0
@@ -93,33 +87,16 @@ object PacketParser {
               val fsLen = packet.getShort(curStartPos + 2)
 
               if (fsId == 0) { // template flow set
-
-                // Cisco defines 0 as the template flowset, 1 as the option template flowset,
-                // While Internet Engineering Task Force(IEIF) defines the range from
-                // 0 to 255(include) as template flowset
-                val stopPos = curStartPos + fsLen
-                var curPos = curStartPos + 4
-
-                while (curPos != stopPos) {
-                  val tempId = packet.getShort(curPos); curPos += 2
-                  val tempFields = packet.getShort(curPos); curPos +=2
-                  val tempKey = new TemplateKey(routerIp, tempId)
-                  val template = new Template(tempId, tempFields, packet, curPos)
-                  templates.put(tempKey, template)
-                  curPos += tempFields * 4
-                }
+                curStartPos = updateTemplates(packet, curStartPos, routerIp)
               } else if (fsId == 1) { // jump this flow set
                 curStartPos += fsLen
               } else if (fsId > 255) { // data flow set
-                val tempId = packet.getShort(curStartPos)
-                curTemp = templates.get(TemplateKey(routerIp, tempId))
-                if (curTemp == null) {
-                  curStartPos += fsLen
-                }
+                curTemp = templates.get(TemplateKey(routerIp, fsId))
+                if (curTemp == null) curStartPos += fsLen
               }
+              if (curStartPos == packet.limit()) return false
             }
-
-            if (curStartPos == packet.limit()) false else true
+            true
           }
 
           override def next() = {
@@ -130,7 +107,27 @@ object PacketParser {
         (dfsIter, nfTime)
 
       case _ =>
-        (Iterator.empty[DataFlowSet], 0)
+        (Iterator.empty, 0)
     }
+  }
+
+  private def updateTemplates(packet: ByteBuffer, startPos: Int, routerIp: Array[Byte]): Int = {
+    // Cisco defines 0 as the template flowset, 1 as the option template flowset,
+    // While Internet Engineering Task Force(IEIF) defines the range from
+    // 0 to 255(include) as template flowset
+    var curStartPos = startPos
+    val stopPos = startPos + packet.getShort(startPos + 2)
+    curStartPos += 4
+
+    while (curStartPos != stopPos) {
+      val tempId = packet.getShort(curStartPos); curStartPos += 2
+      val tempFields = packet.getShort(curStartPos); curStartPos +=2
+      val tempKey = new TemplateKey(routerIp, tempId)
+      val template = new Template(tempId, tempFields, packet, curStartPos)
+      templates.put(tempKey, template)
+      curStartPos += tempFields * 4
+    }
+
+    stopPos
   }
 }

@@ -27,7 +27,7 @@ import cn.ac.ict.acs.netflow.load.worker.{ RowHeader, Row, MutableRow }
  */
 
 /**
- * data flow set
+ * v9 data flow set
  * ----------- width (2Byte) ------------
  * |       flowsetID ( =templateID )    |  headLen_part1
  * |           flowsetLength            |  + headLen_part2 = total 4Byte
@@ -66,30 +66,6 @@ class DataFlowSet (
   }
 
   val fsHeaderLen = if (version == 9) 4 else 0
-
-
-//  private def fsBodyLen = fsLen - fsHeaderLen
-
-//  private def fsLen = bb.getShort(dfsStartPos + 2)
-//
-  //  private def fsId = bb.getShort(dfsStartPos)
-  //  /**
-//   * Get next data flow set position.
-//   * @param startPos
-//   * @return
-//   */
-//  def getNextDfS(startPos: Int): Int = {
-//    dfsStartPos = startPos
-//    dfsEndPos = startPos + fsLen
-//
-//    //  println(s"[getNextDfS] startPos:${dfsStartPos}, endpos: ${dfsEndPos}, fsid:${fsId}")
-//    val tempKey = new TemplateKey(routerIp, fsId)
-//    existTmp = PacketParser.templates.containsKey(tempKey)
-//    if (existTmp) {
-//      template = PacketParser.templates.get(tempKey)
-//    }
-//    dfsEndPos
-//  }
 
   def getRows: Iterator[Row] = {
 
