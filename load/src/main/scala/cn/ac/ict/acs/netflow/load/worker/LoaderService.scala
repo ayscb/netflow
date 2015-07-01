@@ -22,7 +22,7 @@ import java.util
 
 import akka.actor.ActorRef
 import cn.ac.ict.acs.netflow.load.worker.parser.PacketParser._
-import cn.ac.ict.acs.netflow.{ Logging, NetFlowConf }
+import cn.ac.ict.acs.netflow.{NetFlowException, Logging, NetFlowConf}
 import cn.ac.ict.acs.netflow.load.worker.parquet.ParquetWriterWrapper
 import cn.ac.ict.acs.netflow.util.ThreadUtils
 import scala.collection._
@@ -138,9 +138,13 @@ final class LoaderService(
             if (!readRateFlag & hasRead) {
               hasRead = false
             }
+            logWarning(s"get package data, ${data.array().map(x => x & 0xff).mkString(" ")}")
 
             packageCount += 1
             val (flowSets, packetTime) = parse(data)
+            logWarning(s"get flowSet && packageTime  flowset's size = ${flowSets.size}  " +
+              s"and packageT =  ${packetTime}")
+
             while (flowSets.hasNext) {
               val dfs = flowSets.next().getRows
               writer.write(dfs, packetTime)
@@ -152,6 +156,9 @@ final class LoaderService(
             logError(e.getMessage)
             e.printStackTrace()
           case e: Exception =>
+            logError(e.getMessage)
+            e.printStackTrace()
+          case e: NetFlowException =>
             logError(e.getMessage)
             e.printStackTrace()
         } finally {
