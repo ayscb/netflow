@@ -35,8 +35,6 @@ class TimelyParquetWriter(val timeBase: Long, val conf: NetFlowConf)
     extends Writer with Logging {
   import TimelyParquetWriter._
 
-
-
   val compression = CompressionCodecName.fromConf(
     conf.get(LoadConf.COMPRESSION, CompressionCodecName.UNCOMPRESSED.name()))
   val blockSize =
