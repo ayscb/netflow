@@ -35,7 +35,6 @@ object PacketParser {
   def parse(packet: ByteBuffer): (Iterator[DataFlowSet], Long) = {
 
     // 1. router ip
-    var curPos = 0
     val routerIp = {
       val ipLen = if (packet.get() == 4) 4 else 16
       val ip = new Array[Byte](ipLen)
@@ -43,49 +42,95 @@ object PacketParser {
       ip
     }
 
-    var validFlag = true
-    curPos = packet.position() // after ip, this position is netflow header pos
-    val nfVersion = packet.getShort(curPos)
-    val nfParser = {
-      nfVersion match {
-        case 5 => V5Parser
-        case 9 => V9Parser
-        case _ => throw new NetFlowException("unknown packet version.")
-      }
-    }
+    val packetStart = packet.position() // after ip, this position is netflow header pos
+    val nfVersion = packet.getShort(packetStart)
 
-    val totalDataFSCount = nfParser.getFlowCount(packet, curPos)
-    val nfTime = System.currentTimeMillis()
-    // nfParser.getTime(packet, curPos)
+    nfVersion match {
+      case 5 =>
 
-    // 2. skip to netflow body position
-    curPos = nfParser.getBodyPos(packet, curPos)
+        val nfTime = System.currentTimeMillis()
+        // nfParser.getTime(packet, packetStart)
 
-    val dataflowSet: Iterator[DataFlowSet] = new Iterator[DataFlowSet]() {
+        // 2. skip to netflow body position
+        val bodyStart = V5Parser.getBodyPos(packetStart)
 
-      private val curDFS: DataFlowSet = new DataFlowSet(packet, nfTime, routerIp)
-      private var curDFSPos = curPos
-
-      override def hasNext: Boolean = {
-
-        // TODO we remove the condition "dataFSCount != totalDataFSCount".
-        if (curDFSPos == packet.limit()) return false
-        var lastPos = 0
-
-        while (lastPos != curDFSPos) {
-          lastPos = curDFSPos
-          curDFSPos = nfParser.getNextFSPos(packet, curDFSPos, routerIp)
-          if (curDFSPos == packet.limit()) return false
+        val dfsIter = new Iterator[DataFlowSet]() {
+          private var first = true
+          def hasNext: Boolean =  if (first) { first = false; true } else false
+          def next(): DataFlowSet = {
+            val dfs = new DataFlowSet(packet, nfTime, routerIp, 5)
+            dfs.update(bodyStart, packet.limit(), V5Parser.temp)
+          }
         }
-        true
-      }
 
-      override def next() = {
-        curDFSPos = curDFS.getNextDfS(curDFSPos)
-        curDFS
-      }
+        (dfsIter, nfTime)
+
+      case 9 =>
+
+        val nfTime = System.currentTimeMillis()
+        // nfParser.getTime(packet, packetStart)
+
+        // 2. skip to netflow body position
+        val bodyStart = V9Parser.getBodyPos(packetStart)
+
+        val dfsIter = new Iterator[DataFlowSet]() {
+
+          private val curDFS: DataFlowSet = new DataFlowSet(packet, nfTime, routerIp, 9)
+          private var curStartPos: Int = bodyStart
+          private var curEndPos: Int = 0
+          private var curTemp: Template = null
+
+          override def hasNext: Boolean = {
+
+            // TODO we remove the condition "dataFSCount != totalDataFSCount".
+            if (curStartPos == packet.limit()) return false
+
+            var lastPos = 0
+            while (lastPos != curStartPos) {
+              lastPos = curStartPos
+
+              val fsId = packet.getShort(curStartPos)
+              val fsLen = packet.getShort(curStartPos + 2)
+
+              if (fsId == 0) { // template flow set
+
+                // Cisco defines 0 as the template flowset, 1 as the option template flowset,
+                // While Internet Engineering Task Force(IEIF) defines the range from
+                // 0 to 255(include) as template flowset
+                val stopPos = curStartPos + fsLen
+                var curPos = curStartPos + 4
+
+                while (curPos != stopPos) {
+                  val tempId = packet.getShort(curPos); curPos += 2
+                  val tempFields = packet.getShort(curPos); curPos +=2
+                  val tempKey = new TemplateKey(routerIp, tempId)
+                  val template = new Template(tempId, tempFields, packet, curPos)
+                  templates.put(tempKey, template)
+                  curPos += tempFields * 4
+                }
+              } else if (fsId == 1) { // jump this flow set
+                curStartPos += fsLen
+              } else if (fsId > 255) { // data flow set
+                val tempId = packet.getShort(curStartPos)
+                curTemp = templates.get(TemplateKey(routerIp, tempId))
+                if (curTemp == null) {
+                  curStartPos += fsLen
+                }
+              }
+            }
+
+            if (curStartPos == packet.limit()) false else true
+          }
+
+          override def next() = {
+            curEndPos = curStartPos + packet.getShort(curStartPos + 2)
+            curDFS.update(curStartPos, curEndPos, curTemp)
+          }
+        }
+        (dfsIter, nfTime)
+
+      case _ =>
+        (Iterator.empty[DataFlowSet], 0)
     }
-
-    (dataflowSet, nfTime)
   }
 }

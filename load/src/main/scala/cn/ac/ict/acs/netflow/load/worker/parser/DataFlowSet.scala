@@ -48,55 +48,63 @@ import cn.ac.ict.acs.netflow.load.worker.{ RowHeader, Row, MutableRow }
  * |           record m field n         |
  * --------------------------------------
  */
-class DataFlowSet(val bb: ByteBuffer, val packetTime: Long, val routerIp: Array[Byte]) {
-  private val fsHeaderLen = 4
+class DataFlowSet (
+  val bb: ByteBuffer,
+  val packetTime: Long,
+  val routerIp: Array[Byte],
+  val version: Int) {
 
-  private var dfsStartPos = 0
-  private var dfsEndPos = 0
-  private var existTmp: Boolean = _
-
+  private var startPos = 0
+  private var endPos = 0
   private var template: Template = _
-  private def fsId = bb.getShort(dfsStartPos)
-  private def fsLen = bb.getShort(dfsStartPos + 2)
-  private def fsBodyLen = fsLen - fsHeaderLen
 
-  /**
-   * Get next data flow set position.
-   * @param startPos
-   * @return
-   */
-  def getNextDfS(startPos: Int): Int = {
-    dfsStartPos = startPos
-    dfsEndPos = startPos + fsLen
-
-    //  println(s"[getNextDfS] startPos:${dfsStartPos}, endpos: ${dfsEndPos}, fsid:${fsId}")
-    val tempKey = new TemplateKey(routerIp, fsId)
-    existTmp = PacketParser.templates.containsKey(tempKey)
-    if (existTmp) {
-      template = PacketParser.templates.get(tempKey)
-    }
-    dfsEndPos
+  def update(newStart: Int, newEnd: Int, newTemplate: Template): DataFlowSet = {
+    this.startPos = newStart
+    this.endPos = newEnd
+    this.template = newTemplate
+    this
   }
+
+  val fsHeaderLen = if (version == 9) 4 else 0
+
+
+//  private def fsBodyLen = fsLen - fsHeaderLen
+
+//  private def fsLen = bb.getShort(dfsStartPos + 2)
+//
+  //  private def fsId = bb.getShort(dfsStartPos)
+  //  /**
+//   * Get next data flow set position.
+//   * @param startPos
+//   * @return
+//   */
+//  def getNextDfS(startPos: Int): Int = {
+//    dfsStartPos = startPos
+//    dfsEndPos = startPos + fsLen
+//
+//    //  println(s"[getNextDfS] startPos:${dfsStartPos}, endpos: ${dfsEndPos}, fsid:${fsId}")
+//    val tempKey = new TemplateKey(routerIp, fsId)
+//    existTmp = PacketParser.templates.containsKey(tempKey)
+//    if (existTmp) {
+//      template = PacketParser.templates.get(tempKey)
+//    }
+//    dfsEndPos
+//  }
 
   def getRows: Iterator[Row] = {
 
     new Iterator[Row] {
       var curRow = new MutableRow(bb, template)
+
       if (routerIp.length == 4) {
-        curRow.setHeader(new RowHeader(Array[Any](packetTime, new String(routerIp), null)))
+        curRow.setHeader(new RowHeader(Array[Any](packetTime, routerIp, null)))
       } else if (routerIp.length == 16) {
-        curRow.setHeader(new RowHeader(Array[Any](packetTime, null, new String(routerIp))))
-      } else {
-        existTmp = false // skip the package
+        curRow.setHeader(new RowHeader(Array[Any](packetTime, null, routerIp)))
       }
 
-      var curRowPos: Int = dfsStartPos + fsHeaderLen
+      var curRowPos: Int = startPos + fsHeaderLen
 
-      def hasNext: Boolean = {
-        if (!existTmp) return false
-        if (curRowPos == dfsEndPos) return false
-        true
-      }
+      def hasNext: Boolean = if (curRowPos == endPos) false else true
 
       def next() = {
         curRow.update(curRowPos)

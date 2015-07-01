@@ -42,11 +42,10 @@ trait VersionedParser {
 
   /**
    * Get the current netflow version body position
-   * @param data the data contain router ip and netflow data. (single package)
    * @param startPos start from netflow header
    * @return
    */
-  def getBodyPos(data: ByteBuffer, startPos: Int): Int
+  def getBodyPos(startPos: Int): Int
 
   /**
    *  Get the next position of the data flow set,
@@ -82,7 +81,7 @@ object V9Parser extends VersionedParser {
   override def getTime(data: ByteBuffer, startPos: Int): Long = {
     (data.getInt(startPos + 8) & 0xFFFFFFFFFFL) * 1000
   }
-  override def getBodyPos(data: ByteBuffer, startPos: Int): Int = startPos + 20
+  override def getBodyPos(startPos: Int): Int = startPos + 20
 
   override def getNextFSPos(data: ByteBuffer, startPos: Int, routerIp: Array[Byte]): Int = {
 
@@ -107,7 +106,7 @@ object V9Parser extends VersionedParser {
           val tempId = data.getShort
           val tempFields = data.getShort
           val tempKey = new TemplateKey(routerIp, tempId)
-          val template = new Template(tempId, tempFields).createTemplate(data)
+          val template = new Template(tempId, tempFields, data)
 
           PacketParser.templates.put(tempKey, template)
           curPos = data.position()
@@ -142,16 +141,14 @@ object V5Parser extends VersionedParser {
     (2, 4), (1, 4), (22, 4), (21, 4), (7, 2),
     (11, 2), (-1, 2), (6, 1), (4, 1), (5, 1),
     (16, 2), (17, 2), (9, 1), (13, 1), (-1, 2))
-  val temp = new Template(5, 20).createTemplate()
-  temp.createTemplate(tmpArray: _*)
-  PacketParser.templates.put(TemplateKey(null, 5), temp)
+  val temp = new Template(5, 20, tmpArray)
 
   override def getVersion: Int = 5
   override def getFlowCount(data: ByteBuffer, startPos: Int): Int = data.getShort(startPos + 2)
   override def getTime(data: ByteBuffer, startPos: Int): Long = {
     (data.getShort(startPos + 8) & 0xFFFFFFFFFFL) * 1000
   }
-  override def getBodyPos(data: ByteBuffer, startPos: Int): Int = data.getShort(startPos + 24)
+  override def getBodyPos(startPos: Int): Int = startPos + 24
   override def getNextFSPos(data: ByteBuffer, startPos: Int, routerIp: Array[Byte]): Int = startPos
 
 }
