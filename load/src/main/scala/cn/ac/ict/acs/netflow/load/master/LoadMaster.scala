@@ -250,6 +250,7 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
     // Forwarding rules and BGP table configuration
     case GetAllRules =>
       sender ! CurrentRules(forwardingRules.iterator.toArray)
+
     case InsertRules(rule) =>
       sender ! insertForwardingRules(rule)
       notifyRulesToAllCollectors()
@@ -723,7 +724,10 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
 
     loadServer.collector2Socket.get(collector) match {
       case Some(socket) =>
-        if (!socket.isConnected) return
+        if (!socket.isConnected) {
+          logDebug(s" Cannot connect with $collector, for socket dese not connected.")
+          return
+        }
 
         selectSuitableWorkers(collector, workerNum) match {
           case Some(workers: Array[String]) =>
@@ -741,9 +745,12 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
                     s"but worker2Rate does contain?")
                   return
               })
-
+            logDebug(s"current selected ip " +
+              s"is ${ip_port.map(x => x._1 + ":" + x._2).mkString("  ")}")
             val cmd = CommandSet.resWorkerIPs(Some(ip_port.toArray[(String, Int)]), None)
-            socket.write(cmd)
+            logDebug(s"the cmd is ${cmd.array().slice(2, cmd.limit())}")
+            val sendSize = socket.write(cmd)
+            logDebug(s"the sent size is ${sendSize}")
 
           case None =>
             waitQueue += collector
