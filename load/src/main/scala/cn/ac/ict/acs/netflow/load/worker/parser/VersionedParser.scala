@@ -146,7 +146,7 @@ object V5Parser extends VersionedParser {
   PacketParser.templates.put(TemplateKey(null, 5), temp)
 
   override def getVersion: Int = 5
-  override def getFlowCount(data: ByteBuffer, startPos: Int): Int = data.getShort(startPos + 2)
+  override def getFlowCount(data: ByteBuffer, startPos: Int): Int = 1
   override def getTime(data: ByteBuffer, startPos: Int): Long = {
     (data.getShort(startPos + 8) & 0xFFFFFFFFFFL) * 1000
   }

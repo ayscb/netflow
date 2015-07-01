@@ -98,6 +98,25 @@ object PacketParser extends Logging {
           curDFSPos = curDFS.getNextDfS(curDFSPos)
           curDFS
         }
+
+        def getNextDfS(startPos: Int): Int = {
+          dfsStartPos = startPos
+          dfsEndPos = startPos + fsLen
+
+          //  println(s"[getNextDfS] startPos:${dfsStartPos}, endpos: ${dfsEndPos}, fsid:${fsId}")
+          val tempKey: TemplateKey = version match {
+            case 9 => TemplateKey(routerIp, fsId)
+            case _ => TemplateKey(null, version)
+          }
+
+          existTmp = PacketParser.templates.containsKey(tempKey)
+          if (existTmp) {
+            template = PacketParser.templates.get(tempKey)
+          }
+          dfsEndPos
+        }
+
+
       }
       logWarning(s"--->after iterator, current packet's pos ${packet.position()} ")
       (dataflowSet, nfTime)
