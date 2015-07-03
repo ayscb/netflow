@@ -31,9 +31,12 @@ import cn.ac.ict.acs.netflow.load.LoadConf
 import cn.ac.ict.acs.netflow.load.worker.{ Row, Writer }
 import cn.ac.ict.acs.netflow.util.Utils
 
-class TimelyParquetWriter(val timeBase: Long, val conf: NetFlowConf)
+class TimelyParquetWriter(val id: Int, val timeBase: Long, val conf: NetFlowConf)
     extends Writer with Logging {
   import TimelyParquetWriter._
+
+  def this(timeBase: Long, conf: NetFlowConf) =
+    this(TimelyParquetWriter.writerId.getAndIncrement(), timeBase, conf)
 
   val compression = CompressionCodecName.fromConf(
     conf.get(LoadConf.COMPRESSION, CompressionCodecName.UNCOMPRESSED.name()))
@@ -86,16 +89,12 @@ class TimelyParquetWriter(val timeBase: Long, val conf: NetFlowConf)
 
   override def close() = {
     pw.close()
-
     // move _template file to sub directory
     moveFile(outputFile, conf.hadoopConfiguration)
-
-    if (memoryManageEnable) {
-      removeFromMemManager(pw)
-    }
+    if (memoryManageEnable) removeFromMemManager(pw)
   }
 
-  private def moveFile(outFile: Path, conf: Configuration): Unit ={
+  private def moveFile(outFile: Path, conf: Configuration): Unit = {
     val basePath = outFile.getParent.getParent
     val fileName = outFile.getName
     val fs = basePath.getFileSystem(conf)
@@ -113,6 +112,8 @@ class TimelyParquetWriter(val timeBase: Long, val conf: NetFlowConf)
 }
 
 object TimelyParquetWriter {
+
+  private val writerId = new AtomicInteger(0)
 
   private val fileId = new AtomicInteger(0)
   private var memoryManager: MemoryManager = _
