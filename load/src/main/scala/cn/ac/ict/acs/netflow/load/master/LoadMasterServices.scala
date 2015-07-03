@@ -148,7 +148,6 @@ class MasterService(val master: ActorRef, val conf: NetFlowConf)
         val curContent = holder.content
         channelRead(channel, curContent)
         if (!curContent.hasRemaining) {
-          logDebug(s"request data from ${getRemoteIp(channel)}, data is ${curContent.array()}")
           dealWithCommand(channel, curContent)
           holder.content = null
           holder.len.clear()
