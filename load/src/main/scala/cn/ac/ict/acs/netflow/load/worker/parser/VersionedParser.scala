@@ -42,21 +42,10 @@ trait VersionedParser {
 
   /**
    * Get the current netflow version body position
-   * @param data the data contain router ip and netflow data. (single package)
    * @param startPos start from netflow header
    * @return
    */
-  def getBodyPos(data: ByteBuffer, startPos: Int): Int
-
-  /**
-   *  Get the next position of the data flow set,
-   *  for V9 ,we will deal with the template flow set here,
-   *  but for V5, we only return current position
-   * @param data the data contain router ip and netflow data. (single package)
-   * @param startPos start from netflow body
-   * @return
-   */
-  def getNextFSPos(data: ByteBuffer, startPos: Int, routerIp: Array[Byte]): Int
+  def getBodyPos(startPos: Int): Int
 
 }
 
@@ -82,41 +71,8 @@ object V9Parser extends VersionedParser {
   override def getTime(data: ByteBuffer, startPos: Int): Long = {
     (data.getInt(startPos + 8) & 0xFFFFFFFFFFL) * 1000
   }
-  override def getBodyPos(data: ByteBuffer, startPos: Int): Int = startPos + 20
+  override def getBodyPos(startPos: Int): Int = startPos + 20
 
-  override def getNextFSPos(data: ByteBuffer, startPos: Int, routerIp: Array[Byte]): Int = {
-
-    // insert template into templates
-    val flowsetId = data.getShort(startPos)
-    val flowsetLen = data.getShort(startPos + 2)
-
-    flowsetId match {
-      case x if x > 255 =>
-        // data flow set
-        startPos
-
-      case 0 =>
-        // Cisco defines 0 as the template flowset, 1 as the option template flowset,
-        // While Internet Engineering Task Force(IEIF) defines the range from
-        // 0 to 255(include) as template flowset
-        val stopPos = startPos + flowsetLen
-        var curPos = startPos + 4
-
-        data.position(curPos)
-        while (curPos != stopPos) {
-          val tempId = data.getShort
-          val tempFields = data.getShort
-          val tempKey = new TemplateKey(routerIp, tempId)
-          val template = new Template(tempId, tempFields).createTemplate(data)
-
-          PacketParser.templates.put(tempKey, template)
-          curPos = data.position()
-        }
-        stopPos
-
-      case _ => startPos + flowsetLen
-    }
-  }
 }
 
 /**
@@ -140,17 +96,15 @@ object V5Parser extends VersionedParser {
   val tmpArray = Array(
     (8, 4), (12, 4), (15, 4), (10, 2), (14, 2),
     (2, 4), (1, 4), (22, 4), (21, 4), (7, 2),
-    (11, 2), (-1, 2), (6, 1), (4, 1), (5, 1),
+    (11, 2), (-1, 1), (6, 1), (4, 1), (5, 1),
     (16, 2), (17, 2), (9, 1), (13, 1), (-1, 2))
-  val temp = new Template(5, 20).createTemplate(tmpArray: _*)
-  PacketParser.templates.put(TemplateKey(null, 5), temp)
+  val temp = new Template(5, 20, tmpArray)
 
   override def getVersion: Int = 5
-  override def getFlowCount(data: ByteBuffer, startPos: Int): Int = 1
+  override def getFlowCount(data: ByteBuffer, startPos: Int): Int = data.getShort(startPos + 2)
   override def getTime(data: ByteBuffer, startPos: Int): Long = {
     (data.getShort(startPos + 8) & 0xFFFFFFFFFFL) * 1000
   }
-  override def getBodyPos(data: ByteBuffer, startPos: Int): Int = data.getShort(startPos + 24)
-  override def getNextFSPos(data: ByteBuffer, startPos: Int, routerIp: Array[Byte]): Int = startPos
+  override def getBodyPos(startPos: Int): Int = startPos + 24
 
 }
