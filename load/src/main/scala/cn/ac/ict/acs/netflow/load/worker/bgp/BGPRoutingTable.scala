@@ -24,9 +24,9 @@ object BGPRoutingTable {
 
   def search(dst_addr: DST_ADDR): BGPTuple = {
     new BGPTuple(Array(
-      "192.168.1.1",
-      "192.168.1.1",null,
-      "192.168.2.1",null,
+      "192.168.1.1".getBytes,
+      "192.168.1.1".getBytes, null,
+      "192.168.2.1".getBytes, null,
       "as_path", "community", "adjacent_as", "self_as"))
   }
 
