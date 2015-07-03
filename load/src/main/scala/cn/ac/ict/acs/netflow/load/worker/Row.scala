@@ -43,10 +43,6 @@ class MutableRow(val bb: ByteBuffer, val template: Template) extends Row {
   def setHeader(rowheader: RowHeader): Unit = {
     header = rowheader
   }
-  //  def length: Int = {
-  //    require(template != null)
-  //    template.rowLength
-  //  }
 
   /**
    * a new row appears
