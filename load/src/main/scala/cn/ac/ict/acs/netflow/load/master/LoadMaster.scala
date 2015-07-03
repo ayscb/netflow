@@ -444,6 +444,7 @@ class LoadMaster(masterHost: String, masterPort: Int, webUiPort: Int, val conf: 
 
   // determine a worker to run combine job by order
   private def sendCombMessage(): Unit = {
+    if(idToWorker.isEmpty) return
     nextCombIdx = (nextCombIdx + 1) % idToWorker.size
     curCombieWorker = idToWorker.toList(nextCombIdx)._2
     curCombieWorker.actor ! CombineParquet(fileTimeStamp) // tell it to combine the parquets
