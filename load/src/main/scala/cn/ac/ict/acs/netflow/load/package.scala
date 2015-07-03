@@ -29,7 +29,7 @@ package object load {
 
   val systemBasePath = "/netflow"
 
-  def loadDirFormat(conf: NetFlowConf): DateTimeFormatter = {
+  private def loadDirFormat(conf: NetFlowConf): DateTimeFormatter = {
     val interval = dirCreationInterval(conf)
 
     val fmtStr = if (interval < 1000 * 60) { // less than 1 min
@@ -86,6 +86,19 @@ package object load {
   def getTimeBase(millis: Long, conf: NetFlowConf): Long = {
     val interval = dirCreationInterval(conf)
     millis / interval * interval
+  }
+
+  /**
+   * get the remaining time from 'current time 'to 'base time + delay time + interval time'
+   * @param curMillis  current millis time
+   * @param intervalMs  interval time ms
+   * @param delay   delay time ms
+   * @param conf
+   * @return
+   */
+  def getRemainTimes(curMillis: Long, intervalMs: Long, delay: Long, conf: NetFlowConf): Long = {
+    val baseTime = getTimeBase(curMillis, conf)
+    intervalMs + delay - (curMillis - baseTime)
   }
 }
 
