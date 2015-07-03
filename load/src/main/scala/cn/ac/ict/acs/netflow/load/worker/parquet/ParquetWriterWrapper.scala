@@ -21,7 +21,7 @@ package cn.ac.ict.acs.netflow.load.worker.parquet
 import java.util.concurrent._
 
 import akka.actor.ActorRef
-import cn.ac.ict.acs.netflow.util.ThreadUtils
+import cn.ac.ict.acs.netflow.util.{ TimeUtils, ThreadUtils }
 import cn.ac.ict.acs.netflow.{ Logging, NetFlowConf, load }
 import cn.ac.ict.acs.netflow.load.LoadMessages.CloseParquet
 import cn.ac.ict.acs.netflow.load.worker.{ Row, Writer, WriterWrapper }
@@ -44,12 +44,13 @@ class ParquetWriterWrapper(worker: ActorRef, conf: NetFlowConf)
   private val timeToWriters = mutable.HashMap.empty[Long, Writer]
   private val closeWriterScheduler = mutable.HashMap.empty[Writer, ScheduledFuture[_]]
 
-  def getDelayTime(timeStampMs: Long): Long = {
-    dicInterValMs - (timeStampMs - load.getTimeBase(timeStampMs, conf)) + closeDelayMs
-  }
-
   private def registerCloseScheduler(writer: Writer, timeStampMs: Long) = {
-    logInfo(s"Register parquet writer")
+    val remainTime = load.getRemainTimes(timeStampMs, dicInterValMs, closeDelayMs, conf)
+
+    logInfo(s"Register ${writer.id} parquet writer for" +
+      s" ${load.getPathByTime(timeStampMs, conf)}, " +
+      s"this writer will be closed after ${remainTime / 1000} s")
+
     closeWriterScheduler(writer) =
       ParquetWriterWrapper.scheduledThreadPool.schedule(new Runnable {
         override def run() = {
@@ -57,9 +58,12 @@ class ParquetWriterWrapper(worker: ActorRef, conf: NetFlowConf)
           worker ! CloseParquet(writer.timeBase())
           closeWriterScheduler -= writer
           timeToWriters -= writer.timeBase()
-          logInfo(s"Close current file ${load.getPathByTime(writer.timeBase(), conf)}")
+          logInfo(s"Close ${writer.id} parquet writer for" +
+            s" ${load.getPathByTime(writer.timeBase(), conf)} " +
+            s"at ${TimeUtils.showCurrentTime()}, and notify " +
+            s"master to combine the parquet files about ${writer.timeBase()} time stamp")
         }
-      }, getDelayTime(timeStampMs), TimeUnit.MILLISECONDS)
+      }, remainTime, TimeUnit.MILLISECONDS)
   }
 
   override def init(): Unit = {}
