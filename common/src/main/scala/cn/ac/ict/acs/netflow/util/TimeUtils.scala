@@ -27,20 +27,19 @@ import cn.ac.ict.acs.netflow.NetFlowConf
 
 object TimeUtils {
 
-  val CREATE_PATTERN = "yyyyMMddHHmmss"
-  val SHOW_PATTERN = "yyyy-MM-dd,HH:mm:ss"
+  private val CREATE_PATTERN = "yyyyMMddHHmmss"
+  private val SHOW_PATTERN = "yyyy-MM-dd,HH:mm:ss"
 
   val SECOND_PATH_PATTERN = "/'year='yyyy/'month='MM/'day='dd/'hr='HH/'min='mm/'sec='ss"
   val MINUTE_PATH_PATTERN = "/'year='yyyy/'month='MM/'day='dd/'hr='HH/'min='mm"
   val HOUR_PATH_PATTERN = "/'year='yyyy/'month='MM/'day='dd/'hr='HH"
   val DAY_PATH_PATTERN = "/'year='yyyy/'month='MM/'day='dd"
 
-  def newFormat(patternStr: String): DateTimeFormatter = {
-    DateTimeFormat.forPattern(patternStr)
-  }
+  def newFormat(patternStr: String): DateTimeFormatter =  DateTimeFormat.forPattern(patternStr)
 
   def createFormat: DateTimeFormatter = newFormat(CREATE_PATTERN)
   def showFormat: DateTimeFormatter = newFormat(SHOW_PATTERN)
+
 
   /**
    * Convert str as seconds
@@ -58,6 +57,23 @@ object TimeUtils {
    */
   def timeStringAsMs(str: String): Long = {
     parseTimeString(str, TimeUnit.MILLISECONDS)
+  }
+
+  /**
+   * Show the mills time to string
+   * @param mills mills time
+   * @return
+   */
+  def showTime(mills: Long): String = {
+    new DateTime(mills).toString(showFormat)
+  }
+
+  /**
+   * Show current mills to string
+   * @return
+   */
+  def showCurrentTime() : String = {
+    showTime(System.currentTimeMillis())
   }
 
   /**
