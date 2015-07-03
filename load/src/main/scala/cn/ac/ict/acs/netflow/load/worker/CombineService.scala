@@ -22,7 +22,7 @@ import java.io.{ IOException, FileNotFoundException }
 
 import akka.actor.ActorSelection
 
-import org.apache.parquet.hadoop.{ParquetFileWriter, ParquetFileReader}
+import org.apache.parquet.hadoop.{ ParquetFileWriter, ParquetFileReader }
 
 import org.apache.hadoop.fs.{ FileStatus, PathFilter, Path, FileSystem }
 
@@ -38,14 +38,21 @@ import cn.ac.ict.acs.netflow.{ NetFlowException, NetFlowConf, Logging }
 class CombineService(val timestamp: Long, val master: ActorSelection, val conf: NetFlowConf)
     extends Thread with Logging {
 
-
   object ParquetState extends Enumeration {
     type ParquetState = Value
     val FINISH, FAIL, WAIT = Value
   }
 
-  private val dirPathStr = load.getPathByTime(timestamp, conf)
   setName(s"Combine server")
+
+  private val dirPathStr = {
+    val baseTime = load.getTimeBase(timestamp, conf)
+    if (baseTime != timestamp) {
+      logWarning(s"The combine timestamp $timestamp is not correct, " +
+        s"and the base timestamp is $baseTime")
+    }
+    load.getPathByTime(baseTime, conf)
+  }
 
   override def run(): Unit = {
     logInfo(s"Combine server begins to combine $dirPathStr")
@@ -55,7 +62,7 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
       if (!validDirectory(fs, fPath)) {
         master ! CombineFinished(CombineStatus.UNKNOWN_DIRECTORY)
         return
-      } // has send the message to master
+      }
 
       val maxRetryNum = 4
       var curTry = 0
@@ -87,7 +94,6 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
         logError(s"Combine files IO exception. ${e.getMessage} ")
         logError(s"${e.getStackTrace}")
     }
-
   }
 
   /**
@@ -174,8 +180,8 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
         if (filterFiles(0).getPath.getName.endsWith(LoadConf.TEMP_DIRECTORY)) {
           val tempFile: Array[FileStatus] = fs.listStatus(filterFiles(0).getPath)
           if (tempFile.nonEmpty) {
-            logInfo(s"Current ${LoadConf.TEMP_DIRECTORY} contains ${tempFile.length} files ")
-            logDebug(s"The files name are ${tempFile.map(_.getPath.getName).mkString(";")}")
+            logInfo(s"Current ${LoadConf.TEMP_DIRECTORY} contains ${tempFile.length} files , " +
+              s"and The files name are ${tempFile.map(_.getPath.getName).mkString(";")}")
             ParquetState.WAIT
           } else {
             mergeParquetFiles(fs, fPath)
@@ -255,7 +261,7 @@ class CombineService(val timestamp: Long, val master: ActorSelection, val conf: 
     // delete empty tempDir
     if (fs.exists(tempDir)) {
       val tmpFiles = fs.listStatus(tempDir)
-      if(tmpFiles.nonEmpty) {
+      if (tmpFiles.nonEmpty) {
         logWarning(s"${tempDir.toUri.toString} already has ${tmpFiles.length}} files," +
           s" which are '${tmpFiles.map(_.getPath.toUri.toString).mkString(";")}'. " +
           s"All of them will be delete.")
