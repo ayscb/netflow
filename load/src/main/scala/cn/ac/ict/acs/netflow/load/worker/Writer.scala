@@ -19,6 +19,7 @@
 package cn.ac.ict.acs.netflow.load.worker
 
 trait Writer {
+  def id: Int
   def timeBase(): Long
   def init(): Unit
   def write(rowIter: Iterator[Row]): Unit
