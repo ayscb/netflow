@@ -21,16 +21,6 @@ package cn.ac.ict.acs.netflow.load.worker.parser
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
 
-object TemplateKey{
-  def apply(routerIp: Array[Byte], templateId: Int): Unit ={
-    if(routerIp==null){
-      new TemplateKey(Array('0'),templateId)
-    }else{
-      new TemplateKey(routerIp,templateId)
-    }
-  }
-}
-
 case class TemplateKey(routerIp: Array[Byte], templateId: Int) {
   override def hashCode(): Int = {
     java.util.Arrays.hashCode(routerIp) + templateId
@@ -52,17 +42,28 @@ class Template(val tmpId: Int, val fieldsCount: Int) {
   val keys = new Array[Int](fieldsCount)
   val values = new Array[Int](fieldsCount)
 
+  def this(tmpId: Int, fieldsCount: Int, data: ByteBuffer, curPos: Int) {
+    this(tmpId, fieldsCount)
+    createTemplate(data, curPos)
+  }
+
+  def this(tmpId: Int, fieldsCount: Int, key_value: Seq[(Int, Int)]) {
+    this(tmpId, fieldsCount)
+    createTemplate(key_value)
+  }
+
   /**
    * create a template when this flowset is a template flowset,
    * only for v9
    * @param data template data
    */
-  def createTemplate(data: ByteBuffer): Template = {
+  def createTemplate(data: ByteBuffer, curPos: Int): Template = {
 
     var i = 0
+    var pos = curPos
     while (i != fieldsCount) {
-      val key = data.getShort
-      val valueLen = data.getShort
+      val key = data.getShort(pos); pos += 2
+      val valueLen = data.getShort(pos); pos += 2
       keys(i) = key
       values(i) = valueLen
       rowLength += valueLen
@@ -75,13 +76,14 @@ class Template(val tmpId: Int, val fieldsCount: Int) {
    * create a single template for v5 v7
    * @param key_value
    */
-  def createTemplate(key_value: (Int, Int)*): Template = {
+  def createTemplate(key_value: Seq[(Int, Int)]): Template = {
     assert(key_value.length == fieldsCount)
     var i = 0
     key_value.foreach(x => {
       keys(i) = x._1
       values(i) = x._2
       i += 1
+      rowLength += x._2
     })
     this
   }
