@@ -138,18 +138,13 @@ final class LoaderService(
             if (!readRateFlag & hasRead) {
               hasRead = false
             }
-            logWarning(s"get package data, ${data.array().map(x => x & 0xff).mkString(" ")}")
 
             packageCount += 1
             val (flowSets, packetTime) = parse(data)
-            logWarning(s"get flowSet && packageTime  flowset's size = ${flowSets.size}  " +
-              s"and packageT =  ${packetTime}")
-
             while (flowSets.hasNext) {
               val dfs = flowSets.next().getRows
               writer.write(dfs, packetTime)
             }
-
           }
         } catch {
           case e: InterruptedException =>
