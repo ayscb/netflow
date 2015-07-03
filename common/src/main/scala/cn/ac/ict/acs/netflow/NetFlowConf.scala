@@ -21,18 +21,14 @@ package cn.ac.ict.acs.netflow
 import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
 
-import org.apache.hadoop.conf.Configuration
-
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
 
+import org.apache.hadoop.conf.Configuration
+
 import cn.ac.ict.acs.netflow.util.Utils
 
-object NetFlowConf {
-
-}
-
-class NetFlowConf(loadDefaults: Boolean) extends Serializable with Logging {
+class NetFlowConf(loadDefaults: Boolean) extends Serializable {
 
   def this() = this(true)
 
