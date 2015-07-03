@@ -24,6 +24,7 @@ import cn.ac.ict.acs.netflow.load.util.BytesUtil
 import cn.ac.ict.acs.netflow.load.worker.Row
 import cn.ac.ict.acs.netflow.load.worker.bgp.BGPRoutingTable
 import cn.ac.ict.acs.netflow.load.worker.parser.Template
+import org.apache.parquet.schema.OriginalType.UTF8
 
 import scala.collection.immutable.HashMap
 import scala.collection.JavaConverters._
@@ -119,9 +120,9 @@ class RowWriteSupport extends WriteSupport[Row] with Logging {
         tpe.asPrimitiveType().getPrimitiveTypeName match {
           case INT64 =>
             writer.addLong(fields(i).asInstanceOf[Long])
-          case BINARY =>
+          case BINARY if tpe.getOriginalType == UTF8 =>
             writer.addBinary(Binary.fromString(fields(i).asInstanceOf[String]))
-          case FIXED_LEN_BYTE_ARRAY =>
+          case BINARY =>
             writer.addBinary(Binary.fromByteArray(fields(i).asInstanceOf[Array[Byte]]))
         }
 
