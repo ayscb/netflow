@@ -39,6 +39,8 @@ else
   appendToClasspath "$FWDIR/conf"
 fi
 
+appendToClasspath "$HADOOP_CONF_DIR"
+
 ASSEMBLY_DIR="$FWDIR/target"
 
 if [ -n "$JAVA_HOME" ]; then
