@@ -127,7 +127,7 @@ class LoadWorker(
     logInfo(s"[Netflow] Running NetFlow version ${cn.ac.ict.acs.netflow.NETFLOW_VERSION}")
     context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
 
-    val defaultWriterNum = conf.getInt(LoadConf.WRITER_NUMBER, 2)
+    val defaultWriterNum = conf.getInt(LoadConf.WRITER_NUMBER, 1)
     
     logInfo(s"[Netflow] Init write parquet pool, and will start $defaultWriterNum threads")
     loadServer.initParquetWriterPool(defaultWriterNum)

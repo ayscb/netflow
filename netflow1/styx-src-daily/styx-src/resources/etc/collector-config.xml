@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+    Document   : collector-config.xml
+    Created on : December 3, 2007, 11:32 AM
+    Author     : apaxson
+    Description:
+        Purpose of the document follows.
+-->
+
+<collector-config>
+<!-- Database Configuration.
+  Here, you define the database connections.
+      username = User account for the database.
+      password = User password for the database.
+      server = IP or FQDN of the server hosting the Database.
+        For high octane networks, you may want this to point to your
+        cluster of db servers -->
+    <database>
+        <username>flowdatauser</username>
+        <password>flowdatapassword</password>
+        <server>localhost</server>
+        <driver>com.mysql.jdbc.Driver</driver>
+        <uri>jdbc:mysql://${database.server}/flowdata?user=${database.username}&amp;password=${database.password}&amp;autoReconnect=true&amp;useUnicode=true&amp;characterEncoding=GBK</uri>
+        <abortOnError>True</abortOnError>
+        <maxPoolConnections>10</maxPoolConnections>
+    </database>
+<!-- Authorized router groups.
+ Here you define which groups your routers belong to.  Flows will be processed
+ only from these routers.  
+ The flow source address will be changed to the group address.
+ Addresses must follow either dotted notation or FQDN -->
+    <routers>
+        <group address="10.0.0.1">
+            <router>10.0.0.1</router>
+            <router>10.0.0.2</router>
+            <router>10.0.0.3</router>
+            <router>10.0.0.4</router>
+        </group>
+        <group address="192.168.0.8">
+            <router>192.168.0.8</router>
+            <router>192.168.2.1</router>
+        </group>
+        <group address="172.16.8.1">
+            <router>172.16.8.1</router>
+            <router>172.16.9.2</router>
+        </group>
+    </routers>
+</collector-config>

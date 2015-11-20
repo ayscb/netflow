@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- You may freely edit this file. See commented blocks below for -->
+<!-- some examples of how to customize the build. -->
+<!-- (If you delete it and reopen the project it will be recreated.) -->
+<project name="Styx" default="default" basedir=".">
+    <description>Builds, tests, and runs the project Styx.</description>
+    <import file="nbproject/build-impl.xml"/>
+    
+    <path id="classpath">
+        <fileset dir="resources/lib" includes="**/*.jar"/>
+    </path>
+    <!--
+
+    There exist several targets which are by default empty and which can be 
+    used for execution of your tasks. These targets are usually executed 
+    before and after some main targets. They are: 
+
+      -pre-init:                 called before initialization of project properties
+      -post-init:                called after initialization of project properties
+      -pre-compile:              called before javac compilation
+      -post-compile:             called after javac compilation
+      -pre-compile-single:       called before javac compilation of single file
+      -post-compile-single:      called after javac compilation of single file
+      -pre-compile-test:         called before javac compilation of JUnit tests
+      -post-compile-test:        called after javac compilation of JUnit tests
+      -pre-compile-test-single:  called before javac compilation of single JUnit test
+      -post-compile-test-single: called after javac compilation of single JUunit test
+      -pre-jar:                  called before JAR building
+      -post-jar:                 called after JAR building
+      -post-clean:               called after cleaning build products
+
+    (Targets beginning with '-' are not intended to be called on their own.)
+
+    Example of inserting an obfuscator after compilation could look like this:
+
+        <target name="-post-compile">
+            <obfuscate>
+                <fileset dir="${build.classes.dir}"/>
+            </obfuscate>
+        </target>
+
+    For list of available properties check the imported 
+    nbproject/build-impl.xml file. 
+
+
+    Another way to customize the build is by overriding existing main targets.
+    The targets of interest are: 
+
+      -init-macrodef-javac:     defines macro for javac compilation
+      -init-macrodef-junit:     defines macro for junit execution
+      -init-macrodef-debug:     defines macro for class debugging
+      -init-macrodef-java:      defines macro for class execution
+      -do-jar-with-manifest:    JAR building (if you are using a manifest)
+      -do-jar-without-manifest: JAR building (if you are not using a manifest)
+      run:                      execution of project 
+      -javadoc-build:           Javadoc generation
+      test-report:              JUnit report generation
+
+    An example of overriding the target for project execution could look like this:
+
+        <target name="run" depends="Styx-impl.jar">
+            <exec dir="bin" executable="launcher.exe">
+                <arg file="${dist.jar}"/>
+            </exec>
+        </target>
+
+    Notice that the overridden target depends on the jar target and not only on 
+    the compile target as the regular run target does. Again, for a list of available 
+    properties which you can use, check the target you are overriding in the
+    nbproject/build-impl.xml file. 
+
+    -->
+    <target depends="clean,init,compile,-pre-pre-jar" name="distribute">
+        <!-- Setup directory layout -->
+        <mkdir dir="${dist.dir}/bin" />
+        <mkdir dir="${dist.dir}/etc" />
+        <mkdir dir="${dist.dir}/etc/templates"/>
+        <mkdir dir="${dist.dir}/logs" />
+        <mkdir dir="${dist.dir}/lib" />
+        <!-- Copy required libraries -->
+        <copy todir="${dist.dir}/lib">
+            <fileset dir="resources/lib" includes="*.jar"/>
+            <fileset dir="resources/lib" includes="*.so"/>
+        </copy>
+        <!-- Copy configuration files -->
+        <copy todir="${dist.dir}/etc">
+            <fileset dir="resources/etc" includes="*"/>
+        </copy>
+        <copy todir="${dist.dir}/etc/templates">
+            <fileset dir="resources/etc/templates" includes="*"/>
+        </copy>
+        <!-- Copy bin files -->
+        <copy todir="${dist.dir}/bin">
+            <fileset dir="resources/bin" includes="*"/>
+        </copy>
+        <!-- Create JARS -->
+        <jar destfile="${dist.dir}/lib/styx.jar"
+            basedir="${build.classes.dir}"
+            includes="com/javaforge/styx/**" />
+        <jar destfile="${dist.dir}/lib/jnca.jar"
+            basedir="${build.classes.dir}"
+            includes="cai/**" />
+        
+    </target>
+    <target depends="clean" name="dist-src">
+        <mkdir dir="dist"/>
+        <tar destfile="dist/styx-src-daily.tar.gz"
+           compression="gzip">
+               <tarfileset dir="." excludes="dist/**,logs/**,build/**,catalog.xml,manifest.mf,*.tar.gz"
+                prefix="styx-src"/>
+        </tar>
+        <zip destfile="dist/styx-src-daily.zip">
+            <zipfileset dir="." excludes="dist/**,logs/**,build/**,catalog.xml,manifest.mf,*.zip"
+             prefix="styx-src"/>
+         </zip>
+    </target>
+    
+    <target name="-do-compile" depends="init,deps-jar,-pre-pre-compile,-pre-compile">
+        <echo message="Compiling ..." />
+        <javac srcdir="${src.src.dir}" 
+              classpathref="classpath"
+              destdir="${build.classes.dir}"/>
+        <!--
+        <copy todir="${build.classes.dir}">
+            <fileset dir="${src.src.dir}" excludes="${build.classes.excludes}"/>
+            <fileset dir="${src.resources.dir}" excludes="${build.classes.excludes}"/>
+        </copy>
+        -->
+    </target>
+    
+    <target depends="dist-src" name="CBRelease-src">
+         <CBRelease description="Daily Distribution of Source files - zipped"
+             file="dist/styx-src-daily.zip"
+             todir="downloads"
+             tofile="styx-src-daily.zip"/>
+         <CBRelease description="Daily Distribution of Source files - tarballed"
+             file="dist/styx-src-daily.tar.gz"
+             todir="downloads"
+             tofile="styx-src-daily.tar.gz"/>
+    </target>
+    <target depends="dist-bin" name="CBRelease-bin">
+         <CBRelease description="Daily Distribution of Binary files - zipped"
+             file="dist/styx-bin-daily.zip"
+             todir="downloads"
+             tofile="styx-bin-daily.zip"/>
+         <CBRelease description="Daily Distribution of Binary files - tarballed"
+             file="dist/styx-bin-daily.tar.gz"
+             todir="downloads"
+             tofile="styx-bin-daily.tar.gz"/>
+    </target>
+    <target depends="distribute" name="dist-bin">
+        <tar destfile="dist/styx-bin-daily.tar.gz"
+           compression="gzip">
+               <tarfileset dir="." includes="dist/**" excludes="*.tar.gz" prefix="styx-bin"/>
+        </tar>
+        <zip destfile="dist/styx-bin-daily.zip">
+            <zipfileset dir="." includes="dist/**" excludes="*.zip" prefix="styx-bin"/>
+        </zip>
+    </target>
+</project>

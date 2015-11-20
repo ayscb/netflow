@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+    Document   : config.xml
+    Created on : December 3, 2007, 11:24 AM
+    Author     : apaxson
+    Description:
+        Loads the different configuration files, in order of precedence.
+-->
+
+<configuration>
+    <xml fileName="../etc/collector-config.xml"/>
+    <properties fileName="../etc/NetFlow.properties"/>
+    <properties fileName="../etc/SQL.properties"/>
+    <properties fileName="../etc/serverSampling.properties"/>
+</configuration>

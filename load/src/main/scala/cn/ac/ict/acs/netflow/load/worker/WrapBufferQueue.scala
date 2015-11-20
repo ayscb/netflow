@@ -115,13 +115,13 @@ class WrapBufferQueue(
 
     val curSize = bufferQueue.size()
     if (reportMasterFlag && curSize > warnThresholdNum) {
-      sendOverflowMessage() // will block.....
+    //  sendOverflowMessage() // will block.....
       reportMasterFlag = false
       return
     }
 
     if (reportWorkerFlag && curSize > adjustThresholdNum) {
-      loadBalanceStrategyFunc()
+    //  loadBalanceStrategyFunc()
       reportWorkerFlag = false
       return
     }
